@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "x9dmfvHHKU0=",
+  "dgSpecHash": "J+22IjLqrlU=",
   "success": true,
-  "projectFilePath": "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
+  "projectFilePath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\nguye\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\dnsclient\\1.6.1\\dnsclient.1.6.1.nupkg.sha512",
@@ -28,9 +28,9 @@
       "code": "NU1903",
       "level": "Warning",
       "message": "Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
-      "projectPath": "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
+      "projectPath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
       "warningLevel": 1,
-      "filePath": "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
+      "filePath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
       "libraryId": "Microsoft.OpenApi",
       "targetGraphs": [
         "net10.0"

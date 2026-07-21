@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj": {}
+    "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj": {}
   },
   "projects": {
-    "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj": {
+    "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
+        "projectUniqueName": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
         "projectName": "AttendanceApi",
-        "projectPath": "d:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
+        "projectPath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
         "packagesPath": "C:\\Users\\nguye\\.nuget\\packages\\",
-        "outputPath": "d:\\smart-attendance-system\\backend\\obj\\",
+        "outputPath": "D:\\smart-attendance-system\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\nguye\\AppData\\Roaming\\NuGet\\NuGet.Config",
