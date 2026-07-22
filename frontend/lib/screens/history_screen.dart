@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'leave_request_screen.dart';
 
 enum AttendanceStatus { onTime, late, earlyLeave, leave }
 
@@ -12,7 +13,7 @@ class AttendanceHistoryItem {
   final AttendanceStatus status;
   final String? checkInTime;
   final String? checkOutTime;
-  final String? leaveNote; // use when status == leave
+  final String? leaveNote; // dùng khi status == leave
 
   const AttendanceHistoryItem({
     required this.weekdayAbbr,
@@ -143,6 +144,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LeaveRequestScreen()),
+          );
+        },
+        backgroundColor: AppColors.primaryBlue,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Gửi đơn',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 
@@ -168,7 +183,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const Spacer(),
           IconButton(
             onPressed: () {
-              // TODO: navitigation to notification screen
+              // TODO: Navitigation to notification screen
             },
             icon: const Icon(Icons.notifications_none, color: AppColors.textPrimary),
           ),
@@ -210,7 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     int tempMonth = _selectedMonth;
     int tempYear = _selectedYear;
     final currentYear = DateTime.now().year;
-    final years = List.generate(6, (i) => currentYear - 3 + i); // 3 years before -> 1 year later
+    final years = List.generate(6, (i) => currentYear - 4 + i); // 4 năm trước -> 1 năm sau
 
     await showModalBottomSheet(
       context: context,
@@ -270,7 +285,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           _selectedMonth = tempMonth;
                           _selectedYear = tempYear;
                         });
-                        // TODO: recall GET /api/attendance/history?month=&year= with new value
+                        // TODO: redcal GET /api/attendance/history?month=&year= with new value
                         Navigator.pop(context);
                       },
                       child: const Text(

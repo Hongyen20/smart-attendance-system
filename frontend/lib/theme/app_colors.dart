@@ -27,4 +27,8 @@ class AppColors {
   static const Color chipUnselectedBg = Color(0xFFE9EAF7);
   static const Color chipUnselectedText = Color(0xFF64748B);
   static const Color dateBadgeBg = Color(0xFFEEF0F5);
+
+  //Leave Request
+  static const Color pendingBlue = Color(0xFF2563EB);
+  static const Color pendingBlueBg = Color(0xFFE0E7FF);
 }
