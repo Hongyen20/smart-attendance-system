@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/employee_home_screen.dart';
 
 void main() {
   runApp(const FlexTimeApp());
@@ -14,7 +14,7 @@ class FlexTimeApp extends StatelessWidget {
       title: 'FlexTime',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
-      home: const LoginScreen(),
+      home: const EmployeeHomeScreen(),
     );
   }
 }
