@@ -10,16 +10,16 @@ public class User
     public string Id { get; set; } = string.Empty;
 
     [BsonRepresentation(BsonType.ObjectId)]
-    public string CompanyId { get; set; } = string.Empty;
+    public string? CompanyId { get; set; } // null if Role = SuperAdmin
 
-    public string EmployeeCode { get; set; } = string.Empty; // depend on companyId
+    public string EmployeeCode { get; set; } = string.Empty; 
 
     public string Username { get; set; } = string.Empty;     
-    public string Email { get; set; } = string.Empty;        
+    public string Email { get; set; } = string.Empty;      
 
     public string FullName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
-    public string Role { get; set; } = "Employee"; // Employee | Admin
+    public string Role { get; set; } = "Employee"; // SuperAdmin | Admin | Employee
 
     [BsonRepresentation(BsonType.ObjectId)]
     public string? DepartmentId { get; set; }
