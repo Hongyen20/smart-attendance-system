@@ -12,9 +12,6 @@ public class WifiConfig
     [BsonRepresentation(BsonType.ObjectId)]
     public string CompanyId { get; set; } = string.Empty;
 
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string? DepartmentId { get; set; } // null = for all company
-
     public WifiInfo Wifi { get; set; } = new();
     public GeoLocation GpsCenter { get; set; } = new();
     public double RadiusMeters { get; set; } = 100;
