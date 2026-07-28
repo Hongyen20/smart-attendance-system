@@ -1,13 +1,16 @@
 using System.Text;
 using AttendanceApi.Services;
 using AttendanceApi.Settings;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- 1. Đọc cấu hình từ appsettings.json ----
+// 1. Read config from appsettings.json
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.Configure<JwtSettings>(
@@ -17,7 +20,7 @@ builder.Services.Configure<SuperAdminSettings>(
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
 
-// ---- 2. Đăng ký kết nối MongoDB (singleton, dùng chung cho cả app) ----
+// 2. Register to MongoDB
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MongoDbSettings>>().Value;
@@ -31,7 +34,7 @@ builder.Services.AddSingleton(sp =>
     return client.GetDatabase(settings.DatabaseName);
 });
 
-// ---- 3. Cấu hình JWT Authentication ----
+// 3. JWT Authentication Config
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -48,13 +51,13 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
-        ClockSkew = TimeSpan.Zero // không cho phép trễ hạn token
+        ClockSkew = TimeSpan.Zero 
     };
 });
 
 builder.Services.AddAuthorization();
 
-// ---- 4. CORS — cho phép Flutter web (dev) gọi API ----
+// 4. CORS — allow Flutter web (dev) call API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFlutterApp", policy =>
@@ -62,16 +65,25 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
-        // Khi lên production, thay AllowAnyOrigin() bằng
-        // .WithOrigins("https://your-domain.com") để an toàn hơn.
+
     });
 });
 
-// ---- 4.5 Đăng ký các Service (tầng truy cập MongoDB) ----
+// 4.5 Register Service (access to MongoDB) 
 builder.Services.AddSingleton<CompanyService>();
 builder.Services.AddSingleton<UserService>();
+builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<AttendanceRecordService>();
+builder.Services.AddSingleton<WifiConfigService>();
+builder.Services.AddSingleton<LeaveRequestService>();
+builder.Services.AddSingleton<AuditLogService>();
+builder.Services.AddSingleton<ShiftService>();
+builder.Services.AddSingleton<ShiftAssignmentService>();
+builder.Services.AddSingleton<CompanyHolidayService>();
+builder.Services.AddSingleton<ShiftChangeRequestService>();
+builder.Services.AddSingleton<BusinessTripRequestService>();
 
-// ---- 5. Controllers + OpenAPI/Swagger UI (dùng OpenAPI built-in của .NET 10) ----
+// 5. Controllers + OpenAPI/Swagger UI
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi("v1", options =>
@@ -81,7 +93,7 @@ builder.Services.AddOpenApi("v1", options =>
 
 var app = builder.Build();
 
-// ---- 6. Pipeline ----
+// 6. Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -100,7 +112,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// ---- 7. Seed tài khoản SuperAdmin nếu chưa tồn tại (chỉ chạy 1 lần) ----
+// 7. Seed account SuperAdmin if don't exist
 using (var scope = app.Services.CreateScope())
 {
     var userService = scope.ServiceProvider.GetRequiredService<UserService>();
@@ -126,3 +138,37 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+// .NET 10 usse OpenAPI built-in forSwashbuckle.AddSwaggerGen, so security scheme
+internal sealed class JwtBearerSecurityDocumentTransformer(IAuthenticationSchemeProvider authenticationSchemeProvider)
+    : IOpenApiDocumentTransformer
+{
+    public async Task TransformAsync(
+        OpenApiDocument document,
+        OpenApiDocumentTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        var schemes = await authenticationSchemeProvider.GetAllSchemesAsync();
+        if (!schemes.Any(s => s.Name == JwtBearerDefaults.AuthenticationScheme))
+        {
+            return;
+        }
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Nhập token theo dạng: Bearer {token}"
+        };
+
+        document.Security ??= new List<OpenApiSecurityRequirement>();
+        document.Security.Add(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+    }
+}
