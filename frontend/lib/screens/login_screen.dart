@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/auth_state.dart';
+import 'employee_home_screen.dart';
+import 'create_company_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,13 +28,72 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    // TODO: connect AuthService.login() when API /api/auth/login get ready.
-    // after login successed, navigation response.role:
-    //   role == "Admin"    -> AdminHomeScreen
-    //   role == "Employee" -> EmployeeHomeScreen
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.'),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800)); // placeholder
+
+    final result = await ApiService.post('/api/auth/login', {
+      'username': username,
+      'password': password,
+    });
+
     setState(() => _isLoading = false);
+
+    if (!mounted) return;
+
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.errorMessage ?? 'Đăng nhập thất bại.')),
+      );
+      return;
+    }
+
+    final data = result.data!;
+    AuthState.instance.setSession(
+      token: data['token'] as String,
+      userId: data['userId'] as String,
+      username: data['username'] as String,
+      fullName: data['fullName'] as String,
+      role: data['role'] as String,
+      companyId: data['companyId'] as String?,
+    );
+
+    _navigateByRole(data['role'] as String);
+  }
+
+  void _navigateByRole(String role) {
+    switch (role) {
+      case 'SuperAdmin':
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
+        );
+        break;
+      case 'Admin':
+        // TODO: đổi sang AdminHomeScreen thật khi màn hình đó được viết.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const _AdminPlaceholderScreen()),
+        );
+        break;
+      case 'Employee':
+      default:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployeeHomeScreen()),
+        );
+        break;
+    }
   }
 
   @override
@@ -49,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               _buildWifiNoticeBox(),
               const SizedBox(height: 32),
+              _buildFooter(),
             ],
           ),
         ),
@@ -110,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             controller: _usernameController,
             decoration: _inputDecoration(
-              hint: 'Nhập email hoặc tên đăng nhập',
+              hint: 'Nhập tên đăng nhập',
               icon: Icons.person_outline,
             ),
           ),
@@ -120,8 +184,9 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             controller: _passwordController,
             obscureText: _obscurePassword,
+            onSubmitted: (_) => _handleLogin(),
             decoration: _inputDecoration(
-              hint: 'Nhập mật khẩu',
+              hint: '',
               icon: Icons.lock_outline,
               suffixIcon: IconButton(
                 icon: Icon(
@@ -161,7 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Spacer(),
               TextButton(
                 onPressed: () {
-                  // TODO:Navigation to Forget Password Screen
+                  // TODO: điều hướng sang màn hình quên mật khẩu
                 },
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
@@ -287,6 +352,52 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return const Text(
+      'Phiên bản 2.4.0 • © 2024 FlexTime Inc.',
+      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+    );
+  }
+}
+
+
+class _AdminPlaceholderScreen extends StatelessWidget {
+  const _AdminPlaceholderScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Admin'),
+        backgroundColor: AppColors.cardBackground,
+        foregroundColor: AppColors.primaryBlue,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.construction,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Đăng nhập Admin thành công!\nMàn hình quản trị sẽ được xây dựng ở bước tiếp theo.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
