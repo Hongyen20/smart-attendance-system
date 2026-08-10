@@ -12,7 +12,8 @@ public class AuditLogService
         _logs = database.GetCollection<AuditLog>("audit_logs");
     }
 
-    public async Task LogAsync(string companyId, string userId, string action, string details = "", string ipAddress = "")
+    /// companyId truyền null khi hành động đến từ SuperAdmin (không thuộc công ty nào).
+    public async Task LogAsync(string? companyId, string userId, string action, string details = "", string ipAddress = "")
     {
         var log = new AuditLog
         {
@@ -25,7 +26,7 @@ public class AuditLogService
         await _logs.InsertOneAsync(log);
     }
 
-    // Admin see log
+    // Admin check log company
     public async Task<List<AuditLog>> GetByCompanyAsync(string companyId, int limit = 100)
     {
         return await _logs

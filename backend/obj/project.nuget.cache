@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "yX4QDA/p/SY=",
+  "dgSpecHash": "SFOIqf4qCFQ=",
   "success": true,
   "projectFilePath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
   "expectedPackageFiles": [
@@ -15,7 +15,7 @@
     "C:\\Users\\nguye\\.nuget\\packages\\microsoft.identitymodel.protocols\\8.19.2\\microsoft.identitymodel.protocols.8.19.2.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\microsoft.identitymodel.protocols.openidconnect\\8.19.2\\microsoft.identitymodel.protocols.openidconnect.8.19.2.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\microsoft.identitymodel.tokens\\8.19.2\\microsoft.identitymodel.tokens.8.19.2.nupkg.sha512",
-    "C:\\Users\\nguye\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512",
+    "C:\\Users\\nguye\\.nuget\\packages\\microsoft.openapi\\2.7.5\\microsoft.openapi.2.7.5.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\mongodb.bson\\3.10.0\\mongodb.bson.3.10.0.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\mongodb.driver\\3.10.0\\mongodb.driver.3.10.0.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\sharpcompress\\0.48.1\\sharpcompress.0.48.1.nupkg.sha512",
@@ -24,18 +24,5 @@
     "C:\\Users\\nguye\\.nuget\\packages\\system.identitymodel.tokens.jwt\\8.19.2\\system.identitymodel.tokens.jwt.8.19.2.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\zstdsharp.port\\0.7.3\\zstdsharp.port.0.7.3.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1903",
-      "level": "Warning",
-      "message": "Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
-      "projectPath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
-      "warningLevel": 1,
-      "filePath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
-      "libraryId": "Microsoft.OpenApi",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    }
-  ]
+  "logs": []
 }

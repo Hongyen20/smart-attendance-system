@@ -10,7 +10,7 @@ public class AuditLog
     public string Id { get; set; } = string.Empty;
 
     [BsonRepresentation(BsonType.ObjectId)]
-    public string CompanyId { get; set; } = string.Empty;
+    public string? CompanyId { get; set; } // null if the action of SuperAdmin
 
     [BsonRepresentation(BsonType.ObjectId)]
     public string UserId { get; set; } = string.Empty;

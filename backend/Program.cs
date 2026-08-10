@@ -19,7 +19,6 @@ builder.Services.Configure<SuperAdminSettings>(
     builder.Configuration.GetSection("SuperAdminSettings"));
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
-
 // 2. Register to MongoDB
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {

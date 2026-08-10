@@ -48,3 +48,4 @@ D:\smart-attendance-system\backend\obj\Debug\net10.0\refint\AttendanceApi.dll
 D:\smart-attendance-system\backend\obj\Debug\net10.0\AttendanceApi.pdb
 D:\smart-attendance-system\backend\obj\Debug\net10.0\AttendanceApi.genruntimeconfig.cache
 D:\smart-attendance-system\backend\obj\Debug\net10.0\ref\AttendanceApi.dll
+D:\smart-attendance-system\backend\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
