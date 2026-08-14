@@ -97,7 +97,7 @@ public class EmployeeController : ControllerBase
         string? emailError = null;
         try
         {
-            await _emailService.SendAccountCredentialsEmailAsync(
+            await _emailService.SendEmployeeAccountCredentialsEmailAsync(
                 employee.Email, employee.FullName, company.Name, employee.Username, temporaryPassword);
             emailSent = true;
         }

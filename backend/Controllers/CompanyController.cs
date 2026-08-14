@@ -13,31 +13,38 @@ public class CompanyController : ControllerBase
 {
     private readonly CompanyService _companyService;
     private readonly UserService _userService;
+    private readonly EmailService _emailService;
 
-    public CompanyController(CompanyService companyService, UserService userService)
+    public CompanyController(
+        CompanyService companyService,
+        UserService userService,
+        EmailService emailService)
     {
         _companyService = companyService;
         _userService = userService;
+        _emailService = emailService;
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateCompanyRequest request)
+    public async Task<IActionResult> Create(
+        [FromBody] CreateCompanyRequest request)
     {
+        // 1. Normalize company code
         var normalizedCode = request.CompanyCode.ToLowerInvariant();
 
-        var codeExists = await _companyService.ExistsByCompanyCodeAsync(normalizedCode);
+        // 2. Check company code already exists
+        var codeExists =
+            await _companyService.ExistsByCompanyCodeAsync(normalizedCode);
+
         if (codeExists)
         {
-            return Conflict(new { message = "Mã công ty đã tồn tại." });
+            return Conflict(new
+            {
+                message = "Mã công ty đã tồn tại."
+            });
         }
 
-        var emailExists = await _userService.ExistsByEmailAsync(request.AdminEmail);
-        if (emailExists)
-        {
-            return Conflict(new { message = "Email đã được sử dụng cho tài khoản khác trong hệ thống." });
-        }
-
-        // 1. Create company for Id use for User.CompanyId
+        // 3. Create Company
         var company = new Company
         {
             CompanyCode = normalizedCode,
@@ -47,40 +54,53 @@ public class CompanyController : ControllerBase
             ContactPhone = request.ContactPhone,
             Status = "Active"
         };
+
         await _companyService.CreateAsync(company);
 
-        // 2. username = companyCode.admin
-        var adminUsername = UserService.GenerateUsername(company.CompanyCode, "admin");
-        var usernameExists = await _userService.ExistsByUsernameAsync(adminUsername);
-        if (usernameExists)
-        {
-            return Conflict(new { message = "Không thể sinh username cho Admin (đã tồn tại). Vui lòng thử lại." });
-        }
+        // 4. Generate Admin username = companyCode.admin
+        var adminUsername =
+            UserService.GenerateUsername(
+                company.CompanyCode,
+                "admin");
 
-        // 3. password random
-        var temporaryPassword = PasswordGenerator.Generate();
 
+        // 6. Generate temporary password
+        var temporaryPassword =
+            PasswordGenerator.Generate();
+        // 7. Create Admin account
         var admin = new User
         {
             CompanyId = company.Id,
             EmployeeCode = "admin",
             Username = adminUsername,
-            Email = request.AdminEmail,
-            FullName = request.AdminFullName,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword),
+            PasswordHash =
+                BCrypt.Net.BCrypt.HashPassword(temporaryPassword),
             Role = "Admin",
             Status = "Active"
         };
+
         await _userService.CreateAsync(admin);
 
+        // 8. Send Admin account information via email
+        await _emailService.SendAdminAccountEmailAsync(
+            toEmail: company.ContactEmail,
+            toName: company.Name,
+            companyName: company.Name,
+            adminUsername: admin.Username,
+            temporaryPassword: temporaryPassword
+        );
+
+        // 9. Return response
         return Ok(new CreateCompanyResponse
         {
             CompanyId = company.Id,
             CompanyCode = company.CompanyCode,
             CompanyName = company.Name,
+
             AdminUsername = admin.Username,
             AdminFullName = admin.FullName,
             AdminTemporaryPassword = temporaryPassword
         });
     }
 }
+

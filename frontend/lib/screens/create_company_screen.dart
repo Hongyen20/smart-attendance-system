@@ -36,21 +36,19 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    if (_companyNameController.text.trim().isEmpty ||
-        _companyCodeController.text.trim().isEmpty) {
+    if (_companyNameController.text.trim().isEmpty) {
       setState(
-        () => _errorMessage = 'Tên công ty và mã công ty không được để trống.',
-      );
-      return;
-    }
-    if (_adminFullNameController.text.trim().isEmpty ||
-        _adminEmailController.text.trim().isEmpty) {
-      setState(
-        () => _errorMessage = 'Họ tên và email Admin không được để trống.',
+        () => _errorMessage = 'Tên công ty không được để trống.',
       );
       return;
     }
 
+    if (_companyCodeController.text.trim().isEmpty) {
+      setState(
+        () => _errorMessage = 'Mã công ty không được để trống.',
+      );
+      return;
+    }
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -63,8 +61,6 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
       'address': _addressController.text.trim(),
       'contactEmail': _contactEmailController.text.trim(),
       'contactPhone': _contactPhoneController.text.trim(),
-      'adminFullName': _adminFullNameController.text.trim(),
-      'adminEmail': _adminEmailController.text.trim(),
     }, bearerToken: AuthState.instance.token);
 
     setState(() {
@@ -99,13 +95,13 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                   _buildTextField(
                     controller: _companyNameController,
                     label: 'Tên công ty',
-                    hint: 'Acme Corporation',
+                    hint: 'FlexTime Corporation',
                   ),
                   const SizedBox(height: 14),
                   _buildTextField(
                     controller: _companyCodeController,
                     label: 'Mã công ty',
-                    hint: 'acme',
+                    hint: 'Fl',
                   ),
                   const SizedBox(height: 14),
                   _buildTextField(
@@ -124,23 +120,6 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     controller: _contactPhoneController,
                     label: 'Số điện thoại liên hệ',
                     hint: '',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                title: 'Tài khoản Admin đầu tiên',
-                children: [
-                  _buildTextField(
-                    controller: _adminFullNameController,
-                    label: 'Họ tên Admin',
-                    hint: 'Nguyễn Văn A',
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _adminEmailController,
-                    label: 'Email Admin',
-                    hint: 'admin@acme.com',
                   ),
                 ],
               ),
@@ -315,19 +294,6 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _resultRow('Tên công ty', result['companyName']),
-          _resultRow('Mã công ty', result['companyCode']),
-          _resultRow('Username Admin', result['adminUsername']),
-          _resultRow('Mật khẩu tạm thời', result['adminTemporaryPassword']),
-          const SizedBox(height: 8),
-          const Text(
-            'Gửi thông tin đăng nhập này cho công ty ngay — mật khẩu chỉ hiển thị 1 lần.',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
         ],
       ),
     );

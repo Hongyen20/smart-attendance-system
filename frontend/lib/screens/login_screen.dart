@@ -32,13 +32,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty || password.isEmpty) {
+    if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.')),
+        const SnackBar(content: Text('Vui lòng nhập Tên đăng nhập.')),
       );
       return;
     }
-
+    if ( password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập Mật khẩu.')),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
 
     final result = await ApiService.post('/api/auth/login', {
@@ -79,7 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         break;
       case 'Admin':
-        // TODO: đổi sang AdminHomeScreen thật khi màn hình đó được viết.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const _AdminPlaceholderScreen()),

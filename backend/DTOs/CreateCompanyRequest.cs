@@ -18,10 +18,4 @@ public class CreateCompanyRequest
 
     public string ContactPhone { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Họ tên Admin không được để trống.")]
-    public string AdminFullName { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Email Admin không được để trống.")]
-    [EmailAddress(ErrorMessage = "Email Admin không đúng định dạng.")]
-    public string AdminEmail { get; set; } = string.Empty;
 }

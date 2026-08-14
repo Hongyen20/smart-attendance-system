@@ -24,11 +24,15 @@ public class AuthController : ControllerBase
     {
         var user = await _userService.GetByUsernameAsync(request.Username);
         //Avoid brute force attack
-        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user is null )
         {
-            return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng." });
+            return Unauthorized(new { message = "Tên đăng nhập không đúng." });
         }
 
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            return Unauthorized(new { message = "Mật khẩu không đúng." });
+        }
         if (user.Status != "Active")
         {
             return Unauthorized(new { message = "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên." });
