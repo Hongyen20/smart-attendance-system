@@ -10,16 +10,19 @@ using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Read config from appsettings.json
+// ---- 1. Đọc cấu hình từ appsettings.json ----
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<SuperAdminSettings>(
     builder.Configuration.GetSection("SuperAdminSettings"));
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
-// 2. Register to MongoDB
+
+// ---- 2. Đăng ký kết nối MongoDB (singleton, dùng chung cho cả app) ----
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MongoDbSettings>>().Value;
@@ -33,7 +36,7 @@ builder.Services.AddSingleton(sp =>
     return client.GetDatabase(settings.DatabaseName);
 });
 
-// 3. JWT Authentication Config
+// ---- 3. Cấu hình JWT Authentication ----
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -50,13 +53,13 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
-        ClockSkew = TimeSpan.Zero 
+        ClockSkew = TimeSpan.Zero // không cho phép trễ hạn token
     };
 });
 
 builder.Services.AddAuthorization();
 
-// 4. CORS — allow Flutter web (dev) call API
+// ---- 4. CORS — cho phép Flutter web (dev) gọi API ----
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFlutterApp", policy =>
@@ -68,10 +71,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 4.5 Register Service (access to MongoDB) 
+// ---- 4.5 Đăng ký các Service (tầng truy cập MongoDB) ----
 builder.Services.AddSingleton<CompanyService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<EmailService>();
+builder.Services.AddSingleton<CounterService>();
 builder.Services.AddSingleton<AttendanceRecordService>();
 builder.Services.AddSingleton<WifiConfigService>();
 builder.Services.AddSingleton<LeaveRequestService>();
@@ -82,7 +87,7 @@ builder.Services.AddSingleton<CompanyHolidayService>();
 builder.Services.AddSingleton<ShiftChangeRequestService>();
 builder.Services.AddSingleton<BusinessTripRequestService>();
 
-// 5. Controllers + OpenAPI/Swagger UI
+// ---- 5. Controllers + OpenAPI/Swagger UI (dùng OpenAPI built-in của .NET 10) ----
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi("v1", options =>
@@ -92,7 +97,7 @@ builder.Services.AddOpenApi("v1", options =>
 
 var app = builder.Build();
 
-// 6. Pipeline
+// ---- 6. Pipeline ----
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -111,7 +116,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// 7. Seed account SuperAdmin if don't exist
+// ---- 7. Seed tài khoản SuperAdmin nếu chưa tồn tại (chỉ chạy 1 lần) ----
 using (var scope = app.Services.CreateScope())
 {
     var userService = scope.ServiceProvider.GetRequiredService<UserService>();
@@ -138,7 +143,6 @@ using (var scope = app.Services.CreateScope())
 
 app.Run();
 
-// .NET 10 usse OpenAPI built-in forSwashbuckle.AddSwaggerGen, so security scheme
 internal sealed class JwtBearerSecurityDocumentTransformer(IAuthenticationSchemeProvider authenticationSchemeProvider)
     : IOpenApiDocumentTransformer
 {
