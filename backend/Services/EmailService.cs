@@ -25,18 +25,9 @@ public class EmailService
     {
         var message = new MimeMessage();
 
-        message.From.Add(
-            new MailboxAddress(
-                _settings.SenderName,
-                _settings.SenderEmail));
-
-        message.To.Add(
-            new MailboxAddress(
-                toName,
-                toEmail));
-
-        message.Subject =
-            $"Thông tin tài khoản Admin - {companyName}";
+        message.From.Add(new MailboxAddress(_settings.SenderName, _settings.SenderEmail));
+        message.To.Add(new MailboxAddress(toName, toEmail));
+        message.Subject = $"Thông tin tài khoản Admin - {companyName}";
 
         message.Body = new TextPart("html")
         {
@@ -67,21 +58,12 @@ public class EmailService
 
                     <table style="border-collapse: collapse; margin: 10px 0;">
                         <tr>
-                            <td style="padding: 6px 15px 6px 0;">
-                                <strong>Tài khoản:</strong>
-                            </td>
-                            <td style="padding: 6px 0;">
-                                {adminUsername}
-                            </td>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Tài khoản:</strong></td>
+                            <td style="padding: 6px 0;"><code>{adminUsername}</code></td>
                         </tr>
-
                         <tr>
-                            <td style="padding: 6px 15px 6px 0;">
-                                <strong>Mật khẩu:</strong>
-                            </td>
-                            <td style="padding: 6px 0;">
-                                {temporaryPassword}
-                            </td>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Mật khẩu:</strong></td>
+                            <td style="padding: 6px 0;"><code>{temporaryPassword}</code></td>
                         </tr>
                     </table>
 
@@ -131,18 +113,9 @@ public class EmailService
     {
         var message = new MimeMessage();
 
-        message.From.Add(
-            new MailboxAddress(
-                _settings.SenderName,
-                _settings.SenderEmail));
-
-        message.To.Add(
-            new MailboxAddress(
-                toName,
-                toEmail));
-
-        message.Subject =
-            $"Thông tin tài khoản đăng nhập hệ thống - {companyName}";
+        message.From.Add(new MailboxAddress(_settings.SenderName, _settings.SenderEmail));
+        message.To.Add(new MailboxAddress(toName, toEmail));
+        message.Subject = $"Thông tin tài khoản đăng nhập hệ thống - {companyName}";
 
         message.Body = new TextPart("html")
         {
@@ -169,21 +142,12 @@ public class EmailService
 
                     <table style="border-collapse: collapse; margin: 10px 0;">
                         <tr>
-                            <td style="padding: 6px 15px 6px 0;">
-                                <strong>Tên đăng nhập:</strong>
-                            </td>
-                            <td style="padding: 6px 0;">
-                                {username}
-                            </td>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Tên đăng nhập:</strong></td>
+                            <td style="padding: 6px 0;"><code>{username}</code></td>
                         </tr>
-
                         <tr>
-                            <td style="padding: 6px 15px 6px 0;">
-                                <strong>Mật khẩu:</strong>
-                            </td>
-                            <td style="padding: 6px 0;">
-                                {temporaryPassword}
-                            </td>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Mật khẩu:</strong></td>
+                            <td style="padding: 6px 0;"><code>{temporaryPassword}</code></td>
                         </tr>
                     </table>
 
@@ -229,18 +193,9 @@ public class EmailService
     private async Task SendEmailAsync(MimeMessage message)
     {
         using var client = new SmtpClient();
-
-        await client.ConnectAsync(
-            _settings.SmtpHost,
-            _settings.SmtpPort,
-            SecureSocketOptions.StartTls);
-
-        await client.AuthenticateAsync(
-            _settings.SmtpUsername,
-            _settings.SmtpPassword);
-
+        await client.ConnectAsync(_settings.SmtpHost, _settings.SmtpPort, SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(_settings.SmtpUsername, _settings.SmtpPassword);
         await client.SendAsync(message);
-
         await client.DisconnectAsync(true);
     }
 }

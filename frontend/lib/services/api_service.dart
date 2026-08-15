@@ -33,11 +33,36 @@ class ApiService {
         return ApiResult.success(decoded);
       }
 
-      // Backend send error { "message": "..." } or { "errors": {...} } (validation)
       final message = decoded['message'] as String? ?? _extractValidationError(decoded);
       return ApiResult.failure(message ?? 'Đã có lỗi xảy ra (mã ${response.statusCode}).');
     } catch (e) {
       return ApiResult.failure('Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.');
+    }
+  }
+
+
+  static Future<ApiResult<List<dynamic>>> getList(
+    String path, {
+    String? bearerToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}$path'),
+        headers: {
+          if (bearerToken != null) 'Authorization': 'Bearer $bearerToken',
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body) as List<dynamic>;
+        return ApiResult.success(decoded);
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final message = decoded['message'] as String?;
+      return ApiResult.failure(message ?? 'Đã có lỗi xảy ra (mã ${response.statusCode}).');
+    } catch (e) {
+      return ApiResult.failure('Không thể kết nối tới máy chủ. Kiểm tra lại mạng');
     }
   }
 

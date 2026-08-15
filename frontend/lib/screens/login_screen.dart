@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import 'employee_home_screen.dart';
 import 'create_company_screen.dart';
-import 'create_employee_screen.dart';
+import 'admin_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,18 +32,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty) {
+    if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Tên đăng nhập.')),
+        const SnackBar(
+          content: Text('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.'),
+        ),
       );
       return;
     }
-    if ( password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Mật khẩu.')),
-      );
-      return;
-    }
+
     setState(() => _isLoading = true);
 
     final result = await ApiService.post('/api/auth/login', {
@@ -86,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'Admin':
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const _AdminPlaceholderScreen()),
+          MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
         );
         break;
       case 'Employee':
@@ -363,64 +360,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return const Text(
       'Phiên bản 2.4.0 • © 2024 FlexTime Inc.',
       style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-    );
-  }
-}
-
-/// Màn hình tạm cho Admin — thay bằng AdminHomeScreen thật khi được viết.
-class _AdminPlaceholderScreen extends StatelessWidget {
-  const _AdminPlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Admin'),
-        backgroundColor: AppColors.cardBackground,
-        foregroundColor: AppColors.primaryBlue,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.construction, size: 48, color: AppColors.textSecondary),
-              const SizedBox(height: 16),
-              const Text(
-                'Đăng nhập Admin thành công!\nMàn hình quản trị đầy đủ sẽ được xây dựng ở bước tiếp theo.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CreateEmployeeScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.person_add, color: Colors.white),
-                  label: const Text(
-                    'Tạo tài khoản nhân viên',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
