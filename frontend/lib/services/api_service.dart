@@ -12,6 +12,48 @@ class ApiResult<T> {
 }
 
 class ApiService {
+   // Upload file dạng multipart/form-data (dùng cho avatar).
+   // Nhận vào bytes thay vì đường dẫn file để hoạt động được trên MỌI nền tảng
+   // kể cả web (trên web không có file path thật, chỉ có bytes trong bộ nhớ).
+  static Future<ApiResult<Map<String, dynamic>>> uploadBytes(
+    String path,
+    String fieldName,
+    List<int> bytes,
+    String filename, {
+    String? bearerToken,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}$path'),
+      );
+      if (bearerToken != null) {
+        request.headers['Authorization'] = 'Bearer $bearerToken';
+      }
+      request.files.add(
+        http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult.success(decoded);
+      }
+
+      final message = decoded['message'] as String?;
+      return ApiResult.failure(
+        message ?? 'Đã có lỗi xảy ra (mã ${response.statusCode}).',
+      );
+    } catch (e) {
+      return ApiResult.failure(
+        'Không thể tải ảnh lên. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+      );
+    }
+  }
+
   static Future<ApiResult<Map<String, dynamic>>> post(
     String path,
     Map<String, dynamic> body, {
@@ -33,7 +75,6 @@ class ApiService {
         return ApiResult.success(decoded);
       }
 
-      // Backend trả lỗi dạng { "message": "..." } hoặc { "errors": {...} } (validation)
       final message =
           decoded['message'] as String? ?? _extractValidationError(decoded);
       return ApiResult.failure(
@@ -46,7 +87,7 @@ class ApiService {
     }
   }
 
-  /// Dùng cho các endpoint trả về object JSON đơn (ví dụ GET /api/utils/current-ip).
+   // Dùng cho các endpoint trả về object JSON đơn (ví dụ GET /api/utils/current-ip).
   static Future<ApiResult<Map<String, dynamic>>> get(
     String path, {
     String? bearerToken,
@@ -76,7 +117,7 @@ class ApiService {
     }
   }
 
-  /// Dùng cho các endpoint trả về mảng JSON (ví dụ GET /api/employees).
+   // Dùng cho các endpoint trả về mảng JSON (ví dụ GET /api/employees).
   static Future<ApiResult<List<dynamic>>> getList(
     String path, {
     String? bearerToken,

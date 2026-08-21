@@ -5,6 +5,7 @@ import '../services/auth_state.dart';
 import 'create_employee_screen.dart';
 import 'employee_list_screen.dart';
 import 'ip_config_screen.dart';
+import 'change_password_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -19,8 +20,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   bool _isLoadingStats = true;
   int _totalEmployees = 0;
 
-  // TODO: 2 số liệu này cần AttendanceController + LeaveRequestController (Admin)
-  // mới có dữ liệu thật. Hiện để tạm giá trị demo.
+
   final int _currentlyWorking = 0;
   final int _pendingLeaveRequests = 0;
 
@@ -74,15 +74,34 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       const SizedBox(height: 6),
                       const Text(
                         'Đây là tổng quan hoạt động của bạn trong ngày hôm nay.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 20),
                       _buildTotalEmployeesCard(),
                       const SizedBox(height: 12),
                       _buildStatsRow(),
+                      const SizedBox(height: 16),
+                      _buildQuickActionButton(
+                        icon: Icons.router_outlined,
+                        label: 'Cấu hình IP chấm công',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const IpConfigScreen()),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _buildQuickActionButton(
+                        icon: Icons.lock_outline,
+                        label: 'Đổi mật khẩu',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                          );
+                        },
+                      ),
                       const SizedBox(height: 24),
                       _buildActivitySectionHeader(),
                       const SizedBox(height: 12),
@@ -147,10 +166,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const Spacer(),
           IconButton(
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const IpConfigScreen()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const IpConfigScreen()));
             },
             icon: const Icon(Icons.public, color: AppColors.textPrimary),
             tooltip: 'Cấu hình IP',
@@ -162,10 +178,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               (AuthState.instance.fullName?.isNotEmpty == true)
                   ? AuthState.instance.fullName![0].toUpperCase()
                   : 'A',
-              style: const TextStyle(
-                color: AppColors.primaryBlue,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -217,15 +230,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
-              color: AppColors.cardBackground,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.groups_outlined,
-              color: AppColors.primaryBlue,
-              size: 26,
-            ),
+            decoration: const BoxDecoration(color: AppColors.cardBackground, shape: BoxShape.circle),
+            child: const Icon(Icons.groups_outlined, color: AppColors.primaryBlue, size: 26),
           ),
         ],
       ),
@@ -241,9 +247,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             label: 'Đang làm việc',
             value: _currentlyWorking,
             barColor: AppColors.successGreen,
-            barFraction: _totalEmployees == 0
-                ? 0
-                : _currentlyWorking / _totalEmployees,
+            barFraction: _totalEmployees == 0 ? 0 : _currentlyWorking / _totalEmployees,
           ),
         ),
         const SizedBox(width: 12),
@@ -282,19 +286,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(
-                  color: dotColor,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   maxLines: 2,
                 ),
               ),
@@ -303,11 +301,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const SizedBox(height: 8),
           Text(
             '$value',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -330,11 +324,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       children: [
         const Text(
           'Hoạt động gần đây',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         TextButton(
           onPressed: () {
@@ -347,10 +337,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
           child: const Text(
             'Xem tất cả',
-            style: TextStyle(
-              color: AppColors.accentBlue,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: AppColors.accentBlue, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -391,47 +378,61 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               children: [
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
                     children: [
-                      TextSpan(
-                        text: boldName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      TextSpan(text: boldName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: restOfTitle),
                     ],
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               ],
             ),
           ),
           if (statusLabel != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.amberBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
+              decoration: BoxDecoration(color: AppColors.amberBg, borderRadius: BorderRadius.circular(20)),
               child: Text(
                 statusLabel,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.amber,
-                ),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.amber),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderColor),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primaryBlue, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
@@ -457,22 +458,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       unselectedItemColor: AppColors.textSecondary,
       showUnselectedLabels: true,
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard_outlined),
-          label: 'Tổng quan',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.groups_outlined),
-          label: 'Nhân viên',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.fact_check_outlined),
-          label: 'Duyệt đơn',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart_outlined),
-          label: 'Báo cáo',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Tổng quan'),
+        BottomNavigationBarItem(icon: Icon(Icons.groups_outlined), label: 'Nhân viên'),
+        BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Duyệt đơn'),
+        BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), label: 'Báo cáo'),
       ],
     );
   }

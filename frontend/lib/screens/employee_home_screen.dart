@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
+import 'profile_screen.dart';
 
 enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
@@ -431,7 +432,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   Widget _buildBottomNav() {
     return BottomNavigationBar(
       currentIndex: _selectedNavIndex,
-      onTap: (index) => setState(() => _selectedNavIndex = index),
+      onTap: (index) {
+        setState(() => _selectedNavIndex = index);
+        if (index == 3) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ).then((_) => setState(() => _selectedNavIndex = 0));
+        }
+        // TODO: index 1 "Lịch sử" và index 2 "Thống kê" nối màn hình tương ứng khi có.
+      },
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primaryBlue,
       unselectedItemColor: AppColors.textSecondary,

@@ -67,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       fullName: data['fullName'] as String,
       role: data['role'] as String,
       companyId: data['companyId'] as String?,
+      avatarUrl: data['avatarUrl'] as String?,
     );
 
     _navigateByRole(data['role'] as String);

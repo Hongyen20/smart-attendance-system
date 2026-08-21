@@ -52,3 +52,4 @@ D:\smart-attendance-system\backend\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swag
 D:\smart-attendance-system\backend\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
 D:\smart-attendance-system\backend\bin\Debug\net10.0\MailKit.dll
 D:\smart-attendance-system\backend\bin\Debug\net10.0\MimeKit.dll
+D:\smart-attendance-system\backend\bin\Debug\net10.0\AttendanceApi.staticwebassets.runtime.json

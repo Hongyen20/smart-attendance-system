@@ -8,6 +8,7 @@ class AuthState {
   String? fullName;
   String? role;
   String? companyId;
+  String? avatarUrl;
 
   bool get isLoggedIn => token != null;
 
@@ -18,6 +19,7 @@ class AuthState {
     required String fullName,
     required String role,
     String? companyId,
+    String? avatarUrl,
   }) {
     this.token = token;
     this.userId = userId;
@@ -25,6 +27,7 @@ class AuthState {
     this.fullName = fullName;
     this.role = role;
     this.companyId = companyId;
+    this.avatarUrl = avatarUrl;
   }
 
   void clear() {
@@ -34,5 +37,6 @@ class AuthState {
     fullName = null;
     role = null;
     companyId = null;
+    avatarUrl = null;
   }
 }
