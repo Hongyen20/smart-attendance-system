@@ -12,7 +12,7 @@ public class AttendanceRecordService
         _records = database.GetCollection<AttendanceRecord>("attendance_records");
     }
 
-    // Check in: Check today user have attended
+    // Use for check-in: check user have check-in in the day?
     public async Task<AttendanceRecord?> GetByUserAndDateAsync(string companyId, string userId, DateTime date)
     {
         return await _records
@@ -20,7 +20,7 @@ public class AttendanceRecordService
             .FirstOrDefaultAsync();
     }
 
-    // AttendanceRecord of 1 user 
+    // Attendance history of 1 employee 
     public async Task<List<AttendanceRecord>> GetHistoryByUserAsync(
         string companyId, string userId, DateTime fromDate, DateTime toDate)
     {
@@ -33,7 +33,7 @@ public class AttendanceRecordService
             .ToListAsync();
     }
 
-    /// Admin seen attendance record all user 
+    // Admin watch attendace information.
     public async Task<List<AttendanceRecord>> GetByCompanyAndDateRangeAsync(
         string companyId, DateTime fromDate, DateTime toDate)
     {
@@ -50,16 +50,16 @@ public class AttendanceRecordService
         await _records.InsertOneAsync(record);
     }
 
-    // update check-out into record is created when check-in in the same day.
+    // Update check-out information to record have created check-in in the same day.
     public async Task UpdateCheckOutAsync(
         string companyId, string userId, DateTime date,
-        DateTime checkOutTime, GeoLocation? location, WifiInfo? wifi, string deviceId,
+        DateTime checkOutTime, GeoLocation? location, string checkOutIp, string deviceId,
         double workingHours, string status)
     {
         var update = Builders<AttendanceRecord>.Update
             .Set(r => r.CheckOutTime, checkOutTime)
             .Set(r => r.CheckOutLocation, location)
-            .Set(r => r.CheckOutWifi, wifi)
+            .Set(r => r.CheckOutIp, checkOutIp)
             .Set(r => r.CheckOutDeviceId, deviceId)
             .Set(r => r.WorkingHours, workingHours)
             .Set(r => r.Status, status);

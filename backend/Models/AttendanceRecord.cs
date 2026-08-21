@@ -20,12 +20,12 @@ public class AttendanceRecord
 
     public DateTime? CheckInTime { get; set; }
     public GeoLocation? CheckInLocation { get; set; }
-    public WifiInfo? CheckInWifi { get; set; }
+    public string CheckInIp { get; set; } = string.Empty;
     public string CheckInDeviceId { get; set; } = string.Empty;
 
     public DateTime? CheckOutTime { get; set; }
     public GeoLocation? CheckOutLocation { get; set; }
-    public WifiInfo? CheckOutWifi { get; set; }
+    public string CheckOutIp { get; set; } = string.Empty;
     public string CheckOutDeviceId { get; set; } = string.Empty;
 
     public string Status { get; set; } = "OnTime"; // OnTime | Late | Absent | MissingCheckout

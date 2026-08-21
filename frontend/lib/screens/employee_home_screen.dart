@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/auth_state.dart';
+
+enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
@@ -11,11 +16,10 @@ class EmployeeHomeScreen extends StatefulWidget {
 class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   int _selectedNavIndex = 0;
 
-  // TODO: thay bằng dữ liệu thật từ AuthService/API khi tích hợp backend
-  final String _userName = 'Minh';
-  final bool _isWifiConnected = true;
-  final String _checkInTime = '08:30';
-  final String _totalWorkedToday = '0h 15m';
+  _CheckState _checkState = _CheckState.loading;
+  String? _checkInTimeLabel;
+  String? _workingHoursLabel;
+  bool _isProcessing = false;
 
   static const List<String> _weekdays = [
     'Chủ Nhật',
@@ -39,8 +43,117 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return '${_weekdays[now.weekday % 7]}, ${now.day} Thg ${now.month}';
   }
 
-  Future<void> _handleCheckIn() async {
-    // TODO: gọi POST /api/attendance/check-in kèm SSID/BSSID, GPS, deviceId
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayStatus();
+  }
+
+  Future<void> _loadTodayStatus() async {
+    final result = await ApiService.get(
+      '/api/attendance/today',
+      bearerToken: AuthState.instance.token,
+    );
+
+    if (!mounted) return;
+
+    if (!result.success) {
+      setState(() => _checkState = _CheckState.notCheckedIn);
+      return;
+    }
+
+    final data = result.data!;
+    final checkedIn = data['checkedIn'] == true;
+    final checkedOut = data['checkedOut'] == true;
+
+    setState(() {
+      if (!checkedIn) {
+        _checkState = _CheckState.notCheckedIn;
+      } else if (checkedIn && !checkedOut) {
+        _checkState = _CheckState.checkedIn;
+        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
+      } else {
+        _checkState = _CheckState.checkedOut;
+        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
+        final hours = (data['workingHours'] as num?)?.toDouble() ?? 0;
+        _workingHoursLabel = '${hours.toStringAsFixed(1)}h';
+      }
+    });
+  }
+
+  String? _formatTimeFromIso(String? iso) {
+    if (iso == null) return null;
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return null;
+    final local = dt.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<Position?> _getCurrentPosition() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _showSnack('Cần cấp quyền vị trí để check-in/check-out.');
+      return null;
+    }
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showSnack('Vui lòng bật định vị (GPS) trên thiết bị.');
+      return null;
+    }
+
+    try {
+      return await Geolocator.getCurrentPosition();
+    } catch (e) {
+      _showSnack('Không lấy được vị trí: $e');
+      return null;
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _handleCheckButtonTap() async {
+    if (_checkState == _CheckState.checkedOut || _isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
+    final position = await _getCurrentPosition();
+    if (position == null) {
+      setState(() => _isProcessing = false);
+      return;
+    }
+
+    final path = _checkState == _CheckState.notCheckedIn
+        ? '/api/attendance/check-in'
+        : '/api/attendance/check-out';
+
+    final result = await ApiService.post(path, {
+      'lat': position.latitude,
+      'lng': position.longitude,
+    }, bearerToken: AuthState.instance.token);
+
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+
+    if (result.success) {
+      _showSnack(
+        _checkState == _CheckState.notCheckedIn
+            ? 'Check-in thành công!'
+            : 'Check-out thành công!',
+      );
+      _loadTodayStatus();
+    } else {
+      _showSnack(result.errorMessage ?? 'Có lỗi xảy ra.');
+    }
   }
 
   @override
@@ -52,37 +165,21 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           children: [
             _buildTopBar(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildGreetingRow(),
-                    const SizedBox(height: 20),
-                    _buildWifiStatusCard(),
-                    const SizedBox(height: 32),
-                    Center(child: _buildCheckInButton()),
-                    const SizedBox(height: 32),
-                    _buildStatsRow(),
-                    const SizedBox(height: 28),
-                    _buildActivitySectionHeader(),
-                    const SizedBox(height: 12),
-                    _buildActivityItem(
-                      icon: Icons.login,
-                      title: 'Vào ca',
-                      subtitle: 'Văn phòng - 23 Thg 10',
-                      time: '08:30',
-                      timeColor: AppColors.accentBlue,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActivityItem(
-                      icon: Icons.logout,
-                      title: 'Kết thúc',
-                      subtitle: 'Văn phòng - 22 Thg 10',
-                      time: '17:45',
-                      timeColor: AppColors.textPrimary,
-                    ),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _loadTodayStatus,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildGreetingRow(),
+                      const SizedBox(height: 32),
+                      Center(child: _buildCheckInButton()),
+                      const SizedBox(height: 32),
+                      _buildStatsRow(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -114,9 +211,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {
-              // TODO: điều hướng sang màn hình thông báo
-            },
+            onPressed: () {},
             icon: const Icon(
               Icons.notifications_none,
               color: AppColors.textPrimary,
@@ -128,6 +223,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   Widget _buildGreetingRow() {
+    final userName = AuthState.instance.fullName ?? '';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -145,7 +241,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
               ),
             ),
             Text(
-              '$_userName!',
+              '$userName!',
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -179,136 +275,87 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     );
   }
 
-  Widget _buildWifiStatusCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.successGreenBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _isWifiConnected ? Icons.wifi : Icons.wifi_off,
-              color: AppColors.successGreen,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Trạng thái kết nối',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _isWifiConnected
-                      ? 'Đã kết nối Wi-Fi văn phòng'
-                      : 'Chưa kết nối Wi-Fi công ty',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: _isWifiConnected
-                        ? AppColors.successGreen
-                        : Colors.redAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.successGreenBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AppColors.successGreen,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'ACTIVE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.successGreen,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCheckInButton() {
+    late final String title;
+    late final String subtitle;
+    late final Color color;
+    late final IconData icon;
+
+    switch (_checkState) {
+      case _CheckState.loading:
+        title = '...';
+        subtitle = 'Đang tải';
+        color = AppColors.textSecondary;
+        icon = Icons.hourglass_empty;
+        break;
+      case _CheckState.notCheckedIn:
+        title = 'CHẤM CÔNG';
+        subtitle = 'Chạm để bắt đầu';
+        color = AppColors.primaryBlue;
+        icon = Icons.fingerprint;
+        break;
+      case _CheckState.checkedIn:
+        title = 'CHẤM CÔNG RA';
+        subtitle = 'Chạm để kết thúc';
+        color = AppColors.amber;
+        icon = Icons.logout;
+        break;
+      case _CheckState.checkedOut:
+        title = 'ĐÃ HOÀN THÀNH';
+        subtitle = 'Hẹn gặp lại ngày mai';
+        color = AppColors.successGreen;
+        icon = Icons.check_circle_outline;
+        break;
+    }
+
     return GestureDetector(
-      onTap: _handleCheckIn,
+      onTap:
+          (_checkState == _CheckState.checkedOut ||
+              _checkState == _CheckState.loading ||
+              _isProcessing)
+          ? null
+          : _handleCheckButtonTap,
       child: Container(
         width: 220,
         height: 220,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.primaryBlue,
+          color: color,
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryBlue.withValues(alpha: 0.35),
+              color: color.withValues(alpha: 0.35),
               blurRadius: 40,
               spreadRadius: 6,
             ),
           ],
         ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.fingerprint, color: Colors.white, size: 52),
-            SizedBox(height: 12),
-            Text(
-              'CHẤM CÔNG',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Chạm để bắt đầu',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-          ],
+        child: Center(
+          child: _isProcessing
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 52),
+                    const SizedBox(height: 12),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -322,7 +369,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             icon: Icons.access_time,
             iconColor: AppColors.accentBlue,
             label: 'Giờ bắt đầu',
-            value: _checkInTime,
+            value: _checkInTimeLabel ?? '--:--',
           ),
         ),
         const SizedBox(width: 12),
@@ -331,7 +378,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             icon: Icons.timer_outlined,
             iconColor: AppColors.amber,
             label: 'Tổng giờ làm',
-            value: _totalWorkedToday,
+            value: _workingHoursLabel ?? '0h',
           ),
         ),
       ],
@@ -381,107 +428,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     );
   }
 
-  Widget _buildActivitySectionHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'Hoạt động gần đây',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            // TODO: điều hướng sang màn hình Lịch sử đầy đủ
-          },
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'Xem tất cả',
-            style: TextStyle(
-              color: AppColors.accentBlue,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActivityItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String time,
-    required Color timeColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.activityItemBg,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppColors.primaryBlue, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: timeColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBottomNav() {
     return BottomNavigationBar(
       currentIndex: _selectedNavIndex,
-      onTap: (index) {
-        setState(() => _selectedNavIndex = index);
-        // TODO: Navigation to screen (Lịch sử/Thống kê/Profile)
-      },
+      onTap: (index) => setState(() => _selectedNavIndex = index),
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primaryBlue,
       unselectedItemColor: AppColors.textSecondary,

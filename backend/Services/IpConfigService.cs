@@ -3,37 +3,37 @@ using MongoDB.Driver;
 
 namespace AttendanceApi.Services;
 
-public class WifiConfigService
+public class IpConfigService
 {
-    private readonly IMongoCollection<WifiConfig> _configs;
+    private readonly IMongoCollection<IpConfig> _configs;
 
-    public WifiConfigService(IMongoDatabase database)
+    public IpConfigService(IMongoDatabase database)
     {
-        _configs = database.GetCollection<WifiConfig>("wifi_configs");
+        _configs = database.GetCollection<IpConfig>("ip_configs");
     }
 
-    public async Task<List<WifiConfig>> GetAllByCompanyAsync(string companyId)
+    public async Task<List<IpConfig>> GetAllByCompanyAsync(string companyId)
     {
         return await _configs.Find(c => c.CompanyId == companyId).ToListAsync();
     }
 
-    // Check-in: only get wifi config is turn on and check SSID/BSSID + GPS.
-    public async Task<List<WifiConfig>> GetActiveByCompanyAsync(string companyId)
+    // Use for check-in: check ip
+    public async Task<List<IpConfig>> GetActiveByCompanyAsync(string companyId)
     {
         return await _configs.Find(c => c.CompanyId == companyId && c.IsActive).ToListAsync();
     }
 
-    public async Task<WifiConfig?> GetByIdAsync(string companyId, string id)
+    public async Task<IpConfig?> GetByIdAsync(string companyId, string id)
     {
         return await _configs.Find(c => c.Id == id && c.CompanyId == companyId).FirstOrDefaultAsync();
     }
 
-    public async Task CreateAsync(WifiConfig config)
+    public async Task CreateAsync(IpConfig config)
     {
         await _configs.InsertOneAsync(config);
     }
 
-    public async Task UpdateAsync(WifiConfig config)
+    public async Task UpdateAsync(IpConfig config)
     {
         await _configs.ReplaceOneAsync(c => c.Id == config.Id && c.CompanyId == config.CompanyId, config);
     }
