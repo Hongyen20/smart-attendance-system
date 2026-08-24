@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import 'create_employee_screen.dart';
+import 'employee_detail_screen.dart';
 
 class EmployeeListScreen extends StatefulWidget {
   const EmployeeListScreen({super.key});
@@ -62,7 +63,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             context,
             MaterialPageRoute(builder: (_) => const CreateEmployeeScreen()),
           );
-          _loadEmployees();
+          _loadEmployees(); // reload sau khi quay lại, phòng khi vừa tạo nhân viên mới
         },
         backgroundColor: AppColors.primaryBlue,
         icon: const Icon(Icons.person_add, color: Colors.white),
@@ -126,62 +127,84 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     final status = e['status'] as String? ?? 'Active';
     final isActive = status == 'Active';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderColor),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.infoBoxBackground,
-            child: Text(
-              ((e['fullName'] as String?)?.isNotEmpty == true)
-                  ? e['fullName'][0].toUpperCase()
-                  : '?',
-              style: const TextStyle(
-                color: AppColors.primaryBlue,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        final changed = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EmployeeDetailScreen(employeeId: e['id'] as String),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  e['fullName'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
+        );
+        if (changed == true) _loadEmployees();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderColor),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.infoBoxBackground,
+              child: Text(
+                ((e['fullName'] as String?)?.isNotEmpty == true)
+                    ? e['fullName'][0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? AppColors.successGreenBg
-                  : AppColors.dangerRedBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              isActive ? 'Active' : 'Inactive',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isActive ? AppColors.successGreen : AppColors.dangerRed,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    e['fullName'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '@${e['username'] ?? ''} • ${e['employeeCode'] ?? ''}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? AppColors.successGreenBg
+                    : AppColors.dangerRedBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                isActive ? 'Active' : 'Inactive',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isActive
+                      ? AppColors.successGreen
+                      : AppColors.dangerRed,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

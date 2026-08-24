@@ -1,19 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/auth_state.dart';
+import 'employee_home_screen.dart';
+import 'history_screen.dart';
+import 'statistics_screen.dart';
+import 'profile_screen.dart';
 
 enum LeaveRequestStatus { accepted, pending, rejected }
-
-class LeaveRequestStatusItem {
-  final String title;
-  final String dateRangeLabel;
-  final LeaveRequestStatus status;
-
-  const LeaveRequestStatusItem({
-    required this.title,
-    required this.dateRangeLabel,
-    required this.status,
-  });
-}
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -36,29 +30,37 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   final _reasonController = TextEditingController();
   bool _isSubmitting = false;
 
-  // TODO: thay bằng dữ liệu thật từ GET /api/leave-requests/me khi có backend
-  final List<LeaveRequestStatusItem> _recentRequests = const [
-    LeaveRequestStatusItem(
-      title: 'Nghỉ phép năm',
-      dateRangeLabel: '12/10/2023 - 14/10/2023',
-      status: LeaveRequestStatus.accepted,
-    ),
-    LeaveRequestStatusItem(
-      title: 'Nghỉ ốm',
-      dateRangeLabel: '25/10/2023',
-      status: LeaveRequestStatus.pending,
-    ),
-    LeaveRequestStatusItem(
-      title: 'Việc riêng',
-      dateRangeLabel: '05/11/2023',
-      status: LeaveRequestStatus.rejected,
-    ),
-  ];
+  bool _isLoadingRequests = true;
+  List<dynamic> _recentRequests = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentRequests();
+  }
 
   @override
   void dispose() {
     _reasonController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecentRequests() async {
+    setState(() => _isLoadingRequests = true);
+
+    final result = await ApiService.getList(
+      '/api/leave-requests/me',
+      bearerToken: AuthState.instance.token,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingRequests = false;
+      if (result.success) {
+        _recentRequests = result.data!;
+      }
+    });
   }
 
   String _formatDate(DateTime? date) {
@@ -107,15 +109,32 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    // TODO: call POST /api/leave-requests với { type, startDate, endDate, reason }
-    await Future.delayed(const Duration(milliseconds: 800));
+
+    final result = await ApiService.post('/api/leave-requests', {
+      'type': _selectedType,
+      'startDate': _fromDate!.toIso8601String(),
+      'endDate': _toDate!.toIso8601String(),
+      'reason': _reasonController.text.trim(),
+    }, bearerToken: AuthState.instance.token);
+
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    if (mounted) {
+    if (result.success) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Đã gửi đơn nghỉ phép.')));
-      Navigator.pop(context);
+      _reasonController.clear();
+      setState(() {
+        _fromDate = null;
+        _toDate = null;
+        _selectedType = _leaveTypes.first;
+      });
+      _loadRecentRequests();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.errorMessage ?? 'Gửi đơn thất bại.')),
+      );
     }
   }
 
@@ -144,12 +163,28 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ..._recentRequests.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildStatusCard(item),
+                    if (_isLoadingRequests)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_recentRequests.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'Chưa có đơn nghỉ phép nào.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._recentRequests.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildStatusCard(item as Map<String, dynamic>),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -157,35 +192,89 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return BottomNavigationBar(
+      currentIndex: 2,
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const EmployeeHomeScreen()),
+            );
+            break;
+          case 1:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            );
+            break;
+          case 3:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+            );
+            break;
+          case 4:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            break;
+        }
+      },
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: AppColors.primaryBlue,
+      unselectedItemColor: AppColors.textSecondary,
+      showUnselectedLabels: true,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          label: 'Trang chủ',
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.event_busy_outlined),
+          label: 'Nghỉ phép',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.bar_chart_outlined),
+          label: 'Thống kê',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Profile',
+        ),
+      ],
     );
   }
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
         color: AppColors.cardBackground,
         border: Border(bottom: BorderSide(color: AppColors.borderColor)),
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: AppColors.accentBlue),
-          ),
+          const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
+          const SizedBox(width: 8),
           const Text(
-            'Gửi Đơn Nghỉ Phép',
+            'FlexTime',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.accentBlue,
+              color: AppColors.primaryBlue,
             ),
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {
-              // TODO: navitigation to notification screen
-            },
+            onPressed: () {},
             icon: const Icon(
               Icons.notifications_none,
               color: AppColors.textPrimary,
@@ -381,7 +470,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     );
   }
 
-  Widget _buildStatusCard(LeaveRequestStatusItem item) {
+  Widget _buildStatusCard(Map<String, dynamic> item) {
+    final status = item['status'] as String;
     late final IconData icon;
     late final Color iconColor;
     late final Color iconBg;
@@ -389,8 +479,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     late final Color pillBg;
     late final Color pillFg;
 
-    switch (item.status) {
-      case LeaveRequestStatus.accepted:
+    switch (status) {
+      case 'Approved':
         icon = Icons.check_circle;
         iconColor = AppColors.successGreen;
         iconBg = AppColors.successGreenBg;
@@ -398,15 +488,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         pillBg = AppColors.successGreenBg;
         pillFg = AppColors.successGreen;
         break;
-      case LeaveRequestStatus.pending:
-        icon = Icons.access_time;
-        iconColor = AppColors.pendingBlue;
-        iconBg = AppColors.pendingBlueBg;
-        label = 'Chờ duyệt';
-        pillBg = AppColors.pendingBlueBg;
-        pillFg = AppColors.pendingBlue;
-        break;
-      case LeaveRequestStatus.rejected:
+      case 'Rejected':
         icon = Icons.cancel;
         iconColor = AppColors.dangerRed;
         iconBg = AppColors.dangerRedBg;
@@ -414,7 +496,24 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         pillBg = AppColors.dangerRedBg;
         pillFg = AppColors.dangerRed;
         break;
+      default:
+        icon = Icons.access_time;
+        iconColor = AppColors.pendingBlue;
+        iconBg = AppColors.pendingBlueBg;
+        label = 'Chờ duyệt';
+        pillBg = AppColors.pendingBlueBg;
+        pillFg = AppColors.pendingBlue;
     }
+
+    final startDate = DateTime.parse(item['startDate'] as String);
+    final endDate = DateTime.parse(item['endDate'] as String);
+    final dateLabel =
+        startDate.day == endDate.day &&
+            startDate.month == endDate.month &&
+            startDate.year == endDate.year
+        ? '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year}'
+        : '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year} - '
+              '${endDate.day.toString().padLeft(2, '0')}/${endDate.month.toString().padLeft(2, '0')}/${endDate.year}';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -437,7 +536,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.title,
+                  item['type'] ?? '',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -446,7 +545,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item.dateRangeLabel,
+                  dateLabel,
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,

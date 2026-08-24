@@ -4,6 +4,9 @@ import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import 'profile_screen.dart';
+import 'history_screen.dart';
+import 'statistics_screen.dart';
+import 'leave_request_screen.dart';
 
 enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
@@ -433,14 +436,33 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return BottomNavigationBar(
       currentIndex: _selectedNavIndex,
       onTap: (index) {
-        setState(() => _selectedNavIndex = index);
-        if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-          ).then((_) => setState(() => _selectedNavIndex = 0));
+        if (index == _selectedNavIndex) return;
+        switch (index) {
+          case 1:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            );
+            break;
+          case 2:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LeaveRequestScreen()),
+            );
+            break;
+          case 3:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+            );
+            break;
+          case 4:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            break;
         }
-        // TODO: index 1 "Lịch sử" và index 2 "Thống kê" nối màn hình tương ứng khi có.
       },
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primaryBlue,
@@ -452,6 +474,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           label: 'Trang chủ',
         ),
         BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.event_busy_outlined),
+          label: 'Nghỉ phép',
+        ),
         BottomNavigationBarItem(
           icon: Icon(Icons.bar_chart_outlined),
           label: 'Thống kê',

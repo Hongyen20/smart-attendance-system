@@ -190,6 +190,88 @@ public class EmailService
         await SendEmailAsync(message);
     }
 
+    // Send email when Admin resets an Employee's password
+    public async Task SendPasswordResetEmailAsync(
+        string toEmail,
+        string toName,
+        string companyName,
+        string username,
+        string newPassword)
+    {
+        var message = new MimeMessage();
+
+        message.From.Add(new MailboxAddress(_settings.SenderName, _settings.SenderEmail));
+        message.To.Add(new MailboxAddress(toName, toEmail));
+        message.Subject = $"Mật khẩu mới của bạn - {companyName}";
+
+        message.Body = new TextPart("html")
+        {
+            Text = $"""
+                <!DOCTYPE html>
+                <html lang="vi">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+
+                    <p>Xin chào <strong>{toName}</strong>,</p>
+
+                    <p>
+                        Quản trị viên của công ty <strong>{companyName}</strong> vừa cấp lại
+                        mật khẩu mới cho tài khoản của bạn trên hệ thống điểm danh.
+                    </p>
+
+                    <p>
+                        <strong>Thông tin đăng nhập mới:</strong>
+                    </p>
+
+                    <table style="border-collapse: collapse; margin: 10px 0;">
+                        <tr>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Tên đăng nhập:</strong></td>
+                            <td style="padding: 6px 0;"><code>{username}</code></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 15px 6px 0;"><strong>Mật khẩu mới:</strong></td>
+                            <td style="padding: 6px 0;"><code>{newPassword}</code></td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        Mật khẩu cũ của bạn không còn hiệu lực từ bây giờ. Vui lòng dùng
+                        mật khẩu mới ở trên để đăng nhập.
+                    </p>
+
+                    <p>
+                        <strong>Lưu ý:</strong>
+                        Đây vẫn là mật khẩu tạm thời.
+                        Vui lòng thay đổi mật khẩu sau khi đăng nhập
+                        và không chia sẻ thông tin tài khoản cho người khác.
+                    </p>
+
+                    <p>
+                        Nếu bạn không yêu cầu cấp lại mật khẩu, vui lòng liên hệ ngay
+                        quản trị viên công ty để được hỗ trợ.
+                    </p>
+
+                    <p>
+                        Trân trọng,<br>
+                        <strong>{_settings.SenderName}</strong>
+                    </p>
+
+                    <p style="color: #777; font-size: 13px;">
+                        Email này được gửi tự động, vui lòng không trả lời trực tiếp email này.
+                    </p>
+
+                </body>
+                </html>
+                """
+        };
+
+        await SendEmailAsync(message);
+    }
+
     private async Task SendEmailAsync(MimeMessage message)
     {
         using var client = new SmtpClient();
