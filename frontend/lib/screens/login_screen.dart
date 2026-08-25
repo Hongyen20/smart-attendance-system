@@ -5,6 +5,7 @@ import '../services/auth_state.dart';
 import 'employee_home_screen.dart';
 import 'create_company_screen.dart';
 import 'admin_home_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,22 +29,23 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-
   Future<void> _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty || password.isEmpty) {
+    if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.',
-          ),
-        ),
+        const SnackBar(content: Text('Vui lòng nhập tên đăng nhập')),
       );
       return;
     }
 
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập mật khẩu.')));
+      return;
+    }
     setState(() => _isLoading = true);
 
     final result = await ApiService.post('/api/auth/login', {
@@ -57,11 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.errorMessage ?? 'Đăng nhập thất bại.',
-          ),
-        ),
+        SnackBar(content: Text(result.errorMessage ?? 'Đăng nhập thất bại.')),
       );
       return;
     }
@@ -86,18 +84,14 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'SuperAdmin':
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const CreateCompanyScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
         );
         break;
 
       case 'Admin':
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AdminHomeScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
         );
         break;
 
@@ -105,17 +99,13 @@ class _LoginScreenState extends State<LoginScreen> {
       default:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const EmployeeHomeScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const EmployeeHomeScreen()),
         );
         break;
     }
   }
 
-  // ============================================================
   // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -125,10 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF4F7FF),
-              Color(0xFFEAF0FF),
-            ],
+            colors: [Color(0xFFF4F7FF), Color(0xFFEAF0FF)],
           ),
         ),
         child: SafeArea(
@@ -145,9 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 850,
-                    ),
+                    constraints: const BoxConstraints(maxWidth: 850),
                     child: Column(
                       children: [
                         const SizedBox(height: 20),
@@ -173,9 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ============================================================
   // BACKGROUND
-  // ============================================================
 
   Widget _buildBackgroundDecoration() {
     return IgnorePointer(
@@ -210,18 +193,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
 
           // Top-right dots
-          Positioned(
-            top: 45,
-            right: 35,
-            child: _buildDotPattern(),
-          ),
+          Positioned(top: 45, right: 35, child: _buildDotPattern()),
 
           // Bottom-left dots
-          Positioned(
-            bottom: 70,
-            left: 30,
-            child: _buildDotPattern(),
-          ),
+          Positioned(bottom: 70, left: 30, child: _buildDotPattern()),
         ],
       ),
     );
@@ -249,9 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ============================================================
   // LOGO HEADER
-  // ============================================================
 
   Widget _buildLogoHeader() {
     return Column(
@@ -263,10 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF2F6BF2),
-                Color(0xFF1E5BE0),
-              ],
+              colors: [Color(0xFF2F6BF2), Color(0xFF1E5BE0)],
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
@@ -277,11 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.wifi,
-            color: Colors.white,
-            size: 43,
-          ),
+          child: const Icon(Icons.wifi, color: Colors.white, size: 43),
         ),
 
         const SizedBox(height: 20),
@@ -311,19 +277,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ============================================================
   // LOGIN CARD
-  // ============================================================
 
   Widget _buildLoginCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        40,
-        34,
-        40,
-        34,
-      ),
+      padding: const EdgeInsets.fromLTRB(40, 34, 40, 34),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -339,10 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Username
-          _buildFieldLabel(
-            'Tên đăng nhập',
-            Icons.person_outline,
-          ),
+          _buildFieldLabel('Tên đăng nhập', Icons.person_outline),
 
           const SizedBox(height: 10),
 
@@ -358,10 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 26),
 
           // Password
-          _buildFieldLabel(
-            'Mật khẩu',
-            Icons.lock_outline,
-          ),
+          _buildFieldLabel('Mật khẩu', Icons.lock_outline),
 
           const SizedBox(height: 10),
 
@@ -405,10 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _rememberMe = value ?? false;
                     });
                   },
-                  side: const BorderSide(
-                    color: Color(0xFFB8C0D0),
-                    width: 1.5,
-                  ),
+                  side: const BorderSide(color: Color(0xFFB8C0D0), width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                   ),
@@ -420,30 +370,31 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Text(
                 'Ghi nhớ đăng nhập',
-                style: TextStyle(
-                  color: Color(0xFF30394D),
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: Color(0xFF30394D), fontSize: 15),
               ),
 
               const Spacer(),
 
               TextButton(
                 onPressed: () {
-                  // TODO: Điều hướng sang màn hình quên mật khẩu
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordScreen(),
+                    ),
+                  );
                 },
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
-                  tapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: const Text(
                   'Quên mật khẩu?',
                   style: TextStyle(
-                    color: Color(0xFF2864E8),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    color: AppColors.accentBlue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -460,8 +411,9 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _isLoading ? null : _handleLogin,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF244397),
-                disabledBackgroundColor:
-                    const Color(0xFF244397).withValues(alpha: 0.6),
+                disabledBackgroundColor: const Color(
+                  0xFF244397,
+                ).withValues(alpha: 0.6),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -488,11 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         SizedBox(width: 12),
-                        Icon(
-                          Icons.login,
-                          color: Colors.white,
-                          size: 23,
-                        ),
+                        Icon(Icons.login, color: Colors.white, size: 23),
                       ],
                     ),
             ),
@@ -502,21 +450,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ============================================================
   // FIELD LABEL
-  // ============================================================
 
-  Widget _buildFieldLabel(
-    String text,
-    IconData icon,
-  ) {
+  Widget _buildFieldLabel(String text, IconData icon) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 21,
-          color: const Color(0xFF244397),
-        ),
+        Icon(icon, size: 21, color: const Color(0xFF244397)),
 
         const SizedBox(width: 10),
 
@@ -532,10 +471,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ============================================================
   // INPUT DECORATION
-  // ============================================================
-
   InputDecoration _inputDecoration({
     required String hint,
     required IconData icon,
@@ -544,10 +480,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       hintText: hint,
 
-      hintStyle: const TextStyle(
-        color: Color(0xFF9AA3B5),
-        fontSize: 16,
-      ),
+      hintStyle: const TextStyle(color: Color(0xFF9AA3B5), fontSize: 16),
 
       prefixIcon: Container(
         margin: const EdgeInsets.all(9),
@@ -557,11 +490,7 @@ class _LoginScreenState extends State<LoginScreen> {
           color: const Color(0xFFEAF0FF),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          color: const Color(0xFF2864E8),
-          size: 23,
-        ),
+        child: Icon(icon, color: const Color(0xFF2864E8), size: 23),
       ),
 
       suffixIcon: suffixIcon,
@@ -570,49 +499,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
       fillColor: const Color(0xFFF8FAFF),
 
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 18,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
 
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(17),
-        borderSide: const BorderSide(
-          color: Color(0xFFD3DEFA),
-          width: 1.2,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD3DEFA), width: 1.2),
       ),
 
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(17),
-        borderSide: const BorderSide(
-          color: Color(0xFFD3DEFA),
-          width: 1.2,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD3DEFA), width: 1.2),
       ),
 
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(17),
-        borderSide: const BorderSide(
-          color: Color(0xFF2864E8),
-          width: 1.6,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF2864E8), width: 1.6),
       ),
     );
   }
 
-  // ============================================================
   // FOOTER
-  // ============================================================
 
   Widget _buildFooter() {
     return const Text(
       '© 2024 FlexTime. Tất cả quyền được bảo lưu.',
       textAlign: TextAlign.center,
-      style: TextStyle(
-        color: Color(0xFF68738A),
-        fontSize: 13,
-      ),
+      style: TextStyle(color: Color(0xFF68738A), fontSize: 13),
     );
   }
 }
