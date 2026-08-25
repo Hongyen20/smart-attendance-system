@@ -52,6 +52,13 @@ public class LeaveRequestController : ControllerBase
             return BadRequest(new { message = "Đến ngày phải sau hoặc bằng Từ ngày." });
         }
 
+        var hasOverlap = await _leaveRequestService.HasOverlappingRequestAsync(
+            companyId, userId, request.StartDate.Date, request.EndDate.Date);
+        if (hasOverlap)
+        {
+            return Conflict(new { message = "Bạn đã có đơn nghỉ phép trùng với khoảng ngày này. Vui lòng chọn ngày khác." });
+        }
+
         var leaveRequest = new LeaveRequest
         {
             CompanyId = companyId,
