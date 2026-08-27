@@ -20,6 +20,9 @@ public class UpdateEmployeeRequest : IValidatableObject
     [Required(ErrorMessage = "Số điện thoại không được để trống.")]
     public string Phone { get; set; } = string.Empty;
 
+    [Range(0, 365, ErrorMessage = "Số ngày phép phải từ 0 đến 365.")]
+    public int AnnualLeaveDays { get; set; } = 12;
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (!string.IsNullOrEmpty(Phone))

@@ -60,8 +60,23 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
 
     if (result.success) {
       setState(() => _pendingRequests.removeWhere((r) => r['id'] == id));
+
+      String message;
+      Color backgroundColor;
+
+      if (approve) {
+        final isPaid = result.data?['isPaid'] == true;
+        message = isPaid
+            ? 'Đã duyệt đơn - Nghỉ phép có lương'
+            : 'Đã duyệt đơn - Nhân viên này đã hết phép năm';
+        backgroundColor = isPaid ? AppColors.successGreen : AppColors.amber;
+      } else {
+        message = 'Đã từ chối đơn.';
+        backgroundColor = AppColors.dangerRed;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(approve ? 'Đã duyệt đơn.' : 'Đã từ chối đơn.')),
+        SnackBar(content: Text(message), backgroundColor: backgroundColor),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

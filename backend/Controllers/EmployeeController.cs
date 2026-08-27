@@ -28,7 +28,7 @@ public class EmployeeController : ControllerBase
         _counterService = counterService;
     }
 
-    /// Lấy companyId từ claim trong JWT - Admin luôn có companyId (không null như SuperAdmin).
+    // Lấy companyId từ claim trong JWT - Admin luôn có companyId (không null như SuperAdmin).
     private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
 
     private static EmployeeSummaryResponse ToSummary(User u) => new()
@@ -40,7 +40,8 @@ public class EmployeeController : ControllerBase
         Email = u.Email,
         Phone = u.Phone,
         Role = u.Role,
-        Status = u.Status
+        Status = u.Status,
+        AnnualLeaveDays = u.AnnualLeaveDays
     };
 
     [HttpGet]
@@ -89,10 +90,6 @@ public class EmployeeController : ControllerBase
             return NotFound(new { message = "Không tìm thấy thông tin công ty." });
         }
 
-        // Không kiểm tra trùng email toàn hệ thống - 1 người có thể từng làm ở nhiều
-        // công ty khác nhau (đổi việc) với cùng 1 email cá nhân. Email chỉ dùng để
-        // gửi thông tin đăng nhập, không dùng để định danh duy nhất.
-
         var sequence = await _counterService.GetNextSequenceAsync($"employee_seq:{companyId}");
         var username = UserService.GenerateUsername(company.CompanyCode, sequence.ToString());
 
@@ -108,7 +105,8 @@ public class EmployeeController : ControllerBase
             Phone = request.Phone,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword),
             Role = "Employee",
-            Status = "Active"
+            Status = "Active",
+            AnnualLeaveDays = request.AnnualLeaveDays ?? 12
         };
         await _userService.CreateAsync(employee);
 
@@ -137,8 +135,8 @@ public class EmployeeController : ControllerBase
         });
     }
 
-    /// Admin sửa thông tin nhân viên - bao gồm cả họ tên và username (khác với
-    /// nhân viên tự sửa profile của mình, nơi 2 trường này bị khóa cứng).
+    // Admin sửa thông tin nhân viên - bao gồm cả họ tên và username (khác với
+    // nhân viên tự sửa profile của mình, nơi 2 trường này bị khóa cứng).
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateEmployeeRequest request)
     {
@@ -169,14 +167,15 @@ public class EmployeeController : ControllerBase
         employee.Username = request.Username;
         employee.Email = request.Email;
         employee.Phone = request.Phone;
+        employee.AnnualLeaveDays = request.AnnualLeaveDays;
 
         await _userService.UpdateAsync(employee);
 
         return Ok(ToSummary(employee));
     }
 
-    /// Cấp lại mật khẩu mới cho nhân viên - sinh ngẫu nhiên, gửi qua email,
-    /// KHÔNG trả về trong response (đúng nguyên tắc bảo mật đã áp dụng từ lúc tạo tài khoản).
+    // Cấp lại mật khẩu mới cho nhân viên - sinh ngẫu nhiên, gửi qua email,
+    // KHÔNG trả về trong response (đúng nguyên tắc bảo mật đã áp dụng từ lúc tạo tài khoản).
     [HttpPost("{id}/reset-password")]
     public async Task<IActionResult> ResetPassword(string id)
     {

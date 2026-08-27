@@ -15,15 +15,18 @@ public class AttendanceController : ControllerBase
     private readonly AttendanceRecordService _attendanceService;
     private readonly IpConfigService _ipConfigService;
     private readonly AuditLogService _auditLogService;
+    private readonly LeaveRequestService _leaveRequestService;
 
     public AttendanceController(
         AttendanceRecordService attendanceService,
         IpConfigService ipConfigService,
-        AuditLogService auditLogService)
+        AuditLogService auditLogService,
+        LeaveRequestService leaveRequestService)
     {
         _attendanceService = attendanceService;
         _ipConfigService = ipConfigService;
         _auditLogService = auditLogService;
+        _leaveRequestService = leaveRequestService;
     }
 
     private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
@@ -67,6 +70,7 @@ public class AttendanceController : ControllerBase
         var toDate = fromDate.AddMonths(1).AddDays(-1);
 
         var records = await _attendanceService.GetHistoryByUserAsync(companyId, userId, fromDate, toDate);
+        var attendanceDates = records.Select(r => r.WorkDate).ToHashSet();
 
         var items = records.Select(r => new AttendanceHistoryItemResponse
         {
@@ -77,9 +81,39 @@ public class AttendanceController : ControllerBase
             WorkingHours = r.WorkingHours
         }).ToList();
 
-        var totalHours = Math.Round(items.Sum(i => i.WorkingHours), 2);
-        var daysWorked = items.Count(i => i.CheckInTime is not null);
+        // Gộp thêm các ngày nghỉ phép ĐÃ DUYỆT (không có bản ghi check-in thật) vào lịch sử -
+        // ngày nào đã có check-in thật thì ưu tiên dữ liệu thật, bỏ qua ngày nghỉ phép trùng.
+        var approvedLeaves = await _leaveRequestService.GetApprovedInRangeAsync(companyId, userId, fromDate, toDate);
+        foreach (var leave in approvedLeaves)
+        {
+            var rangeStart = leave.StartDate > fromDate ? leave.StartDate : fromDate;
+            var rangeEnd = leave.EndDate < toDate ? leave.EndDate : toDate;
 
+            for (var d = rangeStart; d <= rangeEnd; d = d.AddDays(1))
+            {
+                if (attendanceDates.Contains(d))
+                {
+                    continue;
+                }
+
+                items.Add(new AttendanceHistoryItemResponse
+                {
+                    WorkDate = d,
+                    Status = leave.IsPaid == true ? "PaidLeave" : "UnpaidLeave",
+                    LeaveType = leave.Type
+                });
+            }
+        }
+
+        items = items.OrderByDescending(i => i.WorkDate).ToList();
+
+        var totalHours = Math.Round(items.Sum(i => i.WorkingHours), 2);
+
+        // Ngày nghỉ phép CÓ LƯƠNG vẫn tính là ngày công hợp lệ - theo đúng quy định đã thống nhất.
+        var daysWorked = items.Count(i => i.CheckInTime is not null || i.Status == "PaidLeave");
+
+        // Đếm số ngày làm việc (Thứ 2 - Thứ 6) từ đầu tháng tới hôm nay (nếu là tháng hiện
+        // tại) hoặc hết tháng (nếu là tháng đã qua) - dùng làm mẫu số "X/Y ngày công".
         var today = DateTime.UtcNow.Date;
         var countUntil = (year == today.Year && month == today.Month) ? today : toDate;
         var totalWorkdays = 0;

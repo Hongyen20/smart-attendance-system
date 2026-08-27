@@ -30,5 +30,12 @@ public class LeaveRequest
     public string? ApprovedBy { get; set; }
 
     public DateTime? ApprovedAt { get; set; }
+
+    // Chỉ có giá trị sau khi Status = Approved - quyết định lúc duyệt, không tính lại sau đó.
+    // true = còn đủ ngày phép, tính công bình thường + đã trừ hạn mức.
+    // false = hết ngày phép, xử lý nghỉ không lương, không tính công.
+    // null = chưa được duyệt (Pending/Rejected).
+    public bool? IsPaid { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

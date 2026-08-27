@@ -33,7 +33,6 @@ public class LeaveRequestService
         return await _requests.Find(r => r.Id == id && r.CompanyId == companyId).FirstOrDefaultAsync();
     }
 
-    /// Dùng trong logic tính công: tìm đơn nghỉ phép đã Approved của user bao trùm 1 ngày cụ thể.
     public async Task<LeaveRequest?> GetApprovedForDateAsync(string companyId, string userId, DateTime date)
     {
         var day = date.Date;
@@ -46,9 +45,7 @@ public class LeaveRequestService
             .FirstOrDefaultAsync();
     }
 
-    /// Kiểm tra user đã có đơn nghỉ phép nào (Pending hoặc Approved) trùng khoảng ngày này chưa.
-    /// Không tính đơn đã Rejected - đơn bị từ chối không nên chặn việc gửi đơn mới cho cùng ngày đó.
-    /// 2 khoảng ngày [start1,end1] và [start2,end2] trùng nhau khi: start1 <= end2 && start2 <= end1.
+    // Kiểm tra user đã có đơn nghỉ phép nào (Pending hoặc Approved) trùng khoảng ngày này chưa
     public async Task<bool> HasOverlappingRequestAsync(
         string companyId, string userId, DateTime startDate, DateTime endDate)
     {
@@ -59,6 +56,46 @@ public class LeaveRequestService
                     && r.StartDate <= endDate
                     && r.EndDate >= startDate)
             .AnyAsync();
+    }
+
+    // Tổng số ngày phép CÓ LƯƠNG đã dùng (đơn Approved + IsPaid=true) - dùng để tính
+    // số ngày phép còn lại: AnnualLeaveDays
+    public async Task<int> GetUsedPaidLeaveDaysAsync(string companyId, string userId)
+    {
+        var requests = await _requests
+            .Find(r => r.CompanyId == companyId
+                    && r.UserId == userId
+                    && r.Status == "Approved"
+                    && r.IsPaid == true)
+            .ToListAsync();
+
+        return requests.Sum(r => (r.EndDate - r.StartDate).Days + 1);
+    }
+
+    // Duyệt đơn kèm quyết định có lương hay không (đã tính toán ở Controller dựa vào số ngày phép còn lại).
+    public async Task ApproveAsync(string companyId, string id, string approvedBy, bool isPaid)
+    {
+        var update = Builders<LeaveRequest>.Update
+            .Set(r => r.Status, "Approved")
+            .Set(r => r.ApprovedBy, approvedBy)
+            .Set(r => r.ApprovedAt, DateTime.UtcNow)
+            .Set(r => r.IsPaid, isPaid);
+
+        await _requests.UpdateOneAsync(r => r.Id == id && r.CompanyId == companyId, update);
+    }
+
+    // Lấy các đơn đã Approved của 1 user, giao với khoảng ngày [fromDate, toDate] -
+    // dùng để gộp vào lịch sử chấm công (những ngày nghỉ phép không có bản ghi check-in thật).
+    public async Task<List<LeaveRequest>> GetApprovedInRangeAsync(
+        string companyId, string userId, DateTime fromDate, DateTime toDate)
+    {
+        return await _requests
+            .Find(r => r.CompanyId == companyId
+                    && r.UserId == userId
+                    && r.Status == "Approved"
+                    && r.StartDate <= toDate
+                    && r.EndDate >= fromDate)
+            .ToListAsync();
     }
 
     public async Task CreateAsync(LeaveRequest request)

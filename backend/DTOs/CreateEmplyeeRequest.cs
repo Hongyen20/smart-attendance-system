@@ -4,6 +4,8 @@ namespace AttendanceApi.DTOs;
 
 public class CreateEmployeeRequest : IValidatableObject
 {
+    [Required(ErrorMessage = "Mã nhân viên không được để trống.")]
+    [RegularExpression(@"^[a-zA-Z0-9]+$", ErrorMessage = "Mã nhân viên chỉ được chứa chữ và số.")]
     public string EmployeeCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Họ tên không được để trống.")]
@@ -15,6 +17,10 @@ public class CreateEmployeeRequest : IValidatableObject
 
     [Required(ErrorMessage = "Số điện thoại không được để trống.")]
     public string Phone { get; set; } = string.Empty;
+
+    // Số ngày phép/năm - không bắt buộc, để trống thì lấy mặc định 12.
+    [Range(0, 365, ErrorMessage = "Số ngày phép phải từ 0 đến 365.")]
+    public int? AnnualLeaveDays { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
