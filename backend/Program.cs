@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
+using AttendanceApi.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -116,7 +117,8 @@ app.UseStaticFiles(); // phục vụ file trong wwwroot/ - dùng cho avatar uplo
 
 app.UseCors("AllowFlutterApp");
 
-app.UseAuthentication(); // PHẢI đứng trước UseAuthorization
+app.UseAuthentication(); 
+app.UseMiddleware<CompanyStatusMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -180,3 +182,4 @@ internal sealed class JwtBearerSecurityDocumentTransformer(IAuthenticationScheme
         });
     }
 }
+

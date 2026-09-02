@@ -6,6 +6,7 @@ import 'employee_home_screen.dart';
 import 'create_company_screen.dart';
 import 'admin_home_screen.dart';
 import 'forgot_password_screen.dart';
+import 'super_admin_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -84,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'SuperAdmin':
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const CreateCompanyScreen()),
+          MaterialPageRoute(builder: (_) => const SuperAdminHomeScreen()),
         );
         break;
 

@@ -11,12 +11,16 @@ public class AuthController : ControllerBase
     private readonly UserService _userService;
     private readonly TokenService _tokenService;
     private readonly AuditLogService _auditLogService;
+    private readonly CompanyService _companyService;
 
-    public AuthController(UserService userService, TokenService tokenService, AuditLogService auditLogService)
+    public AuthController(
+        UserService userService, TokenService tokenService,
+        AuditLogService auditLogService, CompanyService companyService)
     {
         _userService = userService;
         _tokenService = tokenService;
         _auditLogService = auditLogService;
+        _companyService = companyService;
     }
 
     [HttpPost("login")]
@@ -24,16 +28,29 @@ public class AuthController : ControllerBase
     {
         var user = await _userService.GetByUsernameAsync(request.Username);
 
-        // Cố ý trả về message giống hệt nhau dù sai username hay sai password,
-        // tránh lộ thông tin "username này có tồn tại hay không" cho kẻ dò quét.
-        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user is null )
         {
-            return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng." });
+            return Unauthorized(new { message = "Tên đăng nhập không đúng" });
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            return Unauthorized(new { message = "Sai mật khẩu" });
         }
 
         if (user.Status != "Active")
         {
             return Unauthorized(new { message = "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên." });
+        }
+
+        // SuperAdmin không thuộc công ty nào (CompanyId null) nên bỏ qua bước kiểm tra này.
+        if (!string.IsNullOrEmpty(user.CompanyId))
+        {
+            var company = await _companyService.GetByIdAsync(user.CompanyId);
+            if (company is null || company.Status != "Active")
+            {
+                return Unauthorized(new { message = "Công ty của bạn đã bị tạm khóa. Vui lòng liên hệ nhà cung cấp dịch vụ." });
+            }
         }
 
         var token = _tokenService.GenerateAccessToken(user);

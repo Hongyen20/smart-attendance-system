@@ -24,7 +24,7 @@ public class User
     public string Phone { get; set; } = string.Empty;
     public string AvatarUrl { get; set; } = string.Empty;
 
-    /// Số ngày phép được cấp/năm - Admin đặt khi tạo/sửa nhân viên. Mặc định 12.
+    // Số ngày phép được cấp/năm - Admin đặt khi tạo/sửa nhân viên. Mặc định 12.
     public int AnnualLeaveDays { get; set; } = 12;
     public string Status { get; set; } = "Active"; // Active | Inactive
 
