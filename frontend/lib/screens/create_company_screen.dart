@@ -13,17 +13,26 @@ class CreateCompanyScreen extends StatefulWidget {
 
 class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
   final _companyNameController = TextEditingController();
-
   final _companyCodeController = TextEditingController();
-
   final _addressController = TextEditingController();
-
   final _contactEmailController = TextEditingController();
-
   final _contactPhoneController = TextEditingController();
 
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  // FLEXTIME COLORS
+  static const Color primary = Color(0xFF2864E8);
+  static const Color primaryDark = Color(0xFF294477);
+
+  static const Color background = Color(0xFFF1F5FF);
+  static const Color card = Colors.white;
+
+  static const Color textPrimary = Color(0xFF182A52);
+  static const Color textSecondary = Color(0xFF687895);
+
+  static const Color border = Color(0xFFDCE5F8);
+  static const Color softBlue = Color(0xFFEAF1FF);
 
   @override
   void dispose() {
@@ -36,17 +45,17 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
     super.dispose();
   }
 
+  // =========================================================
+  // SUBMIT
+  // =========================================================
+
   Future<void> _handleSubmit() async {
     FocusScope.of(context).unfocus();
 
     final companyName = _companyNameController.text.trim();
-
     final companyCode = _companyCodeController.text.trim();
-
     final address = _addressController.text.trim();
-
     final email = _contactEmailController.text.trim();
-
     final phone = _contactPhoneController.text.trim();
 
     if (companyName.isEmpty) {
@@ -103,12 +112,14 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
 
       setState(() {
         _isSubmitting = false;
-        _errorMessage =
-            'Không thể kết nối đến hệ thống. '
-            'Vui lòng thử lại.';
+        _errorMessage = 'Không thể kết nối đến hệ thống. Vui lòng thử lại.';
       });
     }
   }
+
+  // =========================================================
+  // SUCCESS DIALOG
+  // =========================================================
 
   Future<void> _showSuccessDialog(dynamic data) async {
     final companyName = data is Map
@@ -125,11 +136,11 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
           ),
 
           icon: const Icon(
-            Icons.check_circle,
+            Icons.check_circle_rounded,
             color: AppColors.successGreen,
             size: 52,
           ),
@@ -156,17 +167,14 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.background,
+                    color: background,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
                       const Text(
                         'Tài khoản Admin',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
 
                       const SizedBox(height: 5),
@@ -175,7 +183,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                         adminUsername,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primaryBlue,
+                          color: primary,
                         ),
                       ),
                     ],
@@ -189,7 +197,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -204,13 +212,18 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
+                  backgroundColor: primary,
                   foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
-                child: const Text('Hoàn tất'),
+                child: const Text(
+                  'Hoàn tất',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
@@ -219,96 +232,79 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
     );
   }
 
+  // =========================================================
+  // BUILD
+  // =========================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-
-      appBar: AppBar(
-        backgroundColor: AppColors.cardBackground,
-        foregroundColor: AppColors.primaryBlue,
-        elevation: 0,
-
-        leading: IconButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, size: 27),
-        ),
-
-        title: const Text(
-          'Tạo công ty mới',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-        ),
-      ),
+      backgroundColor: background,
 
       body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
+          children: [
+            _buildHeader(),
 
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
 
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
 
-            children: [
-              _buildIntro(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFormCard(),
 
-              const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-              _buildCompanyForm(),
+                    if (_errorMessage != null) _buildErrorBox(),
 
-              const SizedBox(height: 16),
+                    if (_errorMessage != null) const SizedBox(height: 16),
 
-              if (_errorMessage != null) _buildErrorBox(),
-
-              const SizedBox(height: 8),
-
-              _buildSubmitButton(),
-            ],
-          ),
+                    _buildSubmitButton(),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildIntro() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+  // =========================================================
+  // HEADER
+  // =========================================================
 
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderColor),
-      ),
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 20, 12),
 
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
+          IconButton(
+            onPressed: _isSubmitting ? null : () => Navigator.pop(context),
 
-            decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(0.10),
-              shape: BoxShape.circle,
-            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 30),
 
-            child: const Icon(
-              Icons.business_outlined,
-              color: AppColors.primaryBlue,
-            ),
+            color: primary,
+
+            splashRadius: 24,
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 6),
 
           const Expanded(
             child: Text(
-              'Nhập thông tin công ty. '
-              'Hệ thống sẽ tự động tạo tài khoản Admin '
-              'và gửi thông tin đăng nhập qua email.',
+              'Tạo công ty mới',
               style: TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textSecondary,
-                height: 1.4,
+                fontSize: 27,
+                fontWeight: FontWeight.w600,
+                color: primaryDark,
+                letterSpacing: -0.6,
               ),
             ),
           ),
@@ -317,80 +313,88 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
     );
   }
 
-  Widget _buildCompanyForm() {
+  // =========================================================
+  // FORM CARD
+  // =========================================================
+
+  Widget _buildFormCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
 
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderColor),
+        color: card,
+
+        borderRadius: BorderRadius.circular(22),
+
+        border: Border.all(color: border, width: 1),
+
+        boxShadow: [
+          BoxShadow(
+            color: primary.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Text(
-            'Thông tin công ty',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
           _buildTextField(
             controller: _companyNameController,
             label: 'Tên công ty',
-            hint: 'FlexTime Corporation',
-            icon: Icons.business_outlined,
+            hint: 'Nhập tên công ty',
+            icon: Icons.business_rounded,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
 
           _buildTextField(
             controller: _companyCodeController,
             label: 'Mã công ty',
-            hint: 'flextime',
-            icon: Icons.tag_outlined,
+            hint: 'Nhập mã công ty',
+            icon: Icons.tag_rounded,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
 
           _buildTextField(
             controller: _addressController,
             label: 'Địa chỉ',
-            hint: 'Địa chỉ công ty',
-            icon: Icons.location_on_outlined,
+            hint: 'Nhập địa chỉ công ty',
+            icon: Icons.location_on_rounded,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
 
           _buildTextField(
             controller: _contactEmailController,
             label: 'Email liên hệ',
-            hint: 'hr@congty.com',
-            icon: Icons.email_outlined,
+            hint: 'Nhập email liên hệ',
+            icon: Icons.email_rounded,
             keyboardType: TextInputType.emailAddress,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
 
           _buildTextField(
             controller: _contactPhoneController,
             label: 'Số điện thoại liên hệ',
-            hint: '0123456789',
-            icon: Icons.phone_outlined,
+            hint: 'Nhập số điện thoại',
+            icon: Icons.phone_rounded,
             keyboardType: TextInputType.phone,
           ),
         ],
       ),
     );
   }
+
+  // =========================================================
+  // TEXT FIELD
+  // =========================================================
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -405,50 +409,76 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
       children: [
         Text(
           label,
+
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
           ),
         ),
 
-        const SizedBox(height: 7),
+        const SizedBox(height: 9),
 
         TextField(
           controller: controller,
           keyboardType: keyboardType,
 
+          style: const TextStyle(
+            fontSize: 16,
+            color: textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+
           decoration: InputDecoration(
             hintText: hint,
 
-            hintStyle: const TextStyle(color: Color(0xFFB0B3BD), fontSize: 14),
+            hintStyle: const TextStyle(
+              color: Color(0xFF9BA6BC),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
 
-            prefixIcon: Icon(icon, color: AppColors.primaryBlue, size: 21),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Container(
+                width: 42,
+                height: 42,
+
+                decoration: BoxDecoration(
+                  color: softBlue,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+
+                child: Icon(icon, color: primary, size: 23),
+              ),
+            ),
+
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 64,
+              minHeight: 64,
+            ),
 
             filled: true,
-            fillColor: AppColors.cardBackground,
+            fillColor: Colors.white,
 
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 14,
+              vertical: 17,
             ),
 
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderRadius: BorderRadius.circular(17),
+              borderSide: const BorderSide(color: border, width: 1.2),
             ),
 
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: AppColors.borderColor),
+              borderRadius: BorderRadius.circular(17),
+              borderSide: const BorderSide(color: border, width: 1.2),
             ),
 
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: AppColors.accentBlue,
-                width: 1.5,
-              ),
+              borderRadius: BorderRadius.circular(17),
+              borderSide: const BorderSide(color: primary, width: 1.7),
             ),
           ),
         ),
@@ -456,27 +486,37 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
     );
   }
 
+  // =========================================================
+  // ERROR
+  // =========================================================
+
   Widget _buildErrorBox() {
     return Container(
       width: double.infinity,
+
       padding: const EdgeInsets.all(14),
 
       decoration: BoxDecoration(
         color: AppColors.dangerRedBg,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
       ),
 
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(Icons.error_outline, color: AppColors.dangerRed, size: 21),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.dangerRed,
+            size: 21,
+          ),
 
           const SizedBox(width: 10),
 
           Expanded(
             child: Text(
               _errorMessage!,
+
               style: const TextStyle(
                 color: AppColors.dangerRed,
                 fontSize: 13,
@@ -489,48 +529,55 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
     );
   }
 
+  // =========================================================
+  // SUBMIT BUTTON
+  // =========================================================
+
   Widget _buildSubmitButton() {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: 58,
 
       child: ElevatedButton(
         onPressed: _isSubmitting ? null : _handleSubmit,
 
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryBlue,
+          backgroundColor: primary,
 
-          disabledBackgroundColor: AppColors.primaryBlue.withOpacity(0.6),
+          disabledBackgroundColor: primary.withOpacity(0.6),
 
           foregroundColor: Colors.white,
 
           elevation: 0,
 
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(17),
           ),
+
+          shadowColor: primary.withOpacity(0.25),
         ),
 
         child: _isSubmitting
             ? const SizedBox(
-                width: 22,
-                height: 22,
+                width: 23,
+                height: 23,
+
                 child: CircularProgressIndicator(
                   color: Colors.white,
-                  strokeWidth: 2.3,
+                  strokeWidth: 2.4,
                 ),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
 
                 children: [
-                  Icon(Icons.add_business_outlined, size: 21),
+                  Icon(Icons.add_business_rounded, size: 23),
 
-                  SizedBox(width: 9),
+                  SizedBox(width: 10),
 
                   Text(
                     'Tạo công ty',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),

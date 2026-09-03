@@ -17,6 +17,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
 
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _isChangingStatus = false;
 
   late TextEditingController _nameController;
   late TextEditingController _codeController;
@@ -145,65 +146,223 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     });
   }
 
-  void _showMessage(String message, {bool success = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: success ? AppColors.successGreen : AppColors.dangerRed,
-      ),
+  // CHANGE COMPANY STATUS (lock / unlock)
+  Future<void> _changeCompanyStatus() async {
+    final currentStatus = _company['status']?.toString() ?? 'Active';
+
+    final isActive = currentStatus == 'Active';
+
+    final newStatus = isActive ? 'Suspended' : 'Active';
+
+    final companyName = _company['name']?.toString() ?? 'công ty này';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            isActive ? 'Tạm khóa công ty?' : 'Mở khóa công ty?',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            isActive
+                ? 'Công ty "$companyName" sẽ không thể đăng nhập '
+                      'vào hệ thống cho đến khi được mở khóa.'
+                : 'Bạn có chắc muốn mở khóa công ty '
+                      '"$companyName" không?',
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text(
+                'Hủy',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isActive
+                    ? AppColors.dangerRed
+                    : AppColors.successGreen,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11),
+                ),
+              ),
+              child: Text(isActive ? 'Tạm khóa' : 'Mở khóa'),
+            ),
+          ],
+        );
+      },
     );
+
+    if (confirmed != true) return;
+
+    final companyId = _company['id']?.toString();
+
+    if (companyId == null || companyId.isEmpty) {
+      _showMessage('Không tìm thấy ID công ty.');
+      return;
+    }
+
+    setState(() {
+      _isChangingStatus = true;
+    });
+
+    final result = await ApiService.put('/api/companies/$companyId/status', {
+      'status': newStatus,
+    }, bearerToken: AuthState.instance.token);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isChangingStatus = false;
+    });
+
+    if (result.success) {
+      setState(() {
+        _company['status'] = newStatus;
+      });
+
+      _showMessage(
+        isActive ? 'Đã tạm khóa công ty.' : 'Đã mở khóa công ty.',
+        success: true,
+      );
+    } else {
+      _showMessage(
+        result.errorMessage ?? 'Không thể thay đổi trạng thái công ty.',
+      );
+    }
+  }
+
+  void _showMessage(String message, {bool success = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: success
+              ? AppColors.successGreen
+              : AppColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+  }
+
+  // Format an ISO-ish date string as dd/MM/yyyy, falling back to '-'
+  String _formatDate(dynamic rawValue) {
+    if (rawValue == null) return '-';
+
+    final text = rawValue.toString();
+
+    if (text.isEmpty) return '-';
+
+    final parsed = DateTime.tryParse(text);
+
+    if (parsed == null) return text;
+
+    final day = parsed.day.toString().padLeft(2, '0');
+    final month = parsed.month.toString().padLeft(2, '0');
+    final year = parsed.year.toString();
+
+    return '$day/$month/$year';
   }
 
   @override
   Widget build(BuildContext context) {
-    final status = _company['status']?.toString() ?? 'Unknown';
-
     return Scaffold(
       backgroundColor: AppColors.background,
 
       appBar: AppBar(
-        backgroundColor: AppColors.cardBackground,
-        foregroundColor: AppColors.primaryBlue,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        automaticallyImplyLeading: false,
 
-        title: const Text(
-          'Thông tin công ty',
-          style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
-        ),
+        titleSpacing: 20,
 
-        actions: [
-          if (!_isEditing)
-            IconButton(
-              tooltip: 'Chỉnh sửa',
-              onPressed: () {
-                setState(() {
-                  _isEditing = true;
-                });
-              },
-              icon: const Icon(Icons.edit_outlined),
+        title: Row(
+          children: [
+            _buildRoundIconButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onTap: () => Navigator.pop(context),
             ),
-        ],
+
+            const SizedBox(width: 14),
+
+            const Expanded(
+              child: Text(
+                'Thông tin công ty',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+
+            if (!_isEditing)
+              _buildRoundIconButton(
+                icon: Icons.edit_outlined,
+                onTap: () {
+                  setState(() {
+                    _isEditing = true;
+                  });
+                },
+              ),
+          ],
+        ),
       ),
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCompanyHeader(status),
+              _buildCompanyHeader(),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
 
               _buildInformationCard(),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              _buildContactCard(),
+              if (!_isEditing) _buildOtherInfoCard(),
 
-              const SizedBox(height: 20),
+              if (!_isEditing) const SizedBox(height: 18),
 
               if (_isEditing) _buildEditActions(),
+
+              if (!_isEditing) _buildStatusButton(),
             ],
           ),
         ),
@@ -211,34 +370,64 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     );
   }
 
-  Widget _buildCompanyHeader(String status) {
+  Widget _buildRoundIconButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+  }) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.textPrimary.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon, size: 17, color: AppColors.primaryBlue),
+        splashRadius: 18,
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildCompanyHeader() {
+    final status = _company['status']?.toString() ?? 'Unknown';
+
     final isActive = status == 'Active';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: AppColors.primaryBlue.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
               Icons.business_rounded,
-              size: 30,
+              size: 24,
               color: AppColors.primaryBlue,
             ),
           ),
 
-          const SizedBox(width: 14),
+          const SizedBox(width: 13),
 
           Expanded(
             child: Column(
@@ -246,24 +435,26 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
               children: [
                 Text(
                   _company['name']?.toString() ?? 'Chưa có tên',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
 
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
 
                 Text(
                   'Mã: ${_company['companyCode'] ?? '-'}',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
 
-                const SizedBox(height: 9),
+                const SizedBox(height: 8),
 
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -273,18 +464,36 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                   decoration: BoxDecoration(
                     color: isActive
                         ? AppColors.successGreenBg
-                        : AppColors.amberBg,
+                        : AppColors.dangerRedBg,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    isActive ? 'Đang hoạt động' : 'Tạm ngưng',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: isActive
-                          ? AppColors.successGreen
-                          : AppColors.amber,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isActive
+                              ? AppColors.successGreen
+                              : AppColors.dangerRed,
+                        ),
+                      ),
+
+                      const SizedBox(width: 5),
+
+                      Text(
+                        isActive ? 'Đang hoạt động' : 'Tạm khóa',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: isActive
+                              ? AppColors.successGreen
+                              : AppColors.dangerRed,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -307,7 +516,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           enabled: _isEditing,
         ),
 
-        const SizedBox(height: 15),
+        const SizedBox(height: 14),
 
         _buildField(
           controller: _codeController,
@@ -316,7 +525,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           enabled: _isEditing,
         ),
 
-        const SizedBox(height: 15),
+        const SizedBox(height: 14),
 
         _buildField(
           controller: _addressController,
@@ -325,24 +534,18 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           enabled: _isEditing,
           maxLines: 2,
         ),
-      ],
-    );
-  }
 
-  Widget _buildContactCard() {
-    return _buildSectionCard(
-      title: 'Thông tin liên hệ',
-      icon: Icons.contact_phone_outlined,
-      children: [
+        const SizedBox(height: 14),
+
         _buildField(
           controller: _emailController,
-          label: 'Email công ty',
+          label: 'Email liên hệ',
           icon: Icons.email_outlined,
           enabled: _isEditing,
           keyboardType: TextInputType.emailAddress,
         ),
 
-        const SizedBox(height: 15),
+        const SizedBox(height: 14),
 
         _buildField(
           controller: _phoneController,
@@ -352,6 +555,80 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           keyboardType: TextInputType.phone,
         ),
       ],
+    );
+  }
+
+  Widget _buildOtherInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12, bottom: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: AppColors.primaryBlue,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Thông tin khác',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          _buildMetaRow('Ngày tạo', _formatDate(_company['createdAt'])),
+
+          _buildMetaRow(
+            'Cập nhật gần nhất',
+            _formatDate(_company['updatedAt']),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaRow(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE5ECFA))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -373,22 +650,22 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.primaryBlue),
+              Icon(icon, size: 18, color: AppColors.primaryBlue),
 
               const SizedBox(width: 8),
 
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           ...children,
         ],
@@ -410,13 +687,13 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 11.5,
             fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
           ),
         ),
 
-        const SizedBox(height: 7),
+        const SizedBox(height: 6),
 
         TextField(
           controller: controller,
@@ -424,10 +701,15 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           maxLines: maxLines,
           keyboardType: keyboardType,
 
+          style: TextStyle(
+            fontSize: 13.5,
+            color: enabled ? AppColors.textPrimary : AppColors.textPrimary,
+          ),
+
           decoration: InputDecoration(
             prefixIcon: Icon(
               icon,
-              size: 21,
+              size: 19,
               color: enabled ? AppColors.primaryBlue : AppColors.textSecondary,
             ),
 
@@ -437,27 +719,27 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                 : AppColors.background,
 
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
+              horizontal: 12,
+              vertical: 12,
             ),
 
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(11),
               borderSide: const BorderSide(color: AppColors.borderColor),
             ),
 
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(11),
               borderSide: const BorderSide(color: AppColors.borderColor),
             ),
 
             disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(11),
               borderSide: const BorderSide(color: AppColors.borderColor),
             ),
 
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(11),
               borderSide: const BorderSide(
                 color: AppColors.accentBlue,
                 width: 1.5,
@@ -476,9 +758,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
           child: OutlinedButton(
             onPressed: _isSaving ? null : _cancelEdit,
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 52),
+              minimumSize: const Size(double.infinity, 50),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(13),
               ),
               side: const BorderSide(color: AppColors.borderColor),
             ),
@@ -500,27 +782,73 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
             onPressed: _isSaving ? null : _saveChanges,
             icon: _isSaving
                 ? const SizedBox(
-                    width: 19,
-                    height: 19,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       color: Colors.white,
                       strokeWidth: 2,
                     ),
                   )
-                : const Icon(Icons.save_outlined, size: 20),
+                : const Icon(Icons.save_outlined, size: 19),
             label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 52),
+              minimumSize: const Size(double.infinity, 50),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(13),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  // LOCK / UNLOCK BUTTON
+  Widget _buildStatusButton() {
+    final status = _company['status']?.toString() ?? 'Active';
+
+    final isActive = status == 'Active';
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _isChangingStatus ? null : _changeCompanyStatus,
+        icon: _isChangingStatus
+            ? SizedBox(
+                width: 17,
+                height: 17,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: isActive
+                      ? AppColors.dangerRed
+                      : AppColors.successGreen,
+                ),
+              )
+            : Icon(
+                isActive ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
+                size: 18,
+              ),
+        label: Text(
+          isActive ? 'Tạm khóa công ty' : 'Mở khóa công ty',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isActive
+              ? AppColors.dangerRedBg
+              : AppColors.successGreenBg,
+          foregroundColor: isActive
+              ? AppColors.dangerRed
+              : AppColors.successGreen,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+        ),
+      ),
     );
   }
 }
