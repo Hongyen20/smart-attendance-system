@@ -3,6 +3,7 @@ using AttendanceApi.Services;
 using AttendanceApi.Settings;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -11,7 +12,6 @@ using AttendanceApi.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Đảm bảo wwwroot/ tồn tại - cần cho UseStaticFiles() phục vụ avatar upload sau này.
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
 
 // 1. Đọc cấu hình từ appsettings.json 
@@ -71,9 +71,15 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
-        // Khi lên production, thay AllowAnyOrigin() bằng
-        // .WithOrigins("https://your-domain.com") để an toàn hơn.
     });
+});
+
+// 4.1 Forwarded Headers — để đọc đúng IP thật của client khi backend chạy
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Clear();
+    options.KnownNetworks.Clear();
 });
 
 // 4.5 Đăng ký các Service (tầng truy cập MongoDB) 
@@ -86,8 +92,6 @@ builder.Services.AddSingleton<AttendanceRecordService>();
 builder.Services.AddSingleton<IpConfigService>();
 builder.Services.AddSingleton<LeaveRequestService>();
 builder.Services.AddSingleton<AuditLogService>();
-builder.Services.AddSingleton<ShiftService>();
-builder.Services.AddSingleton<ShiftAssignmentService>();
 builder.Services.AddSingleton<CompanyHolidayService>();
 builder.Services.AddSingleton<ShiftChangeRequestService>();
 builder.Services.AddSingleton<BusinessTripRequestService>();
@@ -112,12 +116,14 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseForwardedHeaders();
+
 app.UseHttpsRedirection();
-app.UseStaticFiles(); // phục vụ file trong wwwroot/ - dùng cho avatar upload
+app.UseStaticFiles();
 
 app.UseCors("AllowFlutterApp");
 
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseMiddleware<CompanyStatusMiddleware>();
 app.UseAuthorization();
 
@@ -182,4 +188,3 @@ internal sealed class JwtBearerSecurityDocumentTransformer(IAuthenticationScheme
         });
     }
 }
-

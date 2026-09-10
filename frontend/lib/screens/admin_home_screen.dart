@@ -7,6 +7,7 @@ import 'employee_list_screen.dart';
 import 'ip_config_screen.dart';
 import 'change_password_screen.dart';
 import 'leave_approval_screen.dart';
+import 'shift_change_approval_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -94,6 +95,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const IpConfigScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _buildQuickActionButton(
+                        icon: Icons.schedule_outlined,
+                        label: 'Duyệt yêu cầu đổi ca',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ShiftChangeApprovalScreen(),
                             ),
                           );
                         },

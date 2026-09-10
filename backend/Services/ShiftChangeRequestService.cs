@@ -20,12 +20,12 @@ public class ShiftChangeRequestService
             .ToListAsync();
     }
 
-    // List request — Admin use queue to display list request.
+    // Danh sách đơn chờ duyệt - Admin dùng để hiển thị hàng đợi cần xử lý.
     public async Task<List<ShiftChangeRequest>> GetPendingByCompanyAsync(string companyId)
     {
         return await _requests
             .Find(r => r.CompanyId == companyId && r.Status == "Pending")
-            .SortBy(r => r.RequestedDate)
+            .SortBy(r => r.EffectiveDate)
             .ToListAsync();
     }
 
@@ -39,7 +39,7 @@ public class ShiftChangeRequestService
         await _requests.InsertOneAsync(request);
     }
 
-    /// Admin appove or deny.
+    // Admin duyệt hoặc từ chối đơn.
     public async Task UpdateStatusAsync(string companyId, string id, string status, string approvedBy)
     {
         var update = Builders<ShiftChangeRequest>.Update

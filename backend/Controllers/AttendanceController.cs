@@ -16,17 +16,20 @@ public class AttendanceController : ControllerBase
     private readonly IpConfigService _ipConfigService;
     private readonly AuditLogService _auditLogService;
     private readonly LeaveRequestService _leaveRequestService;
+    private readonly UserService _userService;
 
     public AttendanceController(
         AttendanceRecordService attendanceService,
         IpConfigService ipConfigService,
         AuditLogService auditLogService,
-        LeaveRequestService leaveRequestService)
+        LeaveRequestService leaveRequestService,
+        UserService userService)
     {
         _attendanceService = attendanceService;
         _ipConfigService = ipConfigService;
         _auditLogService = auditLogService;
         _leaveRequestService = leaveRequestService;
+        _userService = userService;
     }
 
     private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
@@ -49,6 +52,26 @@ public class AttendanceController : ControllerBase
         return configs.FirstOrDefault(c =>
             c.AllowedIp == clientIp &&
             GeoUtils.DistanceInMeters(c.GpsCenter.Lat, c.GpsCenter.Lng, lat, lng) <= c.RadiusMeters);
+    }
+
+    /// Xác định Đúng giờ/Đi muộn dựa trên ca làm việc hiện tại của nhân viên.
+    /// Flexible Time không bị ràng buộc khung giờ cố định -> luôn OnTime lúc check-in.
+    /// LƯU Ý: so sánh theo giờ UTC của server - chưa xử lý múi giờ công ty, coi như
+    /// server và công ty cùng múi giờ (đủ dùng cho đồ án, ghi chú để cải tiến sau).
+    private static string DetermineCheckInStatus(User employee, DateTime checkInTimeUtc)
+    {
+        if (employee.CurrentShiftType == "Flexible")
+        {
+            return "OnTime";
+        }
+
+        if (TimeSpan.TryParse(employee.CurrentShiftStart, out var shiftStart))
+        {
+            var checkInTimeOfDay = checkInTimeUtc.TimeOfDay;
+            return checkInTimeOfDay > shiftStart ? "Late" : "OnTime";
+        }
+
+        return "OnTime";
     }
 
     [HttpGet("history")]
@@ -206,16 +229,24 @@ public class AttendanceController : ControllerBase
             });
         }
 
+        var employee = await _userService.GetByIdAsync(companyId, userId);
+        if (employee is null)
+        {
+            return NotFound(new { message = "Không tìm thấy thông tin nhân viên." });
+        }
+
+        var checkInTime = DateTime.UtcNow;
+
         var record = new AttendanceRecord
         {
             CompanyId = companyId,
             UserId = userId,
             WorkDate = today,
-            CheckInTime = DateTime.UtcNow,
+            CheckInTime = checkInTime,
             CheckInLocation = new GeoLocation { Lat = request.Lat, Lng = request.Lng },
             CheckInIp = clientIp,
             CheckInDeviceId = request.DeviceId,
-            Status = "OnTime" // TODO: so sánh với ca làm việc thật khi tích hợp Shift/ShiftAssignment
+            Status = DetermineCheckInStatus(employee, checkInTime)
         };
 
         await _attendanceService.CreateAsync(record);
@@ -263,11 +294,13 @@ public class AttendanceController : ControllerBase
         var checkOutTime = DateTime.UtcNow;
         var workingHours = Math.Round((checkOutTime - existing.CheckInTime!.Value).TotalHours, 2);
 
+        // Giữ nguyên Status đã xác định lúc check-in (OnTime/Late) - check-out chỉ cập nhật
+        // giờ ra + tổng giờ làm, KHÔNG ghi đè lại trạng thái đúng giờ/đi muộn.
         await _attendanceService.UpdateCheckOutAsync(
             companyId, userId, today, checkOutTime,
             new GeoLocation { Lat = request.Lat, Lng = request.Lng },
             clientIp, request.DeviceId, workingHours,
-            "OnTime" // TODO: logic trạng thái thật khi tích hợp Shift
+            existing.Status
         );
 
         await _auditLogService.LogAsync(companyId, userId, "CHECK_OUT_SUCCESS");
