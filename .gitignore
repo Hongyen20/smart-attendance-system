@@ -1,0 +1,133 @@
+
+# General
+
+
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment / Secrets
+
+.env
+.env.*
+!.env.example
+*.secret
+secrets.json
+
+
+# ASP.NET Core / .NET
+
+
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+
+# ASP.NET User Secrets
+
+secrets.json
+
+# Test results
+
+**/TestResults/
+**/coverage/
+
+# NuGet
+
+**/packages/
+*.nupkg
+*.snupkg
+
+
+# Docker
+
+
+docker-compose.override.yml
+
+
+# Flutter / Dart
+
+
+frontend/.dart_tool/
+frontend/.packages
+frontend/.pub/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# Flutter generated files
+
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/**/GeneratedPluginRegistrant.java
+
+# iOS generated files
+
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+
+# macOS
+
+frontend/macos/Flutter/ephemeral/
+
+# Linux
+
+frontend/linux/flutter/ephemeral/
+
+# Windows
+
+frontend/windows/flutter/ephemeral/
+
+# Web generated files
+
+frontend/web/generated_plugin_registrant.dart
+
+
+# IDE
+
+
+.vscode/
+.idea/
+
+# Keep VS Code project recommendations/settings if desired
+
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+
+# OS
+
+
+*.tmp
+*.temp
+*.swp
+*.swo
+
+
+# Build / generated files
+
+
+**/publish/
+**/artifacts/
+**/out/
+**/dist/
+
+
+# Local development configuration
+
+
+appsettings.Development.json
+appsettings.Local.json
+
+# Production environment file
+
+.env.production
+backend/.env.production
+frontend/.env.production
