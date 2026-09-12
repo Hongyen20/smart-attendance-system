@@ -1,34 +1,60 @@
-name: Frontend CI/CD
+name: Deploy Frontend
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - 'frontend/**'
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Deploy Flutter Web Frontend
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
         with:
-          channel: 'stable'
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
 
-      - name: Build Flutter Web
-        working-directory: frontend
-        run: |
-          flutter pub get
-          flutter build web --release
+            echo "========================================"
+            echo "Deploying Frontend"
+            echo "========================================"
 
-      - name: Deploy to EC2 via rsync
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avzr --delete
-          path: frontend/build/web/
-          remote_path: /var/www/frontend/
-          remote_host: ${{ secrets.EC2_HOST }}
-          remote_user: ${{ secrets.EC2_USER }}
-          remote_key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+            cd ~/smart-attendance-system
+
+            echo ">>> Sync latest source code"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo ">>> Go to frontend"
+            cd frontend
+
+            echo ">>> Get Flutter dependencies"
+            flutter pub get
+
+            echo ">>> Build Flutter Web"
+            flutter build web --release
+
+            echo ">>> Remove old frontend files"
+            sudo rm -rf /var/www/html/*
+
+            echo ">>> Copy new frontend files"
+            sudo cp -r build/web/* /var/www/html/
+
+            echo ">>> Set permissions"
+            sudo chown -R www-data:www-data /var/www/html
+
+            echo ">>> Reload Nginx"
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "========================================"
+            echo "Frontend deployment completed"
+            echo "========================================"

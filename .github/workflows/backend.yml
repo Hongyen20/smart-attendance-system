@@ -1,69 +1,63 @@
-name: Backend CI/CD
+name: Deploy Backend
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - 'backend/**'
-
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/backend
+      - "backend/**"
+      - ".github/workflows/backend.yml"
 
 jobs:
-  build-and-test:
+  deploy:
+    name: Deploy ASP.NET Core Backend
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Restore & Build
-        working-directory: backend
-        run: |
-          dotnet restore
-          dotnet build -c Release --no-restore
-
-      - name: Test
-        working-directory: backend
-        run: dotnet test --no-restore || true   # bỏ "|| true" khi có unit test thật
-
-  package-and-deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ${{ env.IMAGE_NAME }}:latest
-            docker stop attendance-api || true
-            docker rm attendance-api || true
-            docker run -d --name attendance-api --restart unless-stopped \
-              -p 5000:5000 \
-              -e MONGODB_CONNECTION_STRING='${{ secrets.MONGODB_CONNECTION_STRING }}' \
-              ${{ env.IMAGE_NAME }}:latest
+            set -e
+
+            echo "========================================"
+            echo "Deploying Backend"
+            echo "========================================"
+
+            cd ~/smart-attendance-system
+
+            echo ">>> Sync latest source code"
+            git fetch origin main
+            git reset --hard origin/main
+            echo ">>> Go to backend"
+            cd backend
+
+            echo ">>> Build Docker image"
+            docker build -t attendance-api .
+
+            echo ">>> Stop old container"
+            docker stop attendance-api 2>/dev/null || true
+
+            echo ">>> Remove old container"
+            docker rm attendance-api 2>/dev/null || true
+
+            echo ">>> Start new container"
+            docker run -d \
+              --name attendance-api \
+              --restart unless-stopped \
+              --env-file .env.production \
+              -p 8080:8080 \
+              attendance-api
+
+            echo ">>> Show container status"
+            docker ps --filter "name=attendance-api"
+
+            echo ">>> Show recent logs"
+            docker logs --tail 50 attendance-api
+
+            echo "========================================"
+            echo "Backend deployment completed"
+            echo "========================================"
