@@ -9,52 +9,100 @@ on:
       - ".github/workflows/frontend.yml"
 
 jobs:
-  deploy:
-    name: Deploy Flutter Web Frontend
+  build-and-deploy:
+    name: Build and Deploy Flutter Web
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.2
+
+      # 1. Checkout source code
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+
+      # 2. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
+          channel: stable
+          cache: true
 
-            echo "========================================"
-            echo "Deploying Frontend"
-            echo "========================================"
 
-            cd ~/smart-attendance-system
+      # 3. Check Flutter version
+      - name: Check Flutter version
+        run: |
+          flutter --version
+          dart --version
 
-            echo ">>> Sync latest source code"
-            git fetch origin main
-            git reset --hard origin/main
 
-            echo ">>> Go to frontend"
-            cd frontend
+      # 4. Install dependencies
+      - name: Install Flutter dependencies
+        working-directory: frontend
+        run: |
+          flutter pub get
 
-            echo ">>> Get Flutter dependencies"
-            flutter pub get
 
-            echo ">>> Build Flutter Web"
-            flutter build web --release
+      # 5. Build Flutter Web
+      - name: Build Flutter Web
+        working-directory: frontend
+        run: |
+          flutter build web --release
 
-            echo ">>> Remove old frontend files"
-            sudo rm -rf /var/www/html/*
 
-            echo ">>> Copy new frontend files"
-            sudo cp -r build/web/* /var/www/html/
+      # 6. Setup SSH
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
 
-            echo ">>> Set permissions"
-            sudo chown -R www-data:www-data /var/www/html
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
 
-            echo ">>> Reload Nginx"
-            sudo nginx -t
-            sudo systemctl reload nginx
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-            echo "========================================"
-            echo "Frontend deployment completed"
-            echo "========================================"
+
+      # 7. Prepare EC2 frontend directory
+      - name: Prepare EC2
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key \
+            -o StrictHostKeyChecking=yes \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+            "
+              sudo mkdir -p /var/www/html
+              sudo rm -rf /var/www/html/*
+              rm -rf /tmp/flutter-web
+              mkdir -p /tmp/flutter-web
+            "
+
+      # 8. Upload Flutter Web
+      - name: Upload Flutter Web to EC2
+        run: |
+          scp \
+            -i ~/.ssh/ec2_key \
+            -o StrictHostKeyChecking=yes \
+            -r frontend/build/web/* \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/tmp/flutter-web/
+
+      # 9. Deploy files to Nginx
+      - name: Deploy files to Nginx
+        run: |
+          ssh \
+            -i ~/.ssh/ec2_key \
+            -o StrictHostKeyChecking=yes \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+            "
+              sudo mkdir -p /var/www/html
+              sudo cp -r /tmp/flutter-web/* /var/www/html/
+              sudo chown -R www-data:www-data /var/www/html
+              sudo rm -rf /tmp/flutter-web
+              sudo nginx -t
+              sudo systemctl reload nginx
+            "
+
+      # 10. Deployment completed
+      - name: Deployment completed
+        run: |
+          echo "========================================"
+          echo "Frontend deployment completed"
+          echo "========================================"
