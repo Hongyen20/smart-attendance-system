@@ -28,13 +28,12 @@ public class EmployeeController : ControllerBase
         _counterService = counterService;
     }
 
-    /// Lấy companyId từ claim trong JWT - Admin luôn có companyId (không null như SuperAdmin).
+    // Lấy companyId từ claim trong JWT - Admin luôn có companyId (không null như SuperAdmin).
     private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
 
     private static EmployeeSummaryResponse ToSummary(User u) => new()
     {
         Id = u.Id,
-        EmployeeCode = u.EmployeeCode,
         Username = u.Username,
         FullName = u.FullName,
         Email = u.Email,
@@ -106,7 +105,6 @@ public class EmployeeController : ControllerBase
         var employee = new User
         {
             CompanyId = companyId,
-            EmployeeCode = request.EmployeeCode,
             Username = username,
             Email = request.Email,
             FullName = request.FullName,
@@ -143,8 +141,8 @@ public class EmployeeController : ControllerBase
         });
     }
 
-    /// Admin sửa thông tin nhân viên - bao gồm cả họ tên và username (khác với
-    /// nhân viên tự sửa profile của mình, nơi 2 trường này bị khóa cứng).
+    // Admin sửa thông tin nhân viên - bao gồm cả họ tên và username (khác với
+    // nhân viên tự sửa profile của mình, nơi 2 trường này bị khóa cứng).
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateEmployeeRequest request)
     {
@@ -182,8 +180,8 @@ public class EmployeeController : ControllerBase
         return Ok(ToSummary(employee));
     }
 
-    /// Cấp lại mật khẩu mới cho nhân viên - sinh ngẫu nhiên, gửi qua email,
-    /// KHÔNG trả về trong response (đúng nguyên tắc bảo mật đã áp dụng từ lúc tạo tài khoản).
+    // Cấp lại mật khẩu mới cho nhân viên - sinh ngẫu nhiên, gửi qua email,
+    // KHÔNG trả về trong response (đúng nguyên tắc bảo mật đã áp dụng từ lúc tạo tài khoản).
     [HttpPost("{id}/reset-password")]
     public async Task<IActionResult> ResetPassword(string id)
     {

@@ -126,7 +126,6 @@ public class CompanyController : ControllerBase
         var admin = new User
         {
             CompanyId = company.Id,
-            EmployeeCode = "admin",
             Username = adminUsername,
 
             PasswordHash =

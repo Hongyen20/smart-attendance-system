@@ -12,8 +12,6 @@ public class User
     [BsonRepresentation(BsonType.ObjectId)]
     public string? CompanyId { get; set; } // null nếu Role = SuperAdmin
 
-    public string EmployeeCode { get; set; } = string.Empty; // duy nhất theo companyId, không dùng để login
-
     public string Username { get; set; } = string.Empty;    
     public string Email { get; set; } = string.Empty;        
 

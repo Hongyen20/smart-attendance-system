@@ -4,10 +4,6 @@ namespace AttendanceApi.DTOs;
 
 public class CreateEmployeeRequest : IValidatableObject
 {
-    [Required(ErrorMessage = "Mã nhân viên không được để trống.")]
-    [RegularExpression(@"^[a-zA-Z0-9]+$", ErrorMessage = "Mã nhân viên chỉ được chứa chữ và số.")]
-    public string EmployeeCode { get; set; } = string.Empty;
-
     [Required(ErrorMessage = "Họ tên không được để trống.")]
     public string FullName { get; set; } = string.Empty;
 
