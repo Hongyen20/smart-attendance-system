@@ -112,11 +112,7 @@ public class CompanyController : ControllerBase
         await _companyService.CreateAsync(company);
 
         // 4. Generate Admin username
-        var adminUsername =
-            UserService.GenerateUsername(
-                company.CompanyCode,
-                "admin"
-            );
+        var adminUsername = $"{company.CompanyCode}.admin".ToLowerInvariant();
 
         // 5. Generate temporary password
         var temporaryPassword =

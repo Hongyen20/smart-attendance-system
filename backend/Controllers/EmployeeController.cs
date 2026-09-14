@@ -98,8 +98,7 @@ public class EmployeeController : ControllerBase
         // gửi thông tin đăng nhập, không dùng để định danh duy nhất.
 
         var sequence = await _counterService.GetNextSequenceAsync($"employee_seq:{companyId}");
-        var username = UserService.GenerateUsername(company.CompanyCode, sequence.ToString());
-
+        var username = $"{company.CompanyCode}.nv{sequence:D3}".ToLowerInvariant();
         var temporaryPassword = PasswordGenerator.Generate();
 
         var employee = new User
