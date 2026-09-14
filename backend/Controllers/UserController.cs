@@ -34,7 +34,6 @@ public class UserController : ControllerBase
         Id = u.Id,
         Username = u.Username,
         FullName = u.FullName,
-        EmployeeCode = u.EmployeeCode,
         Email = u.Email,
         Phone = u.Phone,
         AvatarUrl = u.AvatarUrl,

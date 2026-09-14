@@ -24,7 +24,7 @@ public class ShiftChangeRequestController : ControllerBase
     private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
     private string? GetUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-    private static ShiftChangeRequestResponse ToResponse(ShiftChangeRequest r, string? employeeName = null, string? employeeCode = null) => new()
+    private static ShiftChangeRequestResponse ToResponse(ShiftChangeRequest r, string? employeeName = null) => new()
     {
         Id = r.Id,
         EffectiveDate = r.EffectiveDate,
@@ -37,7 +37,6 @@ public class ShiftChangeRequestController : ControllerBase
         CreatedAt = r.CreatedAt,
         ApprovedAt = r.ApprovedAt,
         EmployeeName = employeeName,
-        EmployeeCode = employeeCode
     };
 
     [Authorize(Roles = "Employee")]
@@ -104,7 +103,7 @@ public class ShiftChangeRequestController : ControllerBase
         foreach (var r in requests)
         {
             var employee = await _userService.GetByIdAsync(companyId, r.UserId);
-            result.Add(ToResponse(r, employee?.FullName, employee?.EmployeeCode));
+            result.Add(ToResponse(r, employee?.FullName));
         }
 
         return Ok(result);

@@ -15,5 +15,5 @@ public class ShiftChangeRequestResponse
 
     // Chỉ có giá trị khi Admin xem danh sách chờ duyệt.
     public string? EmployeeName { get; set; }
-    public string? EmployeeCode { get; set; }
+    // public string? EmployeeCode { get; set; }
 }

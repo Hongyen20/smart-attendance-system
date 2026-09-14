@@ -146,7 +146,6 @@ public class LeaveRequestController : ControllerBase
                 status = r.Status,
                 createdAt = r.CreatedAt,
                 employeeName = employee?.FullName ?? "Không rõ",
-                employeeCode = employee?.EmployeeCode ?? ""
             });
         }
 

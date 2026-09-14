@@ -56,8 +56,8 @@ public class UserService
     }
 
     // Generated username automatic from CompanyID + UserID, EX: "acme" + "NV001" -> "acme.nv001".
-    public static string GenerateUsername(string companyCode, string employeeCode)
-    {
-        return $"{companyCode}.{employeeCode}".ToLowerInvariant();
-    }
+    // public static string GenerateUsername(string companyCode, string employeeCode)
+    // {
+    //     return $"{companyCode}.{employeeCode}".ToLowerInvariant();
+    // }
 }
