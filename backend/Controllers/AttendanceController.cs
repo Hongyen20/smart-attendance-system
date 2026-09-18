@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net;
 using AttendanceApi.DTOs;
 using AttendanceApi.Models;
 using AttendanceApi.Services;
@@ -32,143 +33,250 @@ public class AttendanceController : ControllerBase
         _userService = userService;
     }
 
-    private string? GetCompanyId() => User.FindFirst("companyId")?.Value;
-    private string? GetUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    private string? GetCompanyId()
+        => User.FindFirst("companyId")?.Value;
 
-    private string GetClientIp()
+    private string? GetUserId()
+        => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    // VALIDATE PUBLIC IPV4
+
+    private static bool IsValidIPv4(string ip)
     {
-        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwarded))
+        if (string.IsNullOrWhiteSpace(ip))
         {
-            return forwarded.Split(',').FirstOrDefault()?.Trim() ?? "unknown";
+            return false;
         }
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return IPAddress.TryParse(ip, out var parsed)
+               && parsed.AddressFamily ==
+                  System.Net.Sockets.AddressFamily.InterNetwork;
     }
 
-    private async Task<IpConfig?> FindMatchingConfigAsync(string companyId, string clientIp, double lat, double lng)
+    // KIỂM TRA IP + GPS
+
+    private async Task<IpConfig?> FindMatchingConfigAsync(
+        string companyId,
+        string publicIp,
+        double lat,
+        double lng)
     {
-        var configs = await _ipConfigService.GetActiveByCompanyAsync(companyId);
+        var configs =
+            await _ipConfigService.GetActiveByCompanyAsync(companyId);
 
-        return configs.FirstOrDefault(c =>
-            c.AllowedIp == clientIp &&
-            GeoUtils.DistanceInMeters(c.GpsCenter.Lat, c.GpsCenter.Lng, lat, lng) <= c.RadiusMeters);
+        return configs.FirstOrDefault(config =>
+            string.Equals(
+                config.AllowedIp.Trim(),
+                publicIp.Trim(),
+                StringComparison.OrdinalIgnoreCase)
+            &&
+            GeoUtils.DistanceInMeters(
+                config.GpsCenter.Lat,
+                config.GpsCenter.Lng,
+                lat,
+                lng
+            ) <= config.RadiusMeters
+        );
     }
 
-    /// Xác định Đúng giờ/Đi muộn dựa trên ca làm việc hiện tại của nhân viên.
-    /// Flexible Time không bị ràng buộc khung giờ cố định -> luôn OnTime lúc check-in.
-    /// LƯU Ý: so sánh theo giờ UTC của server - chưa xử lý múi giờ công ty, coi như
-    /// server và công ty cùng múi giờ (đủ dùng cho đồ án, ghi chú để cải tiến sau).
-    private static string DetermineCheckInStatus(User employee, DateTime checkInTimeUtc)
+    // XÁC ĐỊNH ĐÚNG GIỜ / ĐI MUỘN
+    // Xác định trạng thái check-in dựa trên ca làm việc hiện tại.
+    //
+    // Flexible:
+    //     Không bị ràng buộc giờ bắt đầu cố định
+    //     -> luôn OnTime.
+    //
+    // Ca cố định:
+    //     Check-in sau giờ bắt đầu -> Late.
+    private static string DetermineCheckInStatus(
+        User employee,
+        DateTime checkInTimeUtc)
     {
         if (employee.CurrentShiftType == "Flexible")
         {
             return "OnTime";
         }
 
-        if (TimeSpan.TryParse(employee.CurrentShiftStart, out var shiftStart))
+        if (TimeSpan.TryParse(
+                employee.CurrentShiftStart,
+                out var shiftStart))
         {
-            var checkInTimeOfDay = checkInTimeUtc.TimeOfDay;
-            return checkInTimeOfDay > shiftStart ? "Late" : "OnTime";
+            var checkInTimeOfDay =
+                checkInTimeUtc.TimeOfDay;
+
+            return checkInTimeOfDay > shiftStart
+                ? "Late"
+                : "OnTime";
         }
 
         return "OnTime";
     }
 
+    // HISTORY
+
     [HttpGet("history")]
-    public async Task<IActionResult> GetHistory([FromQuery] int year, [FromQuery] int month)
+    public async Task<IActionResult> GetHistory(
+        [FromQuery] int year,
+        [FromQuery] int month)
     {
         var companyId = GetCompanyId();
         var userId = GetUserId();
-        if (string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId))
+
+        if (string.IsNullOrEmpty(companyId) ||
+            string.IsNullOrEmpty(userId))
         {
             return Forbid();
         }
 
         if (month < 1 || month > 12)
         {
-            return BadRequest(new { message = "Tháng không hợp lệ." });
+            return BadRequest(new
+            {
+                message = "Tháng không hợp lệ."
+            });
         }
 
         var fromDate = new DateTime(year, month, 1);
-        var toDate = fromDate.AddMonths(1).AddDays(-1);
+        var toDate = fromDate
+            .AddMonths(1)
+            .AddDays(-1);
 
-        var records = await _attendanceService.GetHistoryByUserAsync(companyId, userId, fromDate, toDate);
-        var attendanceDates = records.Select(r => r.WorkDate).ToHashSet();
+        var records =
+            await _attendanceService.GetHistoryByUserAsync(
+                companyId,
+                userId,
+                fromDate,
+                toDate);
 
-        var items = records.Select(r => new AttendanceHistoryItemResponse
-        {
-            WorkDate = r.WorkDate,
-            CheckInTime = r.CheckInTime,
-            CheckOutTime = r.CheckOutTime,
-            Status = r.Status,
-            WorkingHours = r.WorkingHours
-        }).ToList();
+        var attendanceDates =
+            records
+                .Select(r => r.WorkDate)
+                .ToHashSet();
 
-        // Gộp thêm các ngày nghỉ phép ĐÃ DUYỆT (không có bản ghi check-in thật) vào lịch sử -
-        // ngày nào đã có check-in thật thì ưu tiên dữ liệu thật, bỏ qua ngày nghỉ phép trùng.
-        var approvedLeaves = await _leaveRequestService.GetApprovedInRangeAsync(companyId, userId, fromDate, toDate);
+        var items = records
+            .Select(r => new AttendanceHistoryItemResponse
+            {
+                WorkDate = r.WorkDate,
+                CheckInTime = r.CheckInTime,
+                CheckOutTime = r.CheckOutTime,
+                Status = r.Status,
+                WorkingHours = r.WorkingHours
+            })
+            .ToList();
+
+        // GỘP NGÀY NGHỈ PHÉP ĐÃ DUYỆT
+
+        var approvedLeaves =
+            await _leaveRequestService.GetApprovedInRangeAsync(
+                companyId,
+                userId,
+                fromDate,
+                toDate);
+
         foreach (var leave in approvedLeaves)
         {
-            var rangeStart = leave.StartDate > fromDate ? leave.StartDate : fromDate;
-            var rangeEnd = leave.EndDate < toDate ? leave.EndDate : toDate;
+            var rangeStart =
+                leave.StartDate > fromDate
+                    ? leave.StartDate
+                    : fromDate;
 
-            for (var d = rangeStart; d <= rangeEnd; d = d.AddDays(1))
+            var rangeEnd =
+                leave.EndDate < toDate
+                    ? leave.EndDate
+                    : toDate;
+
+            for (
+                var d = rangeStart;
+                d <= rangeEnd;
+                d = d.AddDays(1))
             {
                 if (attendanceDates.Contains(d))
                 {
                     continue;
                 }
 
-                items.Add(new AttendanceHistoryItemResponse
-                {
-                    WorkDate = d,
-                    Status = leave.IsPaid == true ? "PaidLeave" : "UnpaidLeave",
-                    LeaveType = leave.Type
-                });
+                items.Add(
+                    new AttendanceHistoryItemResponse
+                    {
+                        WorkDate = d,
+                        Status = leave.IsPaid == true
+                            ? "PaidLeave"
+                            : "UnpaidLeave",
+                        LeaveType = leave.Type
+                    });
             }
         }
 
-        items = items.OrderByDescending(i => i.WorkDate).ToList();
+        items = items
+            .OrderByDescending(i => i.WorkDate)
+            .ToList();
 
-        var totalHours = Math.Round(items.Sum(i => i.WorkingHours), 2);
+        var totalHours =
+            Math.Round(
+                items.Sum(i => i.WorkingHours),
+                2);
 
-        // Ngày nghỉ phép CÓ LƯƠNG vẫn tính là ngày công hợp lệ - theo đúng quy định đã thống nhất.
-        var daysWorked = items.Count(i => i.CheckInTime is not null || i.Status == "PaidLeave");
+        // Nghỉ phép có lương được tính là ngày công.
+        var daysWorked =
+            items.Count(i =>
+                i.CheckInTime is not null ||
+                i.Status == "PaidLeave");
 
-        // Đếm số ngày làm việc (Thứ 2 - Thứ 6) từ đầu tháng tới hôm nay (nếu là tháng hiện
-        // tại) hoặc hết tháng (nếu là tháng đã qua) - dùng làm mẫu số "X/Y ngày công".
+        // TỔNG NGÀY LÀM VIỆC
+
         var today = DateTime.UtcNow.Date;
-        var countUntil = (year == today.Year && month == today.Month) ? today : toDate;
+
+        var countUntil =
+            (year == today.Year &&
+             month == today.Month)
+                ? today
+                : toDate;
+
         var totalWorkdays = 0;
-        for (var d = fromDate; d <= countUntil; d = d.AddDays(1))
+
+        for (
+            var d = fromDate;
+            d <= countUntil;
+            d = d.AddDays(1))
         {
-            if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday)
+            if (d.DayOfWeek != DayOfWeek.Saturday &&
+                d.DayOfWeek != DayOfWeek.Sunday)
             {
                 totalWorkdays++;
             }
         }
 
-        return Ok(new AttendanceHistoryResponse
-        {
-            Items = items,
-            TotalHours = totalHours,
-            DaysWorked = daysWorked,
-            TotalWorkdaysInMonth = totalWorkdays
-        });
+        return Ok(
+            new AttendanceHistoryResponse
+            {
+                Items = items,
+                TotalHours = totalHours,
+                DaysWorked = daysWorked,
+                TotalWorkdaysInMonth = totalWorkdays
+            });
     }
+
+    // TODAY STATUS
 
     [HttpGet("today")]
     public async Task<IActionResult> GetTodayStatus()
     {
         var companyId = GetCompanyId();
         var userId = GetUserId();
-        if (string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId))
+
+        if (string.IsNullOrEmpty(companyId) ||
+            string.IsNullOrEmpty(userId))
         {
             return Forbid();
         }
 
         var today = DateTime.UtcNow.Date;
-        var record = await _attendanceService.GetByUserAndDateAsync(companyId, userId, today);
+
+        var record =
+            await _attendanceService.GetByUserAndDateAsync(
+                companyId,
+                userId,
+                today);
 
         if (record is null)
         {
@@ -183,57 +291,132 @@ public class AttendanceController : ControllerBase
 
         return Ok(new
         {
-            checkedIn = record.CheckInTime is not null,
-            checkedOut = record.CheckOutTime is not null,
-            checkInTime = record.CheckInTime?.ToString("o"),
-            workingHours = record.CheckOutTime is not null ? record.WorkingHours : (double?)null
+            checkedIn =
+                record.CheckInTime is not null,
+
+            checkedOut =
+                record.CheckOutTime is not null,
+
+            checkInTime =
+                record.CheckInTime?.ToString("o"),
+
+            workingHours =
+                record.CheckOutTime is not null
+                    ? record.WorkingHours
+                    : (double?)null
         });
     }
 
+    // CHECK-IN
+
     [HttpPost("check-in")]
-    public async Task<IActionResult> CheckIn([FromBody] CheckInOutRequest request)
+    public async Task<IActionResult> CheckIn(
+        [FromBody] CheckInOutRequest request)
     {
         var companyId = GetCompanyId();
         var userId = GetUserId();
-        if (string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId))
+
+        if (string.IsNullOrEmpty(companyId) ||
+            string.IsNullOrEmpty(userId))
         {
             return Forbid();
         }
 
-        var today = DateTime.UtcNow.Date;
+        // 1. KIỂM TRA IP
 
-        var existing = await _attendanceService.GetByUserAndDateAsync(companyId, userId, today);
-        if (existing is not null && existing.CheckInTime is not null)
+        var publicIp = request.PublicIp.Trim();
+
+        if (!IsValidIPv4(publicIp))
         {
-            return Conflict(new { message = "Bạn đã check-in hôm nay rồi." });
-        }
-
-        var clientIp = GetClientIp();
-        var configs = await _ipConfigService.GetActiveByCompanyAsync(companyId);
-
-        if (configs.Count == 0)
-        {
-            return BadRequest(new { message = "Công ty chưa cấu hình IP cho phép chấm công. Vui lòng liên hệ Admin." });
-        }
-
-        var matched = await FindMatchingConfigAsync(companyId, clientIp, request.Lat, request.Lng);
-        if (matched is null)
-        {
-            await _auditLogService.LogAsync(
-                companyId, userId, "CHECK_IN_FAILED",
-                $"IP hoặc GPS không khớp cấu hình. IP={clientIp}, Lat={request.Lat}, Lng={request.Lng}");
-
-            return StatusCode(403, new
+            return BadRequest(new
             {
-                message = "Xác thực thất bại. Vui lòng đảm bảo đang kết nối đúng mạng và ở trong khu vực công ty."
+                message =
+                    "Địa chỉ IP công cộng không hợp lệ."
             });
         }
 
-        var employee = await _userService.GetByIdAsync(companyId, userId);
+        // 2. KIỂM TRA ĐÃ CHECK-IN CHƯA
+
+        var today = DateTime.UtcNow.Date;
+
+        var existing =
+            await _attendanceService.GetByUserAndDateAsync(
+                companyId,
+                userId,
+                today);
+
+        if (existing is not null &&
+            existing.CheckInTime is not null)
+        {
+            return Conflict(new
+            {
+                message =
+                    "Bạn đã check-in hôm nay rồi."
+            });
+        }
+
+        // 3. KIỂM TRA CẤU HÌNH IP
+
+        var configs =
+            await _ipConfigService.GetActiveByCompanyAsync(
+                companyId);
+
+        if (configs.Count == 0)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Công ty chưa cấu hình IP cho phép chấm công. " +
+                    "Vui lòng liên hệ Admin."
+            });
+        }
+
+        // 4. KIỂM TRA IP + GPS
+
+        var matched =
+            await FindMatchingConfigAsync(
+                companyId,
+                publicIp,
+                request.Lat,
+                request.Lng);
+
+        if (matched is null)
+        {
+            await _auditLogService.LogAsync(
+                companyId,
+                userId,
+                "CHECK_IN_FAILED",
+                $"IP hoặc GPS không khớp cấu hình. " +
+                $"IP={publicIp}, " +
+                $"Lat={request.Lat}, " +
+                $"Lng={request.Lng}");
+
+            return StatusCode(403, new
+            {
+                message =
+                    "Xác thực thất bại. Vui lòng đảm bảo " +
+                    "đang kết nối đúng mạng và ở trong " +
+                    "khu vực công ty."
+            });
+        }
+
+        // 5. LẤY THÔNG TIN NHÂN VIÊN
+
+        var employee =
+            await _userService.GetByIdAsync(
+                companyId,
+                userId);
+
         if (employee is null)
         {
-            return NotFound(new { message = "Không tìm thấy thông tin nhân viên." });
+            return NotFound(new
+            {
+                message =
+                    "Không tìm thấy thông tin nhân viên."
+            });
         }
+
+        // 6. TẠO ATTENDANCE RECORD
 
         var checkInTime = DateTime.UtcNow;
 
@@ -242,69 +425,167 @@ public class AttendanceController : ControllerBase
             CompanyId = companyId,
             UserId = userId,
             WorkDate = today,
+
             CheckInTime = checkInTime,
-            CheckInLocation = new GeoLocation { Lat = request.Lat, Lng = request.Lng },
-            CheckInIp = clientIp,
+
+            CheckInLocation = new GeoLocation
+            {
+                Lat = request.Lat,
+                Lng = request.Lng
+            },
+
+            CheckInIp = publicIp,
+
             CheckInDeviceId = request.DeviceId,
-            Status = DetermineCheckInStatus(employee, checkInTime)
+
+            Status =
+                DetermineCheckInStatus(
+                    employee,
+                    checkInTime)
         };
 
         await _attendanceService.CreateAsync(record);
-        await _auditLogService.LogAsync(companyId, userId, "CHECK_IN_SUCCESS");
 
-        return Ok(new { message = "Check-in thành công.", checkInTime = record.CheckInTime });
+        await _auditLogService.LogAsync(
+            companyId,
+            userId,
+            "CHECK_IN_SUCCESS");
+
+        return Ok(new
+        {
+            message = "Check-in thành công.",
+            checkInTime = record.CheckInTime
+        });
     }
 
+    // CHECK-OUT
+
     [HttpPost("check-out")]
-    public async Task<IActionResult> CheckOut([FromBody] CheckInOutRequest request)
+    public async Task<IActionResult> CheckOut(
+        [FromBody] CheckInOutRequest request)
     {
         var companyId = GetCompanyId();
         var userId = GetUserId();
-        if (string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId))
+
+        if (string.IsNullOrEmpty(companyId) ||
+            string.IsNullOrEmpty(userId))
         {
             return Forbid();
         }
 
-        var today = DateTime.UtcNow.Date;
+        // 1. KIỂM TRA IP
 
-        var existing = await _attendanceService.GetByUserAndDateAsync(companyId, userId, today);
-        if (existing is null || existing.CheckInTime is null)
-        {
-            return BadRequest(new { message = "Bạn chưa check-in hôm nay." });
-        }
-        if (existing.CheckOutTime is not null)
-        {
-            return Conflict(new { message = "Bạn đã check-out hôm nay rồi." });
-        }
+        var publicIp = request.PublicIp.Trim();
 
-        var clientIp = GetClientIp();
-        var matched = await FindMatchingConfigAsync(companyId, clientIp, request.Lat, request.Lng);
-        if (matched is null)
+        if (!IsValidIPv4(publicIp))
         {
-            await _auditLogService.LogAsync(
-                companyId, userId, "CHECK_OUT_FAILED",
-                $"IP hoặc GPS không khớp cấu hình. IP={clientIp}, Lat={request.Lat}, Lng={request.Lng}");
-
-            return StatusCode(403, new
+            return BadRequest(new
             {
-                message = "Xác thực thất bại. Vui lòng đảm bảo đang kết nối đúng mạng và ở trong khu vực công ty."
+                message =
+                    "Địa chỉ IP công cộng không hợp lệ."
             });
         }
 
-        var checkOutTime = DateTime.UtcNow;
-        var workingHours = Math.Round((checkOutTime - existing.CheckInTime!.Value).TotalHours, 2);
+        // 2. LẤY ATTENDANCE HÔM NAY
 
-        // Giữ nguyên Status đã xác định lúc check-in (OnTime/Late) - check-out chỉ cập nhật
-        // giờ ra + tổng giờ làm, KHÔNG ghi đè lại trạng thái đúng giờ/đi muộn.
+        var today = DateTime.UtcNow.Date;
+
+        var existing =
+            await _attendanceService.GetByUserAndDateAsync(
+                companyId,
+                userId,
+                today);
+
+        if (existing is null ||
+            existing.CheckInTime is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Bạn chưa check-in hôm nay."
+            });
+        }
+
+        if (existing.CheckOutTime is not null)
+        {
+            return Conflict(new
+            {
+                message =
+                    "Bạn đã check-out hôm nay rồi."
+            });
+        }
+
+        // 3. KIỂM TRA IP + GPS
+
+        var matched =
+            await FindMatchingConfigAsync(
+                companyId,
+                publicIp,
+                request.Lat,
+                request.Lng);
+
+        if (matched is null)
+        {
+            await _auditLogService.LogAsync(
+                companyId,
+                userId,
+                "CHECK_OUT_FAILED",
+                $"IP hoặc GPS không khớp cấu hình. " +
+                $"IP={publicIp}, " +
+                $"Lat={request.Lat}, " +
+                $"Lng={request.Lng}");
+
+            return StatusCode(403, new
+            {
+                message =
+                    "Xác thực thất bại. Vui lòng đảm bảo " +
+                    "đang kết nối đúng mạng và ở trong " +
+                    "khu vực công ty."
+            });
+        }
+
+        // 4. TÍNH THỜI GIAN LÀM VIỆC
+
+        var checkOutTime = DateTime.UtcNow;
+
+        var workingHours =
+            Math.Round(
+                (
+                    checkOutTime -
+                    existing.CheckInTime!.Value
+                ).TotalHours,
+                2);
+
+        // Giữ nguyên Status lúc check-in.
         await _attendanceService.UpdateCheckOutAsync(
-            companyId, userId, today, checkOutTime,
-            new GeoLocation { Lat = request.Lat, Lng = request.Lng },
-            clientIp, request.DeviceId, workingHours,
+            companyId,
+            userId,
+            today,
+            checkOutTime,
+
+            new GeoLocation
+            {
+                Lat = request.Lat,
+                Lng = request.Lng
+            },
+
+            publicIp,
+            request.DeviceId,
+            workingHours,
             existing.Status
         );
 
-        await _auditLogService.LogAsync(companyId, userId, "CHECK_OUT_SUCCESS");
+        await _auditLogService.LogAsync(
+            companyId,
+            userId,
+            "CHECK_OUT_SUCCESS");
 
-        return Ok(new { message = "Check-out thành công.", checkOutTime, workingHours });
+        return Ok(new
+        {
+            message = "Check-out thành công.",
+            checkOutTime,
+            workingHours
+        });
     }
 }
+

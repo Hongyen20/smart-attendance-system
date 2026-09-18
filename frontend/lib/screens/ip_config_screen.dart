@@ -28,7 +28,10 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
       _errorMessage = null;
     });
 
-    final result = await ApiService.getList('/api/ip-configs', bearerToken: AuthState.instance.token);
+    final result = await ApiService.getList(
+      '/api/ip-configs',
+      bearerToken: AuthState.instance.token,
+    );
 
     if (!mounted) return;
 
@@ -47,12 +50,20 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xóa cấu hình IP?'),
-        content: const Text('Nhân viên sẽ không thể check-in bằng IP này nữa sau khi xóa.'),
+        content: const Text(
+          'Nhân viên sẽ không thể check-in bằng IP này nữa sau khi xóa.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa', style: TextStyle(color: AppColors.dangerRed)),
+            child: const Text(
+              'Xóa',
+              style: TextStyle(color: AppColors.dangerRed),
+            ),
           ),
         ],
       ),
@@ -60,7 +71,10 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
 
     if (confirmed != true) return;
 
-    final result = await ApiService.delete('/api/ip-configs/$id', bearerToken: AuthState.instance.token);
+    final result = await ApiService.delete(
+      '/api/ip-configs/$id',
+      bearerToken: AuthState.instance.token,
+    );
     if (result.success) {
       _loadConfigs();
     } else if (mounted) {
@@ -91,7 +105,10 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
         },
         backgroundColor: AppColors.primaryBlue,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Thêm IP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Thêm IP',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -108,7 +125,11 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
           const SizedBox(height: 40),
           const Icon(Icons.error_outline, color: AppColors.dangerRed, size: 40),
           const SizedBox(height: 12),
-          Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.dangerRed)),
+          Text(
+            _errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.dangerRed),
+          ),
         ],
       );
     }
@@ -156,7 +177,9 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isActive ? AppColors.successGreenBg : AppColors.dangerRedBg,
+              color: isActive
+                  ? AppColors.successGreenBg
+                  : AppColors.dangerRedBg,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -172,11 +195,18 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
               children: [
                 Text(
                   c['allowedIp'] ?? '',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 Text(
                   'Bán kính ${c['radiusMeters']}m',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -187,16 +217,31 @@ class _IpConfigScreenState extends State<IpConfigScreen> {
               if (value == 'edit') {
                 final updated = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(builder: (_) => IpConfigFormScreen(existingConfig: c)),
+                  MaterialPageRoute(
+                    builder: (_) => IpConfigFormScreen(existingConfig: c),
+                  ),
                 );
-                if (updated == true) _loadConfigs();
+
+                if (updated == true) {
+                  _loadConfigs();
+                }
               } else if (value == 'delete') {
-                _handleDelete(c['id'] as String);
+                final id = c['id']?.toString();
+
+                if (id != null && id.isNotEmpty) {
+                  await _handleDelete(id);
+                }
               }
             },
             itemBuilder: (context) => const [
               PopupMenuItem(value: 'edit', child: Text('Sửa')),
-              PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: AppColors.dangerRed))),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text(
+                  'Xóa',
+                  style: TextStyle(color: AppColors.dangerRed),
+                ),
+              ),
             ],
           ),
         ],
