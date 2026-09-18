@@ -21,7 +21,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
-  // FLEXTIME COLORS
+  // AttendGo COLORS
   static const Color primary = Color(0xFF2864E8);
   static const Color primaryDark = Color(0xFF294477);
 

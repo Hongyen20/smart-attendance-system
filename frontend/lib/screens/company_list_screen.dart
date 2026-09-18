@@ -25,7 +25,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
   String _searchQuery = '';
   _StatusFilter _statusFilter = _StatusFilter.all;
 
-  // FLEXTIME COLORS
+  // AttendGo COLORS
 
   static const Color primary = Color(0xFF2864E8);
   static const Color primaryDark = Color(0xFF294477);

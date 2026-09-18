@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 
 void main() {
-  runApp(const FlexTimeApp());
+  runApp(const AttendGoApp());
 }
 
-class FlexTimeApp extends StatelessWidget {
-  const FlexTimeApp({super.key});
+class AttendGoApp extends StatelessWidget {
+  const AttendGoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FlexTime',
+      title: 'AttendGo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
       home: const LoginScreen(),

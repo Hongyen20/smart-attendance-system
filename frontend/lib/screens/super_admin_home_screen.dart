@@ -5,7 +5,7 @@ import 'company_list_screen.dart';
 class SuperAdminHomeScreen extends StatelessWidget {
   const SuperAdminHomeScreen({super.key});
 
-  // FLEXTIME COLORS
+  // AttendGo COLORS
   static const Color primary = Color(0xFF2864E8);
   static const Color primaryDark = Color(0xFF294477);
 
@@ -114,7 +114,13 @@ class SuperAdminHomeScreen extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.wifi_rounded, color: Colors.white, size: 29),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+            ),
+          ),
         ),
 
         const SizedBox(width: 14),
@@ -124,7 +130,7 @@ class SuperAdminHomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'FlexTime',
+              'AttendGo',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,

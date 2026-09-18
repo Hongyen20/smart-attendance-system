@@ -30,7 +30,7 @@ public class CompanyStatusMiddleware
                     context.Response.ContentType = "application/json";
 
                     await context.Response.WriteAsync(
-                        "{\"message\":\"Công ty của bạn đã bị tạm khóa. Vui lòng liên hệ FlexTime để biết thêm chi tiết.\"}"
+                        "{\"message\":\"Công ty của bạn đã bị tạm khóa. Vui lòng liên hệ AttendGo để biết thêm chi tiết.\"}"
                     );
 
                     return; 

@@ -179,7 +179,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
           const SizedBox(width: 8),
           const Text(
-            'Quản Trị FlexTime',
+            'Quản Trị AttendGo',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

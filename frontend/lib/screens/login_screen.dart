@@ -136,11 +136,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     constraints: const BoxConstraints(maxWidth: 850),
                     child: Column(
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 5),
 
                         _buildLogoHeader(),
 
-                        const SizedBox(height: 42),
+                        const SizedBox(height: 15),
 
                         _buildLoginCard(),
 
@@ -226,58 +226,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // LOGO HEADER
-
   Widget _buildLogoHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 82,
-          height: 82,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2F6BF2), Color(0xFF1E5BE0)],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2F6BF2).withValues(alpha: 0.22),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.wifi, color: Colors.white, size: 43),
-        ),
-
-        const SizedBox(height: 20),
-
-        const Text(
-          'FlexTime',
-          style: TextStyle(
-            fontSize: 42,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF244397),
-            letterSpacing: -1.2,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        const Text(
-          'Hệ thống quản lý chấm công doanh nghiệp',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF68738A),
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
-    );
-  }
-
+  return Column(
+    children: [
+      Image.asset(
+        'assets/images/logo.png',
+        width: 300,
+        fit: BoxFit.contain,
+      ),
+    ],
+  );
+}
   // LOGIN CARD
 
   Widget _buildLoginCard() {
@@ -523,7 +482,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildFooter() {
     return const Text(
-      '© 2024 FlexTime. Tất cả quyền được bảo lưu.',
+      '© 2024 AttendGo. Tất cả quyền được bảo lưu.',
       textAlign: TextAlign.center,
       style: TextStyle(color: Color(0xFF68738A), fontSize: 13),
     );

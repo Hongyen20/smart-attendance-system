@@ -194,7 +194,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
           const SizedBox(width: 8),
           const Text(
-            'FlexTime',
+            'AttendGo',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
