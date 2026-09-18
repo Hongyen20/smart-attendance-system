@@ -98,14 +98,15 @@ class SuperAdminHomeScreen extends StatelessWidget {
   // HEADER
   Widget _buildHeader() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Logo
+        // Logo lớn hơn
         Container(
-          width: 54,
-          height: 54,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
             color: primary,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: primary.withOpacity(0.20),
@@ -115,37 +116,23 @@ class SuperAdminHomeScreen extends StatelessWidget {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(7),
               child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
             ),
           ),
         ),
 
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
 
-        // Brand
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AttendGo',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: primaryDark,
-                letterSpacing: -0.5,
-              ),
-            ),
-
-            SizedBox(height: 3),
-
-            Text(
-              'Quản trị hệ thống',
-              style: TextStyle(fontSize: 13, color: textSecondary),
-            ),
-          ],
+        const Text(
+          'Quản trị hệ thống',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+            color: textSecondary,
+          ),
         ),
       ],
     );
