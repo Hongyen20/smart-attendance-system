@@ -8,6 +8,7 @@
     ".NETCoreApp,Version=v10.0": {
       "AttendanceApi/1.0.0": {
         "dependencies": {
+          "AWSSDK.Rekognition": "4.0.100.14",
           "BCrypt.Net-Next": "4.2.0",
           "MailKit": "4.17.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.10",
@@ -18,6 +19,25 @@
         },
         "runtime": {
           "AttendanceApi.dll": {}
+        }
+      },
+      "AWSSDK.Core/4.0.102.6": {
+        "runtime": {
+          "lib/net8.0/AWSSDK.Core.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.102.6"
+          }
+        }
+      },
+      "AWSSDK.Rekognition/4.0.100.14": {
+        "dependencies": {
+          "AWSSDK.Core": "4.0.102.6"
+        },
+        "runtime": {
+          "lib/net8.0/AWSSDK.Rekognition.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.100.14"
+          }
         }
       },
       "BCrypt.Net-Next/4.2.0": {
@@ -243,6 +263,20 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "AWSSDK.Core/4.0.102.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-YwUi9qpz/OHqwEgsf8I5jj1aC/xkkjmF91R8Yx6yD66dhOiORgQJynYQk0fzI4xdhBgUaw8SRGbMkLRrvL+CNA==",
+      "path": "awssdk.core/4.0.102.6",
+      "hashPath": "awssdk.core.4.0.102.6.nupkg.sha512"
+    },
+    "AWSSDK.Rekognition/4.0.100.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-WxnMTqQtdhOZpd6ZMEa7bRv14IglIMCw2QVRfV81TQaeKxMNU1XXroZk4Ya9P7t/uC1u+FdcK9vyVjJs73hizQ==",
+      "path": "awssdk.rekognition/4.0.100.14",
+      "hashPath": "awssdk.rekognition.4.0.100.14.nupkg.sha512"
     },
     "BCrypt.Net-Next/4.2.0": {
       "type": "package",

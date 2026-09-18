@@ -1,9 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "pO6I20Hn9Qw=",
+  "dgSpecHash": "kaa9eQmF1hI=",
   "success": true,
   "projectFilePath": "D:\\smart-attendance-system\\backend\\AttendanceApi.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\nguye\\.nuget\\packages\\awssdk.core\\4.0.102.6\\awssdk.core.4.0.102.6.nupkg.sha512",
+    "C:\\Users\\nguye\\.nuget\\packages\\awssdk.rekognition\\4.0.100.14\\awssdk.rekognition.4.0.100.14.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\bouncycastle.cryptography\\2.6.2\\bouncycastle.cryptography.2.6.2.nupkg.sha512",
     "C:\\Users\\nguye\\.nuget\\packages\\dnsclient\\1.6.1\\dnsclient.1.6.1.nupkg.sha512",

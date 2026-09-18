@@ -15,33 +15,53 @@ public class UserService
     // Login
     public async Task<User?> GetByUsernameAsync(string username)
     {
-        return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
+        return await _users
+            .Find(u => u.Username == username)
+            .FirstOrDefaultAsync();
     }
 
     // Forget Password
     public async Task<User?> GetByEmailAsync(string email)
     {
-        return await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
+        return await _users
+            .Find(u => u.Email == email)
+            .FirstOrDefaultAsync();
     }
+
     // For SuperAdmin, companyId = null.
-    public async Task<User?> GetByIdAsync(string? companyId, string id)
+    public async Task<User?> GetByIdAsync(
+        string? companyId,
+        string id)
     {
-        return await _users.Find(u => u.Id == id && u.CompanyId == companyId).FirstOrDefaultAsync();
+        return await _users
+            .Find(u =>
+                u.Id == id &&
+                u.CompanyId == companyId)
+            .FirstOrDefaultAsync();
     }
 
-    public async Task<List<User>> GetAllByCompanyAsync(string companyId)
+    public async Task<List<User>> GetAllByCompanyAsync(
+        string companyId)
     {
-        return await _users.Find(u => u.CompanyId == companyId).ToListAsync();
+        return await _users
+            .Find(u => u.CompanyId == companyId)
+            .ToListAsync();
     }
 
-    public async Task<bool> ExistsByUsernameAsync(string username)
+    public async Task<bool> ExistsByUsernameAsync(
+        string username)
     {
-        return await _users.Find(u => u.Username == username).AnyAsync();
+        return await _users
+            .Find(u => u.Username == username)
+            .AnyAsync();
     }
 
-    public async Task<bool> ExistsByEmailAsync(string email)
+    public async Task<bool> ExistsByEmailAsync(
+        string email)
     {
-        return await _users.Find(u => u.Email == email).AnyAsync();
+        return await _users
+            .Find(u => u.Email == email)
+            .AnyAsync();
     }
 
     public async Task CreateAsync(User user)
@@ -52,12 +72,33 @@ public class UserService
     public async Task UpdateAsync(User user)
     {
         user.UpdatedAt = DateTime.UtcNow;
-        await _users.ReplaceOneAsync(u => u.Id == user.Id, user);
+
+        await _users.ReplaceOneAsync(
+            u => u.Id == user.Id,
+            user);
     }
 
-    // Generated username automatic from CompanyID + UserID, EX: "acme" + "NV001" -> "acme.nv001".
-    // public static string GenerateUsername(string companyCode, string employeeCode)
-    // {
-    //     return $"{companyCode}.{employeeCode}".ToLowerInvariant();
-    // }
+
+    // FACE RECOGNITION
+    // Cập nhật thông tin khuôn mặt của nhân viên.
+
+    public async Task UpdateFaceInfoAsync(
+        string companyId,
+        string userId,
+        string faceId,
+        string faceCollectionId)
+    {
+        var update = Builders<User>.Update
+            .Set(u => u.FaceId, faceId)
+            .Set(u => u.FaceCollectionId, faceCollectionId)
+            .Set(u => u.FaceRegisteredAt, DateTime.UtcNow)
+            .Set(u => u.UpdatedAt, DateTime.UtcNow);
+
+        await _users.UpdateOneAsync(
+            u =>
+                u.Id == userId &&
+                u.CompanyId == companyId &&
+                u.Role == "Employee",
+            update);
+    }
 }

@@ -12,8 +12,8 @@ public class User
     [BsonRepresentation(BsonType.ObjectId)]
     public string? CompanyId { get; set; } // null nếu Role = SuperAdmin
 
-    public string Username { get; set; } = string.Empty;    
-    public string Email { get; set; } = string.Empty;        
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 
     public string FullName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
@@ -22,17 +22,32 @@ public class User
     public string Phone { get; set; } = string.Empty;
     public string AvatarUrl { get; set; } = string.Empty;
 
-    /// Số ngày phép được cấp/năm - Admin đặt khi tạo/sửa nhân viên. Mặc định 12.
+    // Số ngày phép được cấp/năm - Admin đặt khi tạo/sửa nhân viên. Mặc định 12.
     public int AnnualLeaveDays { get; set; } = 12;
 
-    // Ca làm việc hiện tại - mặc định 08:00-18:00 (10 tiếng, đúng quy định thông thường).
+    // Ca làm việc hiện tại - mặc định 08:00-18:00.
     // Bị cập nhật khi có ShiftChangeRequest được Admin duyệt.
     public string CurrentShiftType { get; set; } = "Fixed"; // Fixed | Flexible
     public string CurrentShiftStart { get; set; } = "08:00"; // "HH:mm"
     public string CurrentShiftEnd { get; set; } = "18:00";   // "HH:mm"
     public double CurrentShiftHours { get; set; } = 10;
+
     public string Status { get; set; } = "Active"; // Active | Inactive
 
+
+    // FACE RECOGNITION
+
+    // FaceId do Amazon Rekognition tạo ra khi đăng ký khuôn mặt.
+    public string? FaceId { get; set; }
+
+
+    // Rekognition Collection chứa khuôn mặt của nhân viên.
+    public string? FaceCollectionId { get; set; }
+
+
+    // Thời điểm đăng ký khuôn mặt.
+    public DateTime? FaceRegisteredAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
+

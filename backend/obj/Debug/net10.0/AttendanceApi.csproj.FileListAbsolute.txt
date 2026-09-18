@@ -53,3 +53,5 @@ D:\smart-attendance-system\backend\bin\Debug\net10.0\BouncyCastle.Cryptography.d
 D:\smart-attendance-system\backend\bin\Debug\net10.0\MailKit.dll
 D:\smart-attendance-system\backend\bin\Debug\net10.0\MimeKit.dll
 D:\smart-attendance-system\backend\bin\Debug\net10.0\AttendanceApi.staticwebassets.runtime.json
+D:\smart-attendance-system\backend\bin\Debug\net10.0\AWSSDK.Core.dll
+D:\smart-attendance-system\backend\bin\Debug\net10.0\AWSSDK.Rekognition.dll
