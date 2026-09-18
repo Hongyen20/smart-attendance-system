@@ -96,42 +96,26 @@ class SuperAdminHomeScreen extends StatelessWidget {
   }
 
   // HEADER
+  // HEADER
   Widget _buildHeader() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Logo lớn hơn
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: primary,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withOpacity(0.20),
-                blurRadius: 16,
-                offset: const Offset(0, 7),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.all(7),
-              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
-            ),
-          ),
+        SizedBox(
+          width: 78,
+          height: 78,
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
         ),
 
-        const SizedBox(width: 16),
+        const SizedBox(width: 14),
 
         const Text(
           'Quản trị hệ thống',
           style: TextStyle(
             fontSize: 17,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: textSecondary,
+            letterSpacing: -0.2,
           ),
         ),
       ],
