@@ -49,7 +49,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể tải ảnh lên. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể tải ảnh lên',
       );
     }
   }
@@ -82,7 +82,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể kết nối tới máy chủ',
       );
     }
   }
@@ -112,7 +112,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể kết nối tới máy chủ',
       );
     }
   }
@@ -142,7 +142,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể kết nối tới máy chủ',
       );
     }
   }
@@ -175,7 +175,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể kết nối tới máy chủ',
       );
     }
   }
@@ -204,7 +204,7 @@ class ApiService {
       );
     } catch (e) {
       return ApiResult.failure(
-        'Không thể kết nối tới máy chủ. Kiểm tra lại mạng hoặc backend đã chạy chưa.',
+        'Không thể kết nối tới máy chủ',
       );
     }
   }

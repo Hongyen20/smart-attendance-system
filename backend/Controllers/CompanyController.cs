@@ -26,6 +26,7 @@ public class CompanyController : ControllerBase
     }
 
     // CONVERT COMPANY -> RESPONSE
+
     private static CompanyResponse ToResponse(Company c) => new()
     {
         Id = c.Id,
@@ -39,15 +40,20 @@ public class CompanyController : ControllerBase
     };
 
     // GET ALL COMPANIES
+    // GET: /api/companies
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var companies = await _companyService.GetAllAsync();
+        var companies =
+            await _companyService.GetAllAsync();
 
         return Ok(companies.Select(ToResponse));
     }
 
     // UPDATE COMPANY STATUS
+    // PUT: /api/companies/{id}/status
+
     [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(
         string id,
@@ -75,6 +81,8 @@ public class CompanyController : ControllerBase
     }
 
     // CREATE COMPANY
+    // POST: /api/companies
+
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateCompanyRequest request)
@@ -88,7 +96,9 @@ public class CompanyController : ControllerBase
         // 2. Check company code already exists
         var codeExists =
             await _companyService
-                .ExistsByCompanyCodeAsync(normalizedCode);
+                .ExistsByCompanyCodeAsync(
+                    normalizedCode
+                );
 
         if (codeExists)
         {
@@ -104,15 +114,19 @@ public class CompanyController : ControllerBase
             CompanyCode = normalizedCode,
             Name = request.CompanyName.Trim(),
             Address = request.Address.Trim(),
-            ContactEmail = request.ContactEmail.Trim(),
-            ContactPhone = request.ContactPhone.Trim(),
+            ContactEmail =
+                request.ContactEmail.Trim(),
+            ContactPhone =
+                request.ContactPhone.Trim(),
             Status = "Active"
         };
 
         await _companyService.CreateAsync(company);
 
         // 4. Generate Admin username
-        var adminUsername = $"{company.CompanyCode}.admin".ToLowerInvariant();
+        var adminUsername =
+            $"{company.CompanyCode}.admin"
+                .ToLowerInvariant();
 
         // 5. Generate temporary password
         var temporaryPassword =
@@ -135,7 +149,7 @@ public class CompanyController : ControllerBase
 
         await _userService.CreateAsync(admin);
 
-        // 7. Send Admin account via email
+        // 7. Send Admin account via company contact email
         await _emailService.SendAdminAccountEmailAsync(
             toEmail: company.ContactEmail,
             toName: company.Name,
@@ -153,7 +167,8 @@ public class CompanyController : ControllerBase
 
             AdminUsername = admin.Username,
             AdminFullName = admin.FullName,
-            AdminTemporaryPassword = temporaryPassword
+            AdminTemporaryPassword =
+                temporaryPassword
         });
     }
 
@@ -166,7 +181,6 @@ public class CompanyController : ControllerBase
         [FromBody] UpdateCompanyRequest request)
     {
         // 1. Find company
-
         var company =
             await _companyService.GetByIdAsync(id);
 
@@ -179,14 +193,12 @@ public class CompanyController : ControllerBase
         }
 
         // 2. Normalize company code
-
         var normalizedCode =
             request.CompanyCode
                 .Trim()
                 .ToLowerInvariant();
 
         // 3. Check duplicate company code
-
         var codeExists =
             await _companyService
                 .ExistsByCompanyCodeExceptIdAsync(
@@ -202,8 +214,7 @@ public class CompanyController : ControllerBase
             });
         }
 
-        // 4. Update company information
-
+        // 4. Normalize information
         var companyName =
             request.CompanyName.Trim();
 
@@ -216,6 +227,7 @@ public class CompanyController : ControllerBase
         var contactPhone =
             request.ContactPhone.Trim();
 
+        // 5. Update company information
         var updated =
             await _companyService.UpdateInfoAsync(
                 id,
@@ -230,20 +242,107 @@ public class CompanyController : ControllerBase
         {
             return BadRequest(new
             {
-                message = "Không thể cập nhật thông tin công ty."
+                message =
+                    "Không thể cập nhật thông tin công ty."
             });
         }
 
-        // 5. Update local object
+        // 6. Update local object
+        company.CompanyCode =
+            normalizedCode;
 
-        company.CompanyCode = normalizedCode;
-        company.Name = companyName;
-        company.Address = address;
-        company.ContactEmail = contactEmail;
-        company.ContactPhone = contactPhone;
+        company.Name =
+            companyName;
 
-        // 6. Return updated company
+        company.Address =
+            address;
 
+        company.ContactEmail =
+            contactEmail;
+
+        company.ContactPhone =
+            contactPhone;
+
+        // 7. Return updated company
         return Ok(ToResponse(company));
+    }
+
+    // RESET ADMIN PASSWORD
+    // PUT:
+    // /api/companies/{id}/admin/reset-password
+
+    [HttpPut("{id}/admin/reset-password")]
+    public async Task<IActionResult> ResetAdminPassword(
+        string id)
+    {
+        // 1. Find company
+        var company =
+            await _companyService.GetByIdAsync(id);
+
+        if (company is null)
+        {
+            return NotFound(new
+            {
+                message = "Không tìm thấy công ty."
+            });
+        }
+
+        // 2. Check company contact email
+        if (string.IsNullOrWhiteSpace(
+                company.ContactEmail))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Công ty chưa có email liên hệ."
+            });
+        }
+
+        // 3. Find Admin belonging to this company
+        var admin =
+            await _userService
+                .GetAdminByCompanyIdAsync(id);
+
+        if (admin is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "Không tìm thấy tài khoản Admin của công ty."
+            });
+        }
+
+        // 4. Generate new password
+        var newPassword =
+            PasswordGenerator.Generate();
+
+        // 5. Hash new password
+        admin.PasswordHash =
+            BCrypt.Net.BCrypt.HashPassword(
+                newPassword
+            );
+
+        admin.UpdatedAt =
+            DateTime.UtcNow;
+
+        // 6. Save new password
+        await _userService.UpdateAsync(admin);
+
+        // 7. Send password to COMPANY CONTACT EMAIL
+        await _emailService
+            .SendPasswordResetEmailAsync(
+                toEmail: company.ContactEmail,
+                toName: company.Name,
+                companyName: company.Name,
+                username: admin.Username,
+                newPassword: newPassword
+            );
+
+        // 8. Do NOT return password to frontend
+        return Ok(new
+        {
+            message =
+                "Đã tạo mật khẩu mới và gửi đến email liên hệ của công ty."
+        });
     }
 }

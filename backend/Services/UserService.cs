@@ -101,4 +101,12 @@ public class UserService
                 u.Role == "Employee",
             update);
     }
+    public async Task<User?> GetAdminByCompanyIdAsync(string companyId)
+{
+    return await _users
+        .Find(u =>
+            u.CompanyId == companyId &&
+            u.Role == "Admin")
+        .FirstOrDefaultAsync();
+}
 }
