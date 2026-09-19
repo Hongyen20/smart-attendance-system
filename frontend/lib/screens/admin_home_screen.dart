@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
+
 import 'employee_list_screen.dart';
 import 'ip_config_screen.dart';
 import 'change_password_screen.dart';
@@ -17,19 +19,28 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  // STATE
+
   int _selectedNavIndex = 0;
 
   bool _isLoadingStats = true;
+
   int _totalEmployees = 0;
 
+  // Tạm thời giữ các giá trị này theo code hiện tại.
+  // Sau này có API thì có thể thay bằng dữ liệu thực tế.
   final int _currentlyWorking = 0;
   final int _pendingLeaveRequests = 0;
+
+  // INIT
 
   @override
   void initState() {
     super.initState();
     _loadStats();
   }
+
+  // LOAD DATA
 
   Future<void> _loadStats() async {
     final result = await ApiService.getList(
@@ -48,28 +59,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     });
   }
 
+  // BUILD
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+
       body: SafeArea(
         child: Column(
           children: [
+            // TOP BAR
             _buildTopBar(),
 
+            // MAIN CONTENT
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _loadStats,
+
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
+
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+
                     children: [
+                      // WELCOME
                       _buildWelcomeSection(),
 
                       const SizedBox(height: 14),
 
+                      // OVERVIEW
                       _buildOverviewCard(),
 
                       const SizedBox(height: 22),
@@ -78,12 +100,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       _buildSectionCard(
                         title: 'Quản lý nhân sự',
                         icon: Icons.person_outline_rounded,
+
                         children: [
                           _buildIconGrid([
+                            // Nhân viên
                             _FunctionTileData(
                               icon: Icons.groups_rounded,
                               title: 'Nhân viên',
                               color: const Color(0xFF3182F6),
+
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -96,10 +121,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               },
                             ),
 
+                            // Khuôn mặt
                             _FunctionTileData(
                               icon: Icons.face_retouching_natural_rounded,
                               title: 'Khuôn mặt',
                               color: const Color(0xFF7C4DFF),
+
                               onTap: () {
                                 final token = AuthState.instance.token;
 
@@ -111,6 +138,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       ),
                                     ),
                                   );
+
                                   return;
                                 }
 
@@ -124,10 +152,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               },
                             ),
 
+                            // Cấu hình IP
                             _FunctionTileData(
                               icon: Icons.router_rounded,
                               title: 'Cấu hình IP',
                               color: const Color(0xFF20C997),
+
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -147,12 +177,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       _buildSectionCard(
                         title: 'Chấm công & ca làm việc',
                         icon: Icons.access_time_rounded,
+
                         children: [
                           _buildIconGrid([
+                            // Đổi ca
                             _FunctionTileData(
                               icon: Icons.swap_horiz_rounded,
                               title: 'Đổi ca',
                               color: const Color(0xFFFF922B),
+
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -164,10 +197,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               },
                             ),
 
+                            // Nghỉ phép
                             _FunctionTileData(
                               icon: Icons.calendar_month_rounded,
                               title: 'Nghỉ phép',
                               color: const Color(0xFFF5487F),
+
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -178,10 +213,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               },
                             ),
 
+                            // Công tác
                             _FunctionTileData(
                               icon: Icons.business_center_rounded,
                               title: 'Công tác',
                               color: const Color(0xFF4A90E2),
+
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -202,12 +239,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       _buildSectionCard(
                         title: 'Tài khoản',
                         icon: Icons.security_rounded,
+
                         children: [
                           _buildIconGrid([
                             _FunctionTileData(
                               icon: Icons.lock_rounded,
                               title: 'Đổi mật khẩu',
                               color: const Color(0xFF7950F2),
+
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -222,9 +261,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         ],
                       ),
 
-                      const SizedBox(height: 22),
-
-                      _buildActivitySection(),
+                      // KHÔNG CÒN "HOẠT ĐỘNG GẦN ĐÂY"
                     ],
                   ),
                 ),
@@ -234,54 +271,56 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         ),
       ),
 
+      // BOTTOM NAVIGATION
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // HEADER
+  // LOGO HEADER
+
+  Widget _buildLogoHeader() {
+    return SizedBox(
+      width: 105,
+      height: 48,
+
+      child: Image.asset(
+        'assets/images/logo.png',
+
+        fit: BoxFit.contain,
+
+        alignment: Alignment.centerLeft,
+      ),
+    );
+  }
+
+  // TOP BAR
 
   Widget _buildTopBar() {
     final fullName = AuthState.instance.fullName;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+
       color: AppColors.cardBackground,
+
       child: Row(
         children: [
-          // Logo AttendGo
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF315CF6), Color(0xFF7048E8)],
-              ),
-            ),
-            child: const Icon(
-              Icons.wifi_rounded,
-              color: Colors.white,
-              size: 25,
-            ),
-          ),
+          // LOGO
+          _buildLogoHeader(),
 
-          const SizedBox(width: 11),
+          const SizedBox(width: 8),
 
-          Expanded(
+          // ADMIN LABEL
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'AttendGo',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF122B6B),
-                  ),
-                ),
-                SizedBox(height: 1),
+
+              mainAxisAlignment: MainAxisAlignment.center,
+
+              children: [
                 Text(
                   'Quản trị viên',
+
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -292,20 +331,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ),
 
-          // Avatar
+          // AVATAR
           Container(
             width: 43,
             height: 43,
+
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+
               color: const Color(0xFFEAF2FF),
+
               border: Border.all(color: const Color(0xFFD7E5FF), width: 1.5),
             ),
+
             child: Center(
               child: Text(
                 (fullName?.isNotEmpty == true)
                     ? fullName![0].toUpperCase()
                     : 'A',
+
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -319,47 +363,61 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // WELCOME
+  // WELCOME SECTION
 
   Widget _buildWelcomeSection() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
+
         children: [
+          // WELCOME ICON
           Container(
             width: 58,
             height: 58,
+
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+
               gradient: const LinearGradient(
                 colors: [Color(0xFFE4EEFF), Color(0xFFD2E3FF)],
               ),
             ),
+
             child: const Icon(
               Icons.admin_panel_settings_rounded,
+
               size: 34,
+
               color: Color(0xFF2F6FED),
             ),
           ),
 
           const SizedBox(width: 13),
 
+          // TEXT
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+
               children: [
                 Text(
                   'Chào Quản Trị Viên',
+
                   style: TextStyle(
                     fontSize: 23,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF102A67),
                   ),
                 ),
+
                 SizedBox(height: 3),
+
                 Text(
                   'Đây là tổng quan hoạt động của bạn hôm nay.',
+
                   style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
@@ -373,50 +431,68 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // OVERVIEW
+  // OVERVIEW CARD
 
   Widget _buildOverviewCard() {
     return Container(
       width: double.infinity,
+
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+
           colors: [Color(0xFFEAF3FF), Color(0xFFF5F8FF)],
         ),
+
         borderRadius: BorderRadius.circular(22),
+
         border: Border.all(color: const Color(0xFFDCE9FF)),
       ),
+
       child: Row(
         children: [
+          // TOTAL EMPLOYEES
           Expanded(
             child: _buildOverviewItem(
               icon: Icons.groups_rounded,
+
               iconColor: const Color(0xFF3182F6),
+
               label: 'Tổng nhân viên',
+
               value: _isLoadingStats ? '...' : '$_totalEmployees',
             ),
           ),
 
           _buildVerticalDivider(),
 
+          // CURRENTLY WORKING
           Expanded(
             child: _buildOverviewItem(
               icon: Icons.access_time_filled_rounded,
+
               iconColor: const Color(0xFF20B878),
+
               label: 'Đang làm việc',
+
               value: '$_currentlyWorking',
             ),
           ),
 
           _buildVerticalDivider(),
 
+          // PENDING
           Expanded(
             child: _buildOverviewItem(
               icon: Icons.event_available_rounded,
+
               iconColor: const Color(0xFFFF922B),
+
               label: 'Chờ duyệt',
+
               value: '$_pendingLeaveRequests',
             ),
           ),
@@ -424,6 +500,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
   }
+
+  // OVERVIEW ITEM
 
   Widget _buildOverviewItem({
     required IconData icon,
@@ -436,10 +514,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         Container(
           width: 44,
           height: 44,
+
           decoration: BoxDecoration(
             shape: BoxShape.circle,
+
             color: iconColor.withOpacity(0.13),
           ),
+
           child: Icon(icon, color: iconColor, size: 23),
         ),
 
@@ -447,9 +528,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
         Text(
           label,
+
           textAlign: TextAlign.center,
+
           maxLines: 2,
+
           overflow: TextOverflow.ellipsis,
+
           style: const TextStyle(
             fontSize: 10.5,
             color: AppColors.textSecondary,
@@ -461,6 +546,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
         Text(
           value,
+
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
@@ -471,16 +557,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
+  // VERTICAL DIVIDER
+
   Widget _buildVerticalDivider() {
     return Container(
       width: 1,
       height: 65,
+
       margin: const EdgeInsets.symmetric(horizontal: 5),
+
       color: const Color(0xFFD9E3F4),
     );
   }
 
-  // SECTION
+  // SECTION CARD
 
   Widget _buildSectionCard({
     required String title,
@@ -489,33 +579,44 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }) {
     return Container(
       width: double.infinity,
+
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
+
         borderRadius: BorderRadius.circular(21),
+
         border: Border.all(color: const Color(0xFFE2EAF7)),
       ),
+
       child: Column(
         children: [
-          // Section header
+          // SECTION HEADER
           Container(
             width: double.infinity,
+
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+
             decoration: const BoxDecoration(
               color: Color(0xFFF1F6FF),
+
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(21),
                 topRight: Radius.circular(21),
               ),
             ),
+
             child: Row(
               children: [
                 Container(
                   width: 32,
                   height: 32,
+
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
+
                     color: Color(0xFFE0ECFF),
                   ),
+
                   child: Icon(icon, size: 18, color: Color(0xFF2F6FED)),
                 ),
 
@@ -523,6 +624,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                 Text(
                   title,
+
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -533,8 +635,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ),
 
+          // CONTENT
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 16, 8, 17),
+
             child: Column(children: children),
           ),
         ],
@@ -542,7 +646,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // ICON GRID - 3 CỘT
+  // ICON GRID - 3 COLUMNS
 
   Widget _buildIconGrid(List<_FunctionTileData> items) {
     return LayoutBuilder(
@@ -553,11 +657,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
         return Wrap(
           spacing: spacing,
+
           runSpacing: 20,
+
           alignment: WrapAlignment.start,
+
           children: items.map((item) {
             return SizedBox(
               width: items.length == 1 ? constraints.maxWidth : itemWidth,
+
               child: _buildFunctionTile(item),
             );
           }).toList(),
@@ -566,48 +674,69 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // ICON TILE
+  // FUNCTION TILE
 
   Widget _buildFunctionTile(_FunctionTileData item) {
     return Material(
       color: Colors.transparent,
+
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
+
         onTap: item.onTap,
+
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
+
           child: Column(
             mainAxisSize: MainAxisSize.min,
+
             children: [
-              // ICON TRÒN LỚN
+              // --------------------------------------------------
+              // LARGE ROUND ICON
+              // --------------------------------------------------
               Container(
                 width: 76,
                 height: 76,
+
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
+
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
+
                     colors: [item.color.withOpacity(0.82), item.color],
                   ),
+
                   boxShadow: [
                     BoxShadow(
                       color: item.color.withOpacity(0.18),
+
                       blurRadius: 10,
+
                       offset: const Offset(0, 5),
                     ),
                   ],
                 ),
+
                 child: Icon(item.icon, color: Colors.white, size: 37),
               ),
 
               const SizedBox(height: 8),
 
+              // --------------------------------------------------
+              // TITLE
+              // --------------------------------------------------
               Text(
                 item.title,
+
                 textAlign: TextAlign.center,
+
                 maxLines: 2,
+
                 overflow: TextOverflow.ellipsis,
+
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
@@ -621,162 +750,24 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // ACTIVITY
-
-  Widget _buildActivitySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 3),
-          child: Text(
-            'Hoạt động gần đây',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF102A67),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 11),
-
-        _buildActivityItem(
-          icon: Icons.login_rounded,
-          iconColor: AppColors.successGreen,
-          iconBg: AppColors.successGreenBg,
-          richTitle: 'Minh Quân vừa chấm công vào',
-          boldName: 'Minh Quân',
-          subtitle: '08:45 AM • Trụ sở chính',
-        ),
-
-        const SizedBox(height: 10),
-
-        _buildActivityItem(
-          icon: Icons.description_outlined,
-          iconColor: AppColors.amber,
-          iconBg: AppColors.amberBg,
-          richTitle: 'Thu Hà đã gửi đơn nghỉ phép',
-          boldName: 'Thu Hà',
-          subtitle: '09:12 AM • Nghỉ ốm',
-          statusLabel: 'Đang chờ',
-        ),
-
-        const SizedBox(height: 10),
-
-        _buildActivityItem(
-          icon: Icons.access_time_rounded,
-          iconColor: AppColors.accentBlue,
-          iconBg: AppColors.pendingBlueBg,
-          richTitle: 'Anh Tuấn đã cập nhật ca làm việc',
-          boldName: 'Anh Tuấn',
-          subtitle: '10:05 AM • Hậu cần',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActivityItem({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String richTitle,
-    required String boldName,
-    required String subtitle,
-    String? statusLabel,
-  }) {
-    final restOfTitle = richTitle.substring(boldName.length);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2EAF7)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 21),
-          ),
-
-          const SizedBox(width: 11),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textPrimary,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: boldName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(text: restOfTitle),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          if (statusLabel != null) ...[
-            const SizedBox(width: 7),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.amberBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                statusLabel,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.amber,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   // BOTTOM NAVIGATION
 
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
+
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
+
             blurRadius: 15,
+
             offset: const Offset(0, -4),
           ),
         ],
       ),
+
       child: BottomNavigationBar(
         currentIndex: _selectedNavIndex,
 
@@ -785,12 +776,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             _selectedNavIndex = index;
           });
 
-          // Trang chủ
+          // TRANG CHỦ
           if (index == 0) {
             return;
           }
 
-          // Nhân viên
+          // NHÂN VIÊN
           if (index == 1) {
             Navigator.push(
               context,
@@ -805,7 +796,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               _loadStats();
             });
           }
-          // Chấm công
+          // CHẤM CÔNG
           else if (index == 2) {
             Navigator.push(
               context,
@@ -818,7 +809,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               });
             });
           }
-          // Yêu cầu
+          // YÊU CẦU
           else if (index == 3) {
             Navigator.push(
               context,
@@ -831,7 +822,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               });
             });
           }
-          // Cài đặt
+          // CÀI ĐẶT
           else if (index == 4) {
             Navigator.push(
               context,
@@ -855,6 +846,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         unselectedItemColor: AppColors.textSecondary,
 
         selectedFontSize: 11,
+
         unselectedFontSize: 10,
 
         showUnselectedLabels: true,
@@ -862,33 +854,48 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         elevation: 0,
 
         items: const [
+          // HOME
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
+
             activeIcon: Icon(Icons.home_rounded),
+
             label: 'Trang chủ',
           ),
 
+          // EMPLOYEE
           BottomNavigationBarItem(
             icon: Icon(Icons.groups_outlined),
+
             activeIcon: Icon(Icons.groups_rounded),
+
             label: 'Nhân viên',
           ),
 
+          // ATTENDANCE
           BottomNavigationBarItem(
             icon: Icon(Icons.access_time_outlined),
+
             activeIcon: Icon(Icons.access_time_filled),
+
             label: 'Chấm công',
           ),
 
+          // REQUESTS
           BottomNavigationBarItem(
             icon: Icon(Icons.description_outlined),
+
             activeIcon: Icon(Icons.description_rounded),
+
             label: 'Yêu cầu',
           ),
 
+          // SETTINGS
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
+
             activeIcon: Icon(Icons.settings_rounded),
+
             label: 'Cài đặt',
           ),
         ],
@@ -897,14 +904,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 }
 
-// ============================================================
-// DATA MODEL
-// ============================================================
+// FUNCTION TILE DATA
 
 class _FunctionTileData {
   final IconData icon;
+
   final String title;
+
   final Color color;
+
   final VoidCallback onTap;
 
   const _FunctionTileData({
