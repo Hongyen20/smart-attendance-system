@@ -16,23 +16,16 @@ import 'history_screen.dart';
 import 'statistics_screen.dart';
 import 'leave_request_screen.dart';
 
-enum _CheckState {
-  loading,
-  notCheckedIn,
-  checkedIn,
-  checkedOut,
-}
+enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
 
   @override
-  State<EmployeeHomeScreen> createState() =>
-      _EmployeeHomeScreenState();
+  State<EmployeeHomeScreen> createState() => _EmployeeHomeScreenState();
 }
 
-class _EmployeeHomeScreenState
-    extends State<EmployeeHomeScreen> {
+class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   int _selectedNavIndex = 0;
 
   _CheckState _checkState = _CheckState.loading;
@@ -41,6 +34,12 @@ class _EmployeeHomeScreenState
   String? _workingHoursLabel;
 
   bool _isProcessing = false;
+
+  // Nhân viên đã đăng ký khuôn mặt hay chưa.
+  bool _hasFace = false;
+
+  // Đang tải trạng thái khuôn mặt.
+  bool _isLoadingFaceStatus = true;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -73,7 +72,57 @@ class _EmployeeHomeScreenState
   @override
   void initState() {
     super.initState();
-    _loadTodayStatus();
+
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    await Future.wait([_loadTodayStatus(), _loadFaceStatus()]);
+  }
+
+  // LOAD TRẠNG THÁI KHUÔN MẶT
+
+  Future<void> _loadFaceStatus() async {
+    try {
+
+      final result = await ApiService.get(
+        '/api/users/me',
+        bearerToken: AuthState.instance.token,
+      );
+
+      if (!mounted) return;
+
+      if (!result.success || result.data == null) {
+        setState(() {
+          _hasFace = false;
+          _isLoadingFaceStatus = false;
+        });
+
+        return;
+      }
+
+      final data = result.data;
+
+      bool hasFace = false;
+
+      if (data is Map<String, dynamic>) {
+        hasFace = data['hasFace'] == true;
+      }
+
+      setState(() {
+        _hasFace = hasFace;
+        _isLoadingFaceStatus = false;
+      });
+    } catch (e) {
+      debugPrint('Load face status error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _hasFace = false;
+        _isLoadingFaceStatus = false;
+      });
+    }
   }
 
   // LOAD TRẠNG THÁI CHẤM CÔNG HÔM NAY
@@ -119,23 +168,17 @@ class _EmployeeHomeScreenState
       } else if (checkedIn && !checkedOut) {
         _checkState = _CheckState.checkedIn;
 
-        _checkInTimeLabel = _formatTimeFromIso(
-          data['checkInTime'] as String?,
-        );
+        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
 
         _workingHoursLabel = null;
       } else {
         _checkState = _CheckState.checkedOut;
 
-        _checkInTimeLabel = _formatTimeFromIso(
-          data['checkInTime'] as String?,
-        );
+        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
 
-        final hours =
-            (data['workingHours'] as num?)?.toDouble() ?? 0;
+        final hours = (data['workingHours'] as num?)?.toDouble() ?? 0;
 
-        _workingHoursLabel =
-            '${hours.toStringAsFixed(1)}h';
+        _workingHoursLabel = '${hours.toStringAsFixed(1)}h';
       }
     });
   }
@@ -158,19 +201,11 @@ class _EmployeeHomeScreenState
   Future<String?> _getPublicIp() async {
     try {
       final response = await http
-          .get(
-            Uri.parse(
-              'https://api.ipify.org?format=json',
-            ),
-          )
-          .timeout(
-            const Duration(seconds: 10),
-          );
+          .get(Uri.parse('https://api.ipify.org?format=json'))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
-        _showSnack(
-          'Không thể lấy địa chỉ IP công cộng.',
-        );
+        _showSnack('Không thể lấy địa chỉ IP công cộng.');
 
         return null;
       }
@@ -178,9 +213,7 @@ class _EmployeeHomeScreenState
       final data = jsonDecode(response.body);
 
       if (data is! Map<String, dynamic>) {
-        _showSnack(
-          'Dữ liệu IP không hợp lệ.',
-        );
+        _showSnack('Dữ liệu IP không hợp lệ.');
 
         return null;
       }
@@ -188,23 +221,21 @@ class _EmployeeHomeScreenState
       final ip = data['ip']?.toString().trim();
 
       if (ip == null || ip.isEmpty) {
-        _showSnack(
-          'Không nhận được địa chỉ IP công cộng.',
-        );
+        _showSnack('Không nhận được địa chỉ IP công cộng.');
 
         return null;
       }
 
       if (!_isValidIPv4(ip)) {
-        _showSnack(
-          'Địa chỉ IPv4 nhận được không hợp lệ.',
-        );
+        _showSnack('Địa chỉ IPv4 nhận được không hợp lệ.');
 
         return null;
       }
 
       return ip;
     } catch (e) {
+      debugPrint('Get public IP error: $e');
+
       _showSnack(
         'Không thể lấy IP công cộng. '
         'Vui lòng kiểm tra kết nối Internet.',
@@ -226,9 +257,7 @@ class _EmployeeHomeScreenState
     for (final part in parts) {
       final value = int.tryParse(part);
 
-      if (value == null ||
-          value < 0 ||
-          value > 255) {
+      if (value == null || value < 0 || value > 255) {
         return false;
       }
     }
@@ -239,24 +268,19 @@ class _EmployeeHomeScreenState
   // LẤY GPS HIỆN TẠI
 
   Future<Position?> _getCurrentPosition() async {
-    var permission =
-        await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied) {
-      _showSnack(
-        'Cần cấp quyền vị trí để check-in/check-out.',
-      );
+      _showSnack('Cần cấp quyền vị trí để check-in/check-out.');
 
       return null;
     }
 
-    if (permission ==
-        LocationPermission.deniedForever) {
+    if (permission == LocationPermission.deniedForever) {
       _showSnack(
         'Quyền vị trí đã bị từ chối vĩnh viễn. '
         'Vui lòng cấp quyền vị trí trong cài đặt.',
@@ -265,13 +289,10 @@ class _EmployeeHomeScreenState
       return null;
     }
 
-    final serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      _showSnack(
-        'Vui lòng bật định vị (GPS) trên thiết bị.',
-      );
+      _showSnack('Vui lòng bật định vị (GPS) trên thiết bị.');
 
       return null;
     }
@@ -283,6 +304,8 @@ class _EmployeeHomeScreenState
         ),
       );
     } catch (e) {
+      debugPrint('Get GPS error: $e');
+
       _showSnack(
         'Không lấy được vị trí hiện tại. '
         'Vui lòng thử lại.',
@@ -292,16 +315,14 @@ class _EmployeeHomeScreenState
     }
   }
 
-  // CHỤP KHUÔN MẶT - TỐI ĐA 45 GIÂY
+  // CHỤP KHUÔN MẶT
 
   Future<XFile?> _captureFaceImage() async {
     if (!mounted) {
       return null;
     }
 
-    _showSnack(
-      'Camera đã mở. Vui lòng chụp rõ khuôn mặt trong 45 giây.',
-    );
+    _showSnack('Camera đã mở. Vui lòng chụp rõ khuôn mặt.');
 
     try {
       final image = await _imagePicker
@@ -311,15 +332,10 @@ class _EmployeeHomeScreenState
             maxWidth: 1280,
             maxHeight: 1280,
           )
-          .timeout(
-            const Duration(seconds: 45),
-          );
+          .timeout(const Duration(seconds: 45));
 
       if (image == null) {
-        _showSnack(
-          'Chưa nhận thấy khuôn mặt. '
-          'Vui lòng thử lại.',
-        );
+        _showSnack('Bạn chưa chụp ảnh khuôn mặt.');
 
         return null;
       }
@@ -327,15 +343,13 @@ class _EmployeeHomeScreenState
       return image;
     } on TimeoutException {
       _showSnack(
-        'Chưa nhận thấy khuôn mặt trong 45 giây. '
+        'Thời gian chụp ảnh đã hết. '
         'Vui lòng thử lại.',
       );
 
       return null;
     } catch (e) {
-      debugPrint(
-        'Face camera error: $e',
-      );
+      debugPrint('Face camera error: $e');
 
       _showSnack(
         'Không thể mở camera. '
@@ -353,22 +367,17 @@ class _EmployeeHomeScreenState
       return Uri.base.resolve(path);
     }
 
-    return Uri.parse(
-      '${ApiConfig.baseUrl}$path',
-    );
+    return Uri.parse('${ApiConfig.baseUrl}$path');
   }
 
-  // CHECK-IN
-  // IP -> GPS -> FACE -> REKOGNITION -> ATTENDANCE
 
   Future<void> _performCheckIn({
     required String publicIp,
     required Position position,
   }) async {
-    // BƯỚC 3: CHỤP KHUÔN MẶT
+    // 1. CHỤP KHUÔN MẶT
 
-    final faceImage =
-        await _captureFaceImage();
+    final faceImage = await _captureFaceImage();
 
     if (!mounted) return;
 
@@ -376,59 +385,45 @@ class _EmployeeHomeScreenState
       return;
     }
 
-    // ĐỌC FILE ẢNH
+    // 2. ĐỌC ẢNH
 
-    final imageBytes =
-        await faceImage.readAsBytes();
+    final imageBytes = await faceImage.readAsBytes();
 
     if (imageBytes.isEmpty) {
-      _showSnack(
-        'Không đọc được ảnh khuôn mặt.',
-      );
+      _showSnack('Không đọc được ảnh khuôn mặt.');
 
       return;
     }
 
-    _showSnack(
-      'Đang xác thực khuôn mặt...',
-    );
+    _showSnack('Đang xác thực khuôn mặt...');
 
     try {
-      // TẠO MULTIPART REQUEST
+      // 3. TẠO MULTIPART REQUEST
 
       final request = http.MultipartRequest(
         'POST',
-        _buildApiUri(
-          '/api/attendance/check-in',
-        ),
+        _buildApiUri('/api/attendance/check-in'),
       );
 
-      // JWT
+      // 4. JWT
 
-      final token =
-          AuthState.instance.token;
+      final token = AuthState.instance.token;
 
-      if (token != null &&
-          token.isNotEmpty) {
-        request.headers['Authorization'] =
-            'Bearer $token';
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // FORM FIELDS
+      // 5. FORM FIELDS
 
-      request.fields['lat'] =
-          position.latitude.toString();
+      request.fields['lat'] = position.latitude.toString();
 
-      request.fields['lng'] =
-          position.longitude.toString();
+      request.fields['lng'] = position.longitude.toString();
 
-      request.fields['publicIp'] =
-          publicIp;
+      request.fields['publicIp'] = publicIp;
 
-      request.fields['deviceId'] =
-          '';
+      request.fields['deviceId'] = '';
 
-      // FACE IMAGE
+      // 6. FACE IMAGE
 
       request.files.add(
         http.MultipartFile.fromBytes(
@@ -438,19 +433,16 @@ class _EmployeeHomeScreenState
         ),
       );
 
-      // SEND REQUEST
+      // 7. SEND
 
-      final response =
-          await request.send();
+      final response = await request.send();
 
-      final responseBody =
-          await response.stream.bytesToString();
+      final responseBody = await response.stream.bytesToString();
 
       Map<String, dynamic>? data;
 
       try {
-        final decoded =
-            jsonDecode(responseBody);
+        final decoded = jsonDecode(responseBody);
 
         if (decoded is Map<String, dynamic>) {
           data = decoded;
@@ -461,45 +453,34 @@ class _EmployeeHomeScreenState
 
       if (!mounted) return;
 
-      // SUCCESS
+      // 8. SUCCESS
 
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
-        _showSnack(
-          data?['message']?.toString() ??
-              'Check-in thành công!',
-        );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _showSnack(data?['message']?.toString() ?? 'Check-in thành công!');
 
         await _loadTodayStatus();
 
         return;
       }
 
-      // ERROR
+      // 9. ERROR
 
       final errorMessage =
-          data?['message']?.toString() ??
-              'Xác thực khuôn mặt thất bại.';
+          data?['message']?.toString() ?? 'Xác thực khuôn mặt thất bại.';
 
-      _showSnack(
-        errorMessage,
-      );
+      _showSnack(errorMessage);
     } catch (e) {
-      debugPrint(
-        'Check-in multipart error: $e',
-      );
+      debugPrint('Check-in multipart error: $e');
 
       if (!mounted) return;
 
-      _showSnack(
-        'Không thể kết nối đến máy chủ.',
-      );
+      _showSnack('Không thể kết nối đến máy chủ.');
     }
   }
 
   // CHECK-OUT
   //
-  // IP -> GPS -> ATTENDANCE
+  // IP → GPS → ATTENDANCE
 
   Future<void> _performCheckOut({
     required String publicIp,
@@ -522,27 +503,18 @@ class _EmployeeHomeScreenState
       if (!mounted) return;
 
       if (result.success) {
-        _showSnack(
-          'Check-out thành công!',
-        );
+        _showSnack('Check-out thành công!');
 
         await _loadTodayStatus();
       } else {
-        _showSnack(
-          result.errorMessage ??
-              'Xác thực check-out thất bại.',
-        );
+        _showSnack(result.errorMessage ?? 'Xác thực check-out thất bại.');
       }
     } catch (e) {
+      debugPrint('Check-out error: $e');
+
       if (!mounted) return;
 
-      debugPrint(
-        'Check-out error: $e',
-      );
-
-      _showSnack(
-        'Có lỗi xảy ra khi thực hiện check-out.',
-      );
+      _showSnack('Có lỗi xảy ra khi thực hiện check-out.');
     }
   }
 
@@ -551,9 +523,12 @@ class _EmployeeHomeScreenState
   Future<void> _handleCheckButtonTap() async {
     if (_checkState == _CheckState.checkedOut ||
         _checkState == _CheckState.loading ||
-        _isProcessing) {
+        _isProcessing ||
+        _isLoadingFaceStatus) {
       return;
     }
+
+    final isCheckIn = _checkState == _CheckState.notCheckedIn;
 
     setState(() {
       _isProcessing = true;
@@ -561,15 +536,32 @@ class _EmployeeHomeScreenState
 
     try {
       // ========================================================
+      // CHECK-IN:
+      // KIỂM TRA KHUÔN MẶT TRƯỚC KHI LẤY IP/GPS
+      // ========================================================
+
+      if (isCheckIn) {
+        if (!_hasFace) {
+          _showSnack(
+            'Bạn chưa đăng ký khuôn mặt. '
+            'Vui lòng đăng ký khuôn mặt trước khi check-in.',
+          );
+
+          return;
+        }
+      }
+
+      // ========================================================
       // BƯỚC 1: PUBLIC IPV4
       // ========================================================
 
       _showSnack(
-        'Bước 1/3: Đang kiểm tra địa chỉ IP...',
+        isCheckIn
+            ? 'Bước 1/3: Đang kiểm tra địa chỉ IP...'
+            : 'Bước 1/2: Đang kiểm tra địa chỉ IP...',
       );
 
-      final publicIp =
-          await _getPublicIp();
+      final publicIp = await _getPublicIp();
 
       if (!mounted) return;
 
@@ -582,11 +574,12 @@ class _EmployeeHomeScreenState
       // ========================================================
 
       _showSnack(
-        'Bước 2/3: Đang xác định vị trí...',
+        isCheckIn
+            ? 'Bước 2/3: Đang xác định vị trí...'
+            : 'Bước 2/2: Đang xác định vị trí...',
       );
 
-      final position =
-          await _getCurrentPosition();
+      final position = await _getCurrentPosition();
 
       if (!mounted) return;
 
@@ -595,22 +588,13 @@ class _EmployeeHomeScreenState
       }
 
       // ========================================================
-      // XÁC ĐỊNH CHECK-IN / CHECK-OUT
-      // ========================================================
-
-      final isCheckIn =
-          _checkState ==
-              _CheckState.notCheckedIn;
-
-      // ========================================================
       // CHECK-IN
       // ========================================================
 
       if (isCheckIn) {
-        await _performCheckIn(
-          publicIp: publicIp,
-          position: position,
-        );
+        _showSnack('Bước 3/3: Đang mở camera...');
+
+        await _performCheckIn(publicIp: publicIp, position: position);
 
         return;
       }
@@ -619,20 +603,13 @@ class _EmployeeHomeScreenState
       // CHECK-OUT
       // ========================================================
 
-      await _performCheckOut(
-        publicIp: publicIp,
-        position: position,
-      );
+      await _performCheckOut(publicIp: publicIp, position: position);
     } catch (e) {
-      debugPrint(
-        'Attendance error: $e',
-      );
+      debugPrint('Attendance error: $e');
 
       if (!mounted) return;
 
-      _showSnack(
-        'Có lỗi xảy ra khi thực hiện chấm công.',
-      );
+      _showSnack('Có lỗi xảy ra khi thực hiện chấm công.');
     } finally {
       if (mounted) {
         setState(() {
@@ -650,11 +627,7 @@ class _EmployeeHomeScreenState
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -663,8 +636,7 @@ class _EmployeeHomeScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: AppColors.background,
 
       body: SafeArea(
         child: Column(
@@ -673,43 +645,33 @@ class _EmployeeHomeScreenState
 
             Expanded(
               child: RefreshIndicator(
-                onRefresh:
-                    _loadTodayStatus,
+                onRefresh: () async {
+                  await Future.wait([_loadTodayStatus(), _loadFaceStatus()]);
+                },
 
-                child:
-                    SingleChildScrollView(
-                  physics:
-                      const AlwaysScrollableScrollPhysics(),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
 
-                  padding:
-                      const EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    32,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
 
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
                       _buildGreetingRow(),
 
-                      const SizedBox(
-                        height: 32,
-                      ),
+                      const SizedBox(height: 32),
 
-                      Center(
-                        child:
-                            _buildCheckInButton(),
-                      ),
+                      Center(child: _buildCheckInButton()),
 
-                      const SizedBox(
-                        height: 32,
-                      ),
+                      const SizedBox(height: 32),
 
                       _buildStatsRow(),
+
+                      const SizedBox(height: 16),
+
+                      if (!_isLoadingFaceStatus && !_hasFace)
+                        _buildFaceWarning(),
                     ],
                   ),
                 ),
@@ -719,8 +681,44 @@ class _EmployeeHomeScreenState
         ),
       ),
 
-      bottomNavigationBar:
-          _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  // FACE WARNING
+
+  Widget _buildFaceWarning() {
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(14),
+
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+
+        borderRadius: BorderRadius.circular(14),
+
+        border: Border.all(color: AppColors.amber),
+      ),
+
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          const Icon(Icons.face_retouching_natural, color: AppColors.amber),
+
+          const SizedBox(width: 10),
+
+          const Expanded(
+            child: Text(
+              'Bạn chưa đăng ký khuôn mặt. '
+              'Vui lòng đăng ký khuôn mặt trước '
+              'khi thực hiện check-in.',
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -728,33 +726,17 @@ class _EmployeeHomeScreenState
 
   Widget _buildTopBar() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
 
-      decoration:
-          const BoxDecoration(
-        color:
-            AppColors.cardBackground,
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
 
-        border: Border(
-          bottom: BorderSide(
-            color:
-                AppColors.borderColor,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.borderColor)),
       ),
 
       child: Row(
         children: [
-          const Icon(
-            Icons.wifi,
-            color:
-                AppColors.primaryBlue,
-            size: 24,
-          ),
+          const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
 
           const SizedBox(width: 8),
 
@@ -762,10 +744,8 @@ class _EmployeeHomeScreenState
             'AttendGo',
             style: TextStyle(
               fontSize: 20,
-              fontWeight:
-                  FontWeight.bold,
-              color:
-                  AppColors.primaryBlue,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryBlue,
             ),
           ),
 
@@ -775,8 +755,7 @@ class _EmployeeHomeScreenState
             onPressed: () {},
             icon: const Icon(
               Icons.notifications_none,
-              color:
-                  AppColors.textPrimary,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -787,30 +766,24 @@ class _EmployeeHomeScreenState
   // GREETING
 
   Widget _buildGreetingRow() {
-    final userName =
-        AuthState.instance.fullName ?? '';
+    final userName = AuthState.instance.fullName ?? '';
 
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
 
-      mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
       children: [
         Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
             const Text(
               'XIN CHÀO,',
               style: TextStyle(
                 fontSize: 13,
-                fontWeight:
-                    FontWeight.w600,
-                color:
-                    AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -819,28 +792,23 @@ class _EmployeeHomeScreenState
               '$userName!',
               style: const TextStyle(
                 fontSize: 28,
-                fontWeight:
-                    FontWeight.bold,
-                color:
-                    AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
             ),
           ],
         ),
 
         Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
 
           children: [
             Text(
               _formattedNow,
               style: const TextStyle(
                 fontSize: 22,
-                fontWeight:
-                    FontWeight.bold,
-                color:
-                    AppColors.primaryBlue,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryBlue,
               ),
             ),
 
@@ -850,8 +818,7 @@ class _EmployeeHomeScreenState
               _formattedDate,
               style: const TextStyle(
                 fontSize: 13,
-                color:
-                    AppColors.textSecondary,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -868,53 +835,59 @@ class _EmployeeHomeScreenState
     late final Color color;
     late final IconData icon;
 
-    switch (_checkState) {
-      case _CheckState.loading:
-        title = '...';
-        subtitle = 'Đang tải';
-        color =
-            AppColors.textSecondary;
-        icon =
-            Icons.hourglass_empty;
-        break;
+    if (_isLoadingFaceStatus) {
+      title = '...';
+      subtitle = 'Đang tải';
+      color = AppColors.textSecondary;
+      icon = Icons.hourglass_empty;
+    } else {
+      switch (_checkState) {
+        case _CheckState.loading:
+          title = '...';
+          subtitle = 'Đang tải';
+          color = AppColors.textSecondary;
+          icon = Icons.hourglass_empty;
+          break;
 
-      case _CheckState.notCheckedIn:
-        title = 'CHẤM CÔNG';
-        subtitle =
-            'Chạm để bắt đầu';
-        color =
-            AppColors.primaryBlue;
-        icon = Icons.fingerprint;
-        break;
+        case _CheckState.notCheckedIn:
+          title = 'CHẤM CÔNG';
+          subtitle = _hasFace ? 'Chạm để bắt đầu' : 'Chưa đăng ký khuôn mặt';
+          color = _hasFace ? AppColors.primaryBlue : AppColors.textSecondary;
+          icon = _hasFace ? Icons.fingerprint : Icons.face_retouching_natural;
+          break;
 
-      case _CheckState.checkedIn:
-        title = 'CHẤM CÔNG RA';
-        subtitle =
-            'Chạm để kết thúc';
-        color = AppColors.amber;
-        icon = Icons.logout;
-        break;
+        case _CheckState.checkedIn:
+          title = 'CHẤM CÔNG RA';
+          subtitle = 'Chạm để kết thúc';
+          color = AppColors.amber;
+          icon = Icons.logout;
+          break;
 
-      case _CheckState.checkedOut:
-        title = 'ĐÃ HOÀN THÀNH';
-        subtitle =
-            'Hẹn gặp lại ngày mai';
-        color =
-            AppColors.successGreen;
-        icon =
-            Icons.check_circle_outline;
-        break;
+        case _CheckState.checkedOut:
+          title = 'ĐÃ HOÀN THÀNH';
+          subtitle = 'Hẹn gặp lại ngày mai';
+          color = AppColors.successGreen;
+          icon = Icons.check_circle_outline;
+          break;
+      }
     }
+
+    final canTap =
+        !_isLoadingFaceStatus &&
+        _checkState != _CheckState.checkedOut &&
+        _checkState != _CheckState.loading &&
+        _isProcessing &&
+        false == true;
 
     return GestureDetector(
       onTap:
-          (_checkState ==
-                      _CheckState.checkedOut ||
-                  _checkState ==
-                      _CheckState.loading ||
-                  _isProcessing)
-              ? null
-              : _handleCheckButtonTap,
+          (_checkState == _CheckState.checkedOut ||
+              _checkState == _CheckState.loading ||
+              _isProcessing ||
+              _isLoadingFaceStatus ||
+              (_checkState == _CheckState.notCheckedIn && !_hasFace))
+          ? null
+          : _handleCheckButtonTap,
 
       child: Container(
         width: 220,
@@ -926,10 +899,7 @@ class _EmployeeHomeScreenState
 
           boxShadow: [
             BoxShadow(
-              color:
-                  color.withValues(
-                alpha: 0.35,
-              ),
+              color: color.withValues(alpha: 0.35),
               blurRadius: 40,
               spreadRadius: 6,
             ),
@@ -938,47 +908,31 @@ class _EmployeeHomeScreenState
 
         child: Center(
           child: _isProcessing
-              ? const CircularProgressIndicator(
-                  color: Colors.white,
-                )
+              ? const CircularProgressIndicator(color: Colors.white)
               : Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
 
                   children: [
-                    Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 52,
-                    ),
+                    Icon(icon, color: Colors.white, size: 52),
 
-                    const SizedBox(
-                      height: 12,
-                    ),
+                    const SizedBox(height: 12),
 
                     Text(
                       title,
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.white,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 20,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 4,
-                    ),
+                    const SizedBox(height: 4),
 
                     Text(
                       subtitle,
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.white70,
+                      style: const TextStyle(
+                        color: Colors.white70,
                         fontSize: 13,
                       ),
                     ),
@@ -996,15 +950,10 @@ class _EmployeeHomeScreenState
       children: [
         Expanded(
           child: _buildStatCard(
-            icon:
-                Icons.access_time,
-            iconColor:
-                AppColors.accentBlue,
-            label:
-                'Giờ bắt đầu',
-            value:
-                _checkInTimeLabel ??
-                    '--:--',
+            icon: Icons.access_time,
+            iconColor: AppColors.accentBlue,
+            label: 'Giờ bắt đầu',
+            value: _checkInTimeLabel ?? '--:--',
           ),
         ),
 
@@ -1012,15 +961,10 @@ class _EmployeeHomeScreenState
 
         Expanded(
           child: _buildStatCard(
-            icon:
-                Icons.timer_outlined,
-            iconColor:
-                AppColors.amber,
-            label:
-                'Tổng giờ làm',
-            value:
-                _workingHoursLabel ??
-                    '0h',
+            icon: Icons.timer_outlined,
+            iconColor: AppColors.amber,
+            label: 'Tổng giờ làm',
+            value: _workingHoursLabel ?? '0h',
           ),
         ),
       ],
@@ -1034,46 +978,31 @@ class _EmployeeHomeScreenState
     required String value,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
 
       decoration: BoxDecoration(
-        color:
-            AppColors.cardBackground,
+        color: AppColors.cardBackground,
 
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
 
-        border: Border.all(
-          color:
-              AppColors.borderColor,
-        ),
+        border: Border.all(color: AppColors.borderColor),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                size: 16,
-                color: iconColor,
-              ),
+              Icon(icon, size: 16, color: iconColor),
 
-              const SizedBox(
-                width: 6,
-              ),
+              const SizedBox(width: 6),
 
               Text(
                 label,
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
-                  color:
-                      AppColors.textSecondary,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1083,13 +1012,10 @@ class _EmployeeHomeScreenState
 
           Text(
             value,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 20,
-              fontWeight:
-                  FontWeight.bold,
-              color:
-                  AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -1101,12 +1027,10 @@ class _EmployeeHomeScreenState
 
   Widget _buildBottomNav() {
     return BottomNavigationBar(
-      currentIndex:
-          _selectedNavIndex,
+      currentIndex: _selectedNavIndex,
 
       onTap: (index) {
-        if (index ==
-            _selectedNavIndex) {
+        if (index == _selectedNavIndex) {
           return;
         }
 
@@ -1117,88 +1041,61 @@ class _EmployeeHomeScreenState
           case 1:
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const HistoryScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
             );
             break;
 
           case 2:
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const LeaveRequestScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const LeaveRequestScreen()),
             );
             break;
 
           case 3:
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const StatisticsScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const StatisticsScreen()),
             );
             break;
 
           case 4:
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const ProfileScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
             );
             break;
         }
       },
 
-      type:
-          BottomNavigationBarType.fixed,
+      type: BottomNavigationBarType.fixed,
 
-      selectedItemColor:
-          AppColors.primaryBlue,
+      selectedItemColor: AppColors.primaryBlue,
 
-      unselectedItemColor:
-          AppColors.textSecondary,
+      unselectedItemColor: AppColors.textSecondary,
 
-      showUnselectedLabels:
-          true,
+      showUnselectedLabels: true,
 
       items: const [
         BottomNavigationBarItem(
-          icon:
-              Icon(Icons.home_outlined),
+          icon: Icon(Icons.home_outlined),
           label: 'Trang chủ',
         ),
 
-        BottomNavigationBarItem(
-          icon:
-              Icon(Icons.history),
-          label: 'Lịch sử',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
 
         BottomNavigationBarItem(
-          icon: Icon(
-            Icons.event_busy_outlined,
-          ),
+          icon: Icon(Icons.event_busy_outlined),
           label: 'Nghỉ phép',
         ),
 
         BottomNavigationBarItem(
-          icon: Icon(
-            Icons.bar_chart_outlined,
-          ),
+          icon: Icon(Icons.bar_chart_outlined),
           label: 'Thống kê',
         ),
 
         BottomNavigationBarItem(
-          icon: Icon(
-            Icons.person_outline,
-          ),
+          icon: Icon(Icons.person_outline),
           label: 'Profile',
         ),
       ],
