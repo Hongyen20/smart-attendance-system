@@ -14,6 +14,24 @@ class EmployeeListScreen extends StatefulWidget {
 }
 
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
+  // COLORS
+
+  static const Color primaryBlue = Color(0xFF12348F);
+  static const Color brightBlue = Color(0xFF1464E8);
+
+  static const Color background = Color(0xFFF5F9FF);
+
+  static const Color textDark = Color(0xFF102A72);
+  static const Color textBlue = Color(0xFF31589D);
+  static const Color textGrey = Color(0xFF7185A8);
+
+  static const Color green = Color(0xFF00A94F);
+  static const Color orange = Color(0xFFFF8500);
+
+  static const Color purple = Color(0xFF5B16E8);
+
+  // STATE
+
   bool _isLoading = true;
 
   String? _errorMessage;
@@ -22,22 +40,25 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   String _searchQuery = '';
 
+  String _selectedFilter = 'Tất cả';
+
+  int _currentBottomIndex = 1;
+
   final TextEditingController _searchController = TextEditingController();
 
-  static const Color primaryColor = Color(0xFF244397);
-  static const Color backgroundColor = Color(0xFFF0F3FF);
-  static const Color textColor = Color(0xFF202A3D);
-  static const Color secondaryTextColor = Color(0xFF737D92);
+  // INIT
 
   @override
   void initState() {
     super.initState();
+
     _loadEmployees();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+
     super.dispose();
   }
 
@@ -69,24 +90,86 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     });
   }
 
-  // FILTER
+  // FILTER EMPLOYEES
 
   List<dynamic> get _filteredEmployees {
-    if (_searchQuery.trim().isEmpty) {
-      return _employees;
+    Iterable<dynamic> result = _employees;
+
+    // SEARCH
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.trim().toLowerCase();
+
+      result = result.where((employee) {
+        final e = employee as Map<String, dynamic>;
+
+        final fullName = (e['fullName'] ?? '').toString().toLowerCase();
+
+        final username = (e['username'] ?? '').toString().toLowerCase();
+
+        final department = (e['department'] ?? e['departmentName'] ?? '')
+            .toString()
+            .toLowerCase();
+
+        return fullName.contains(query) ||
+            username.contains(query) ||
+            department.contains(query);
+      });
     }
 
-    final query = _searchQuery.trim().toLowerCase();
+    // STATUS FILTER
+    if (_selectedFilter != 'Tất cả') {
+      result = result.where((employee) {
+        final e = employee as Map<String, dynamic>;
 
+        final status = (e['status'] ?? 'Active').toString();
+
+        if (_selectedFilter == 'Đang làm việc') {
+          return status == 'Active' ||
+              status == 'Working' ||
+              status == 'Present';
+        }
+
+        if (_selectedFilter == 'Nghỉ phép') {
+          return status == 'Leave' ||
+              status == 'OnLeave' ||
+              status == 'On Leave';
+        }
+
+        if (_selectedFilter == 'Chờ duyệt') {
+          return status == 'Pending' || status == 'Waiting';
+        }
+
+        return true;
+      });
+    }
+
+    return result.toList();
+  }
+
+  // STATISTICS
+
+  int get _totalEmployees {
+    return _employees.length;
+  }
+
+  int get _workingEmployees {
     return _employees.where((employee) {
       final e = employee as Map<String, dynamic>;
 
-      final fullName = (e['fullName'] ?? '').toString().toLowerCase();
+      final status = (e['status'] ?? 'Active').toString();
 
-      final username = (e['username'] ?? '').toString().toLowerCase();
+      return status == 'Active' || status == 'Working' || status == 'Present';
+    }).length;
+  }
 
-      return fullName.contains(query) || username.contains(query);
-    }).toList();
+  int get _pendingEmployees {
+    return _employees.where((employee) {
+      final e = employee as Map<String, dynamic>;
+
+      final status = (e['status'] ?? '').toString();
+
+      return status == 'Pending' || status == 'Waiting';
+    }).length;
   }
 
   // BUILD
@@ -94,105 +177,83 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: background,
 
       body: SafeArea(
+        bottom: false,
+
         child: Column(
           children: [
-            _buildHeader(),
-
             Expanded(
               child: RefreshIndicator(
-                color: primaryColor,
+                color: brightBlue,
+
                 onRefresh: _loadEmployees,
-                child: _buildBody(),
+
+                child: _buildMainContent(),
               ),
             ),
           ],
         ),
       ),
 
-      floatingActionButton: _buildAddEmployeeButton(),
+      floatingActionButton: _buildFloatingButton(),
 
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
-  // HEADER
+  // MAIN CONTENT
 
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
+  Widget _buildMainContent() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
 
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
 
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      children: [
+        _buildTopHeader(),
 
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E6F2), width: 1)),
-      ),
+        const SizedBox(height: 14),
 
-      child: Column(
+        _buildSearchBox(),
+
+        const SizedBox(height: 20),
+
+        _buildHeroCard(),
+
+        const SizedBox(height: 20),
+
+        _buildStatistics(),
+
+        const SizedBox(height: 28),
+
+        _buildEmployeeSectionHeader(),
+
+        const SizedBox(height: 14),
+
+        _buildEmployeeContent(),
+      ],
+    );
+  }
+
+  // TOP HEADER
+
+  Widget _buildTopHeader() {
+    return SizedBox(
+      height: 62,
+
+      child: Row(
         children: [
-          Row(
-            children: [
-              // BACK BUTTON
-              InkWell(
-                borderRadius: BorderRadius.circular(30),
+          // LOGO
+          Expanded(child: _buildLogoHeader()),
 
-                onTap: () {
-                  Navigator.pop(context);
-                },
+          const SizedBox(width: 12),
 
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-
-                  child: Icon(Icons.arrow_back, color: primaryColor, size: 28),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // LOGO
-              Expanded(child: _buildLogoHeader()),
-
-              // REFRESH
-              IconButton(
-                tooltip: 'Làm mới',
-
-                onPressed: _isLoading ? null : _loadEmployees,
-
-                icon: const Icon(Icons.refresh, color: primaryColor, size: 27),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // TITLE + COUNT
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Danh sách nhân viên',
-
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: primaryColor,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-              ),
-
-              _buildEmployeeCountBadge(),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // SEARCH
-          _buildSearchField(),
+          // PROFILE
+          _buildProfileButton(),
         ],
       ),
     );
@@ -202,8 +263,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildLogoHeader() {
     return SizedBox(
-      width: 105,
-      height: 48,
+      width: 180,
+      height: 52,
 
       child: Image.asset(
         'assets/images/logo.png',
@@ -220,8 +281,10 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               'AttendGo',
 
               style: TextStyle(
-                color: primaryColor,
-                fontSize: 22,
+                color: primaryBlue,
+
+                fontSize: 26,
+
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -231,42 +294,57 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
-  // EMPLOYEE COUNT
+  // PROFILE
 
-  Widget _buildEmployeeCountBadge() {
+  Widget _buildProfileButton() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      width: 58,
+      height: 58,
 
       decoration: BoxDecoration(
-        color: const Color(0xFFE4EBFF),
+        color: const Color(0xFFDCEBFF),
 
-        borderRadius: BorderRadius.circular(20),
+        shape: BoxShape.circle,
+
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withValues(alpha: 0.08),
+
+            blurRadius: 8,
+
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
 
-      child: Text(
-        '${_filteredEmployees.length} nhân viên',
+      child: const Center(
+        child: Text(
+          'A',
 
-        style: const TextStyle(
-          color: primaryColor,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+          style: TextStyle(
+            color: primaryBlue,
+
+            fontSize: 28,
+
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
   }
 
-  // SEARCH
+  // SEARCH BOX
 
-  Widget _buildSearchField() {
+  Widget _buildSearchBox() {
     return Container(
-      height: 52,
+      height: 62,
 
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5FC),
+        color: const Color(0xFFEAF3FF),
 
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(18),
 
-        border: Border.all(color: const Color(0xFFDDE3F3)),
+        border: Border.all(color: const Color(0xFFE0ECFC)),
       ),
 
       child: TextField(
@@ -278,17 +356,25 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           });
         },
 
-        style: const TextStyle(fontSize: 15, color: textColor),
+        style: const TextStyle(color: textBlue, fontSize: 17),
 
         decoration: InputDecoration(
-          hintText: 'Tìm kiếm theo tên hoặc username...',
-
-          hintStyle: const TextStyle(color: Color(0xFF929AAF), fontSize: 14),
+          border: InputBorder.none,
 
           prefixIcon: const Icon(
             Icons.search,
-            color: Color(0xFF6F7B94),
-            size: 23,
+            color: Color(0xFF42679F),
+            size: 34,
+          ),
+
+          hintText: 'Tìm kiếm nhân viên...',
+
+          hintStyle: const TextStyle(
+            color: Color(0xFF5573A5),
+
+            fontSize: 17,
+
+            fontWeight: FontWeight.w400,
           ),
 
           suffixIcon: _searchQuery.isNotEmpty
@@ -301,170 +387,113 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                     });
                   },
 
-                  icon: const Icon(
-                    Icons.close,
-                    size: 20,
-                    color: Color(0xFF6F7B94),
-                  ),
+                  icon: const Icon(Icons.close, color: Color(0xFF5573A5)),
                 )
               : null,
 
-          border: InputBorder.none,
-
-          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+          contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
       ),
     );
   }
 
-  // BODY
+  // HERO CARD
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: primaryColor),
-      );
-    }
+  Widget _buildHeroCard() {
+    return Container(
+      height: 156,
 
-    // ERROR
-    if (_errorMessage != null) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
 
-        padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
 
+          end: Alignment.centerRight,
+
+          colors: [Color(0xFFDDEEFF), Color(0xFFD8EDFF)],
+        ),
+
+        borderRadius: BorderRadius.circular(22),
+      ),
+
+      child: Row(
         children: [
-          const SizedBox(height: 60),
+          Container(
+            width: 92,
+            height: 92,
 
-          Center(
-            child: Container(
-              width: 72,
-              height: 72,
+            decoration: const BoxDecoration(
+              color: Color(0xFFBFD9FF),
 
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEEEE),
-
-                borderRadius: BorderRadius.circular(22),
-              ),
-
-              child: const Icon(
-                Icons.error_outline,
-                color: Color(0xFFE53935),
-                size: 38,
-              ),
+              shape: BoxShape.circle,
             ),
+
+            child: const Icon(Icons.groups, color: brightBlue, size: 55),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(width: 24),
 
-          const Text(
-            'Không thể tải danh sách nhân viên',
+          const Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
 
-            textAlign: TextAlign.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF263A62),
-            ),
-          ),
+              children: [
+                Text(
+                  'Danh sách nhân viên',
 
-          const SizedBox(height: 8),
+                  maxLines: 1,
 
-          Text(
-            _errorMessage!,
+                  overflow: TextOverflow.ellipsis,
 
-            textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: primaryBlue,
 
-            style: const TextStyle(fontSize: 14, color: secondaryTextColor),
-          ),
+                    fontSize: 24,
 
-          const SizedBox(height: 20),
-
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _loadEmployees,
-
-              icon: const Icon(Icons.refresh, color: primaryColor),
-
-              label: const Text(
-                'Thử lại',
-
-                style: TextStyle(color: primaryColor),
-              ),
-
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: primaryColor),
-
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
+
+                SizedBox(height: 7),
+
+                Text(
+                  'Quản lý và theo dõi thông tin nhân viên',
+
+                  maxLines: 2,
+
+                  overflow: TextOverflow.ellipsis,
+
+                  style: TextStyle(color: textBlue, fontSize: 16, height: 1.25),
+                ),
+              ],
             ),
           ),
         ],
-      );
-    }
-
-    // EMPTY
-    if (_employees.isEmpty) {
-      return _buildEmptyState(
-        message:
-            'Chưa có nhân viên nào.\n'
-            'Bấm "Thêm nhân viên" để tạo tài khoản đầu tiên.',
-      );
-    }
-
-    final employees = _filteredEmployees;
-
-    // SEARCH EMPTY
-    if (employees.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search_off,
-
-        message: 'Không tìm thấy nhân viên phù hợp.',
-      );
-    }
-
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
-
-      children: [
-        _buildEmployeeSummary(employees.length),
-
-        const SizedBox(height: 12),
-
-        ...employees.map(
-          (employee) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-
-            child: _buildEmployeeCard(employee as Map<String, dynamic>),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  // SUMMARY
+  // STATISTICS
 
-  Widget _buildEmployeeSummary(int count) {
+  Widget _buildStatistics() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      height: 132,
+
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(18),
-
-        border: Border.all(color: const Color(0xFFDDE2EE)),
+        borderRadius: BorderRadius.circular(22),
 
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF53689E).withValues(alpha: 0.06),
+            color: const Color(0xFF47679C).withValues(alpha: 0.10),
 
-            blurRadius: 12,
+            blurRadius: 18,
 
             offset: const Offset(0, 5),
           ),
@@ -473,44 +502,55 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
+          Expanded(
+            child: _buildStatisticItem(
+              icon: Icons.groups,
 
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8EDFF),
+              iconBackground: const Color(0xFFD9E9FF),
 
-              borderRadius: BorderRadius.circular(14),
-            ),
+              iconColor: brightBlue,
 
-            child: const Icon(
-              Icons.groups_outlined,
-              color: primaryColor,
-              size: 24,
-            ),
-          ),
+              title: 'Tổng nhân viên',
 
-          const SizedBox(width: 12),
+              value: _totalEmployees.toString(),
 
-          const Expanded(
-            child: Text(
-              'Danh sách nhân viên',
-
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF263A62),
-              ),
+              valueColor: brightBlue,
             ),
           ),
 
-          Text(
-            '$count',
+          _buildStatisticDivider(),
 
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: primaryColor,
+          Expanded(
+            child: _buildStatisticItem(
+              icon: Icons.person,
+
+              iconBackground: const Color(0xFFD9F9E6),
+
+              iconColor: green,
+
+              title: 'Đang làm việc',
+
+              value: _workingEmployees.toString(),
+
+              valueColor: green,
+            ),
+          ),
+
+          _buildStatisticDivider(),
+
+          Expanded(
+            child: _buildStatisticItem(
+              icon: Icons.pending_actions,
+
+              iconBackground: const Color(0xFFFFEADB),
+
+              iconColor: orange,
+
+              title: 'Chờ duyệt',
+
+              value: _pendingEmployees.toString(),
+
+              valueColor: orange,
             ),
           ),
         ],
@@ -518,18 +558,284 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
+  Widget _buildStatisticDivider() {
+    return Container(width: 1, height: 72, color: const Color(0xFFD5E0F1));
+  }
+
+  Widget _buildStatisticItem({
+    required IconData icon,
+
+    required Color iconBackground,
+
+    required Color iconColor,
+
+    required String title,
+
+    required String value,
+
+    required Color valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+
+            decoration: BoxDecoration(
+              color: iconBackground,
+
+              shape: BoxShape.circle,
+            ),
+
+            child: Icon(icon, color: iconColor, size: 30),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              children: [
+                Text(
+                  title,
+
+                  maxLines: 2,
+
+                  overflow: TextOverflow.ellipsis,
+
+                  style: const TextStyle(
+                    color: textBlue,
+
+                    fontSize: 14,
+
+                    height: 1.2,
+                  ),
+                ),
+
+                const SizedBox(height: 2),
+
+                Text(
+                  value,
+
+                  style: TextStyle(
+                    color: valueColor,
+
+                    fontSize: 30,
+
+                    fontWeight: FontWeight.w800,
+
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // EMPLOYEE SECTION HEADER
+
+  Widget _buildEmployeeSectionHeader() {
+    return Row(
+      children: [
+        const Icon(Icons.groups, color: brightBlue, size: 31),
+
+        const SizedBox(width: 12),
+
+        const Expanded(
+          child: Text(
+            'Danh sách nhân viên',
+
+            style: TextStyle(
+              color: primaryBlue,
+
+              fontSize: 22,
+
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+
+        _buildFilterDropdown(),
+      ],
+    );
+  }
+
+  // FILTER DROPDOWN
+
+  Widget _buildFilterDropdown() {
+    return Container(
+      height: 52,
+
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(28),
+
+        border: Border.all(color: const Color(0xFFB9D0F2), width: 1.3),
+      ),
+
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedFilter,
+
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+
+            color: primaryBlue,
+
+            size: 25,
+          ),
+
+          borderRadius: BorderRadius.circular(14),
+
+          items: const [
+            DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả')),
+
+            DropdownMenuItem(
+              value: 'Đang làm việc',
+
+              child: Text('Đang làm việc'),
+            ),
+
+            DropdownMenuItem(value: 'Nghỉ phép', child: Text('Nghỉ phép')),
+
+            DropdownMenuItem(value: 'Chờ duyệt', child: Text('Chờ duyệt')),
+          ],
+
+          onChanged: (value) {
+            if (value == null) return;
+
+            setState(() {
+              _selectedFilter = value;
+            });
+          },
+
+          style: const TextStyle(
+            color: primaryBlue,
+
+            fontSize: 15,
+
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // EMPLOYEE CONTENT
+
+  Widget _buildEmployeeContent() {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 50),
+
+        child: Center(child: CircularProgressIndicator(color: brightBlue)),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorState();
+    }
+
+    final employees = _filteredEmployees;
+
+    if (employees.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      children: employees.map((employee) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+
+          child: _buildEmployeeCard(employee as Map<String, dynamic>),
+        );
+      }).toList(),
+    );
+  }
+
   // EMPLOYEE CARD
 
-  Widget _buildEmployeeCard(Map<String, dynamic> e) {
-    final status = e['status'] as String? ?? 'Active';
+  Widget _buildEmployeeCard(Map<String, dynamic> employee) {
+    final fullName = (employee['fullName'] ?? employee['name'] ?? '')
+        .toString();
 
-    final isActive = status == 'Active';
+    final username = (employee['username'] ?? '').toString();
 
-    final fullName = (e['fullName'] ?? '').toString();
+    final department =
+        (employee['department'] ??
+                employee['departmentName'] ??
+                employee['position'] ??
+                'Nhân viên')
+            .toString();
 
-    final username = (e['username'] ?? '').toString();
+    final status = (employee['status'] ?? 'Active').toString();
 
-    final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
+    final avatarUrl =
+        (employee['avatar'] ??
+                employee['avatarUrl'] ??
+                employee['photoUrl'] ??
+                '')
+            .toString();
+
+    final isWorking =
+        status == 'Active' || status == 'Working' || status == 'Present';
+
+    final isLeave =
+        status == 'Leave' || status == 'OnLeave' || status == 'On Leave';
+
+    String statusText;
+
+    Color statusColor;
+
+    Color statusBackground;
+
+    Color avatarBackground;
+
+    if (isLeave) {
+      statusText = 'Nghỉ phép';
+
+      statusColor = const Color(0xFF1167D8);
+
+      statusBackground = const Color(0xFFE4F0FF);
+
+      avatarBackground = const Color(0xFFDDE8FF);
+    } else if (isWorking) {
+      statusText = 'Đang làm việc';
+
+      statusColor = green;
+
+      statusBackground = const Color(0xFFDDF8E8);
+
+      avatarBackground = const Color(0xFFDDF3FF);
+    } else if (status == 'Pending' || status == 'Waiting') {
+      statusText = 'Chờ duyệt';
+
+      statusColor = orange;
+
+      statusBackground = const Color(0xFFFFE9D9);
+
+      avatarBackground = const Color(0xFFFFE9D9);
+    } else {
+      statusText = 'Không hoạt động';
+
+      statusColor = const Color(0xFF8A94A8);
+
+      statusBackground = const Color(0xFFE9EDF4);
+
+      avatarBackground = const Color(0xFFE9EDF4);
+    }
 
     return Material(
       color: Colors.transparent,
@@ -538,12 +844,15 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         borderRadius: BorderRadius.circular(20),
 
         onTap: () async {
+          final id = employee['id'];
+
+          if (id == null) return;
+
           final changed = await Navigator.push<bool>(
             context,
 
             MaterialPageRoute(
-              builder: (_) =>
-                  EmployeeDetailScreen(employeeId: e['id'] as String),
+              builder: (_) => EmployeeDetailScreen(employeeId: id.toString()),
             ),
           );
 
@@ -555,20 +864,20 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         child: Container(
           width: double.infinity,
 
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          constraints: const BoxConstraints(minHeight: 120),
+
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
 
           decoration: BoxDecoration(
             color: Colors.white,
 
             borderRadius: BorderRadius.circular(20),
 
-            border: Border.all(color: const Color(0xFFDDE2EE)),
-
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF53689E).withValues(alpha: 0.06),
+                color: const Color(0xFF5674A6).withValues(alpha: 0.08),
 
-                blurRadius: 12,
+                blurRadius: 15,
 
                 offset: const Offset(0, 5),
               ),
@@ -578,70 +887,71 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           child: Row(
             children: [
               // AVATAR
-              Container(
-                width: 58,
-                height: 58,
+              _buildEmployeeAvatar(
+                fullName: fullName,
 
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
+                avatarUrl: avatarUrl,
 
-                  color: Color(0xFFEAF0FF),
-                ),
-
-                child: Center(
-                  child: Text(
-                    initial,
-
-                    style: const TextStyle(
-                      color: primaryColor,
-
-                      fontSize: 23,
-
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                background: avatarBackground,
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(width: 18),
 
-              // INFORMATION
+              // NAME + DEPARTMENT
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
                     Text(
-                      fullName,
+                      fullName.isEmpty ? 'Chưa có tên' : fullName,
 
                       maxLines: 1,
 
                       overflow: TextOverflow.ellipsis,
 
                       style: const TextStyle(
-                        fontSize: 17,
+                        color: primaryBlue,
 
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
 
-                        color: textColor,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 7),
 
                     Text(
-                      '@$username',
+                      department,
 
                       maxLines: 1,
 
                       overflow: TextOverflow.ellipsis,
 
                       style: const TextStyle(
-                        fontSize: 14,
+                        color: textBlue,
 
-                        color: secondaryTextColor,
+                        fontSize: 15,
+
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
+
+                    if (username.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+
+                      Text(
+                        '@$username',
+
+                        maxLines: 1,
+
+                        overflow: TextOverflow.ellipsis,
+
+                        style: const TextStyle(color: textGrey, fontSize: 12),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -651,42 +961,57 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               // STATUS
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 7,
+                  horizontal: 14,
+                  vertical: 9,
                 ),
 
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? const Color(0xFFDDF8E8)
-                      : const Color(0xFFFFE4E4),
+                  color: statusBackground,
 
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
                 ),
 
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
 
-                  style: TextStyle(
-                    fontSize: 12,
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
 
-                    fontWeight: FontWeight.w700,
+                      decoration: BoxDecoration(
+                        color: statusColor,
 
-                    color: isActive
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFFE53935),
-                  ),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    Text(
+                      statusText,
+
+                      style: TextStyle(
+                        color: statusColor,
+
+                        fontSize: 13,
+
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
 
               // ARROW
               const Icon(
                 Icons.chevron_right,
 
-                color: Color(0xFF9AA3B5),
+                color: Color(0xFF315589),
 
-                size: 25,
+                size: 30,
               ),
             ],
           ),
@@ -695,110 +1020,411 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
-  // EMPTY STATE
+  // EMPLOYEE AVATAR
 
-  Widget _buildEmptyState({
-    IconData icon = Icons.groups_outlined,
+  Widget _buildEmployeeAvatar({
+    required String fullName,
 
-    required String message,
+    required String avatarUrl,
+
+    required Color background,
   }) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    final initial = fullName.trim().isNotEmpty
+        ? fullName.trim().substring(0, 1).toUpperCase()
+        : '?';
 
-      padding: const EdgeInsets.all(24),
+    return Container(
+      width: 74,
+      height: 74,
 
-      children: [
-        const SizedBox(height: 70),
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
 
-        Center(
-          child: Container(
-            width: 82,
-            height: 82,
+      child: avatarUrl.isNotEmpty
+          ? ClipOval(
+              child: Image.network(
+                avatarUrl,
 
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8EDFF),
+                width: 74,
+                height: 74,
 
-              borderRadius: BorderRadius.circular(26),
-            ),
+                fit: BoxFit.cover,
 
-            child: Icon(icon, color: primaryColor, size: 43),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Text(
-          message,
-
-          textAlign: TextAlign.center,
-
-          style: const TextStyle(
-            fontSize: 15,
-
-            height: 1.5,
-
-            color: secondaryTextColor,
-          ),
-        ),
-      ],
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildInitialAvatar(initial);
+                },
+              ),
+            )
+          : _buildInitialAvatar(initial),
     );
   }
 
-  // ADD EMPLOYEE BUTTON
+  Widget _buildInitialAvatar(String initial) {
+    return Center(
+      child: Text(
+        initial,
 
-  Widget _buildAddEmployeeButton() {
-    return Material(
-      elevation: 8,
+        style: const TextStyle(
+          color: primaryBlue,
 
-      shadowColor: primaryColor.withValues(alpha: 0.30),
+          fontSize: 28,
 
-      borderRadius: BorderRadius.circular(18),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 
+  // ERROR STATE
+
+  Widget _buildErrorState() {
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(28),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(20),
+      ),
+
+      child: Column(
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEEEE),
+
+              shape: BoxShape.circle,
+            ),
+
+            child: const Icon(
+              Icons.error_outline,
+
+              color: Color(0xFFE53935),
+
+              size: 38,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          const Text(
+            'Không thể tải danh sách nhân viên',
+
+            textAlign: TextAlign.center,
+
+            style: TextStyle(
+              color: primaryBlue,
+
+              fontSize: 17,
+
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            _errorMessage ?? 'Đã xảy ra lỗi.',
+
+            textAlign: TextAlign.center,
+
+            style: const TextStyle(color: textGrey, fontSize: 14),
+          ),
+
+          const SizedBox(height: 18),
+
+          ElevatedButton.icon(
+            onPressed: _loadEmployees,
+
+            icon: const Icon(Icons.refresh),
+
+            label: const Text('Thử lại'),
+
+            style: ElevatedButton.styleFrom(
+              backgroundColor: brightBlue,
+
+              foregroundColor: Colors.white,
+
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // EMPTY STATE
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.symmetric(vertical: 50, horizontal: 20),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(20),
+      ),
+
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+
+            decoration: const BoxDecoration(
+              color: Color(0xFFE6F0FF),
+
+              shape: BoxShape.circle,
+            ),
+
+            child: const Icon(
+              Icons.groups_outlined,
+
+              color: brightBlue,
+
+              size: 42,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Không tìm thấy nhân viên phù hợp.'
+                : 'Chưa có nhân viên nào.',
+
+            textAlign: TextAlign.center,
+
+            style: const TextStyle(color: textGrey, fontSize: 15, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // FLOATING ACTION BUTTON
+
+  Widget _buildFloatingButton() {
+    return Container(
+      width: 62,
+      height: 62,
+
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+
+          end: Alignment.bottomRight,
+
+          colors: [Color(0xFF7228FF), Color(0xFF5012D8)],
+        ),
+
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF5C18E8).withValues(alpha: 0.35),
+
+            blurRadius: 15,
+
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+
+      child: Material(
+        color: Colors.transparent,
+
+        shape: const CircleBorder(),
+
+        child: InkWell(
+          customBorder: const CircleBorder(),
+
+          onTap: _addEmployee,
+
+          child: const Center(
+            child: Icon(Icons.add, color: Colors.white, size: 39),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ADD EMPLOYEE
+
+  Future<void> _addEmployee() async {
+    await Navigator.push(
+      context,
+
+      MaterialPageRoute(builder: (_) => const CreateEmployeeScreen()),
+    );
+
+    _loadEmployees();
+  }
+
+  // BOTTOM NAVIGATION
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      height: 92,
+
+      decoration: const BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(38),
+
+          topRight: Radius.circular(38),
+        ),
+
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x18000000),
+
+            blurRadius: 18,
+
+            offset: Offset(0, -3),
+          ),
+        ],
+      ),
+
+      child: SafeArea(
+        top: false,
+
+        child: Row(
+          children: [
+            _buildNavItem(
+              index: 0,
+
+              icon: Icons.home_outlined,
+
+              activeIcon: Icons.home,
+
+              label: 'Trang chủ',
+            ),
+
+            _buildNavItem(
+              index: 1,
+
+              icon: Icons.people_outline,
+
+              activeIcon: Icons.people,
+
+              label: 'Nhân viên',
+            ),
+
+            _buildNavItem(
+              index: 2,
+
+              icon: Icons.access_time_outlined,
+
+              activeIcon: Icons.access_time,
+
+              label: 'Chấm công',
+            ),
+
+            _buildNavItem(
+              index: 3,
+
+              icon: Icons.description_outlined,
+
+              activeIcon: Icons.description,
+
+              label: 'Yêu cầu',
+            ),
+
+            _buildNavItem(
+              index: 4,
+
+              icon: Icons.settings_outlined,
+
+              activeIcon: Icons.settings,
+
+              label: 'Cài đặt',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // NAV ITEM
+
+  Widget _buildNavItem({
+    required int index,
+
+    required IconData icon,
+
+    required IconData activeIcon,
+
+    required String label,
+  }) {
+    final isSelected = _currentBottomIndex == index;
+
+    return Expanded(
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          setState(() {
+            _currentBottomIndex = index;
+          });
 
-        onTap: () async {
-          await Navigator.push(
-            context,
-
-            MaterialPageRoute(builder: (_) => const CreateEmployeeScreen()),
-          );
-
-          _loadEmployees();
+          // Màn nhân viên đang là màn hiện tại.
+          //
+          // Khi bạn có các màn:
+          // Trang chủ / Chấm công / Yêu cầu /
+          // Cài đặt, có thể Navigator.push()
+          // tương ứng ở đây.
         },
 
-        child: Container(
-          height: 58,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
 
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
 
-          decoration: BoxDecoration(
-            color: primaryColor,
+              color: isSelected ? purple : const Color(0xFF526B9B),
 
-            borderRadius: BorderRadius.circular(18),
-          ),
+              size: 30,
+            ),
 
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 5),
 
-            children: [
-              Icon(Icons.person_add_alt_1, color: Colors.white, size: 24),
+            Text(
+              label,
 
-              SizedBox(width: 10),
+              style: TextStyle(
+                color: isSelected ? purple : const Color(0xFF526B9B),
 
-              Text(
-                'Thêm nhân viên',
+                fontSize: 13,
 
-                style: TextStyle(
-                  color: Colors.white,
-
-                  fontSize: 16,
-
-                  fontWeight: FontWeight.w700,
-                ),
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 4),
+
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+
+              width: isSelected ? 42 : 0,
+
+              height: 3,
+
+              decoration: BoxDecoration(
+                color: isSelected ? purple : Colors.transparent,
+
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ],
         ),
       ),
     );
