@@ -73,7 +73,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
         _isInitializing = false;
         _errorMessage =
             'Không thể mở camera. Hãy cho phép quyền Camera cho trình duyệt '
-            '(và đảm bảo trang chạy HTTPS), rồi thử lại.';
+            ', rồi thử lại.';
       });
     }
   }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
@@ -488,15 +489,19 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
       request.fields['publicIp'] = publicIp;
 
-      request.fields['deviceId'] = '';
+      // Không gửi chuỗi rỗng: ASP.NET đổi "" thành null trong multipart form.
+      request.fields['deviceId'] = 'web';
 
       // 6. FACE IMAGE
+      // Phải khai báo contentType, nếu không http gửi application/octet-stream
+      // và backend sẽ từ chối với 400.
 
       request.files.add(
         http.MultipartFile.fromBytes(
           'faceImage',
           imageBytes,
           filename: 'face.jpg',
+          contentType: MediaType('image', 'jpeg'),
         ),
       );
 
@@ -505,6 +510,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       final response = await request.send();
 
       final responseBody = await response.stream.bytesToString();
+
+      debugPrint('Check-in status: ${response.statusCode}');
+      debugPrint('Check-in body: $responseBody');
 
       Map<String, dynamic>? data;
 
@@ -533,7 +541,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       // 9. ERROR
 
       final errorMessage =
-          data?['message']?.toString() ?? 'Xác thực khuôn mặt thất bại.';
+          data?['message']?.toString() ??
+          data?['title']?.toString() ??
+          'Xác thực khuôn mặt thất bại.';
 
       _showSnack(errorMessage);
     } catch (e) {
