@@ -1,39 +1,33 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/api_config.dart';
+import '../theme/app_colors.dart';
 
 class FaceManagementScreen extends StatefulWidget {
   final String token;
 
-  const FaceManagementScreen({
-    super.key,
-    required this.token,
-  });
+  const FaceManagementScreen({super.key, required this.token});
 
   @override
-  State<FaceManagementScreen> createState() =>
-      _FaceManagementScreenState();
+  State<FaceManagementScreen> createState() => _FaceManagementScreenState();
 }
 
-class _FaceManagementScreenState
-    extends State<FaceManagementScreen> {
-  bool _loading = true;
-  bool _registering = false;
-
+class _FaceManagementScreenState extends State<FaceManagementScreen> {
   List<Map<String, dynamic>> _employees = [];
 
   Map<String, dynamic>? _selectedEmployee;
 
-  Uint8List? _imageBytes;
-  String? _imageName;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
 
-  String? _message;
-  bool _success = false;
+  bool _isLoading = true;
+  bool _isRegistering = false;
+
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -41,600 +35,712 @@ class _FaceManagementScreenState
     _loadEmployees();
   }
 
+  // LOAD EMPLOYEES
   Future<void> _loadEmployees() async {
     if (!mounted) return;
 
     setState(() {
-      _loading = true;
-      _message = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
       final response = await http.get(
-        Uri.parse(
-          '${ApiConfig.baseUrl}/api/employees',
-        ),
+        Uri.parse('${ApiConfig.baseUrl}/api/employees'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
         },
       );
 
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Không thể tải danh sách nhân viên '
-          '(${response.statusCode})',
-        );
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = _decodeEmployeeList(response.body);
+
+        setState(() {
+          _employees = data;
+
+          if (_selectedEmployee != null) {
+            final selectedId = _getEmployeeId(_selectedEmployee!);
+
+            for (final employee in _employees) {
+              if (_getEmployeeId(employee) == selectedId) {
+                _selectedEmployee = employee;
+                break;
+              }
+            }
+          }
+
+          _isLoading = false;
+        });
+      } else if (response.statusCode == 401) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Không thể tải danh sách nhân viên.';
+        });
       }
+    } catch (e) {
+      if (!mounted) return;
 
-      final decoded = jsonDecode(response.body);
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Không thể kết nối đến máy chủ.';
+      });
+    }
+  }
 
-      List<dynamic> data;
+  List<Map<String, dynamic>> _decodeEmployeeList(String body) {
+    try {
+      final dynamic decoded = _jsonDecode(body);
 
       if (decoded is List) {
-        data = decoded;
-      } else if (decoded is Map &&
-          decoded['data'] is List) {
-        data = decoded['data'];
-      } else {
-        throw Exception(
-          'Dữ liệu nhân viên không hợp lệ.',
-        );
+        return decoded
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
       }
 
-      final employees = data
-          .whereType<Map>()
-          .map(
-            (item) => Map<String, dynamic>.from(item),
-          )
-          .toList();
+      if (decoded is Map) {
+        final possibleLists = [
+          decoded['data'],
+          decoded['items'],
+          decoded['employees'],
+        ];
 
-      if (!mounted) return;
+        for (final value in possibleLists) {
+          if (value is List) {
+            return value
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
+          }
+        }
+      }
+    } catch (_) {}
 
-      setState(() {
-        _employees = employees;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _message = 'Không thể tải nhân viên: $e';
-        _success = false;
-      });
-    }
+    return [];
   }
+
+  dynamic _jsonDecode(String value) {
+    return const JsonDecoder().convert(value);
+  }
+
+  // SELECT EMPLOYEE
+
+  void _selectEmployee(Map<String, dynamic> employee) {
+    setState(() {
+      _selectedEmployee = employee;
+      _selectedImageBytes = null;
+      _selectedImageName = null;
+    });
+  }
+
+  // PICK IMAGE
 
   Future<void> _pickImage() async {
-    try {
-      // file_picker 13.x:
-      // pickFile() dùng để chọn một file duy nhất.
-      final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-        ],
-      );
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
 
-      if (file == null) {
-        return;
-      }
+    if (file == null) return;
 
-      // file_picker 13.x không còn withData.
-      // Đọc dữ liệu bằng readAsBytes().
-      final bytes = await file.readAsBytes();
+    final bytes = await file.readAsBytes();
 
-      if (bytes.isEmpty) {
-        _showMessage(
-          'Ảnh không hợp lệ.',
-          false,
-        );
-        return;
-      }
+    const maxSize = 5 * 1024 * 1024;
 
-      const maxFileSize = 5 * 1024 * 1024;
-
-      if (bytes.length > maxFileSize) {
-        _showMessage(
-          'Ảnh không được vượt quá 5MB.',
-          false,
-        );
-        return;
-      }
-
+    if (bytes.length > maxSize) {
       if (!mounted) return;
 
-      setState(() {
-        _imageBytes = bytes;
-        _imageName = file.name;
-        _message = null;
-        _success = false;
-      });
-    } catch (e) {
-      _showMessage(
-        'Không thể chọn ảnh: $e',
-        false,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ảnh không được vượt quá 5MB.')),
       );
-    }
-  }
 
-  Future<void> _registerFace() async {
-    if (_selectedEmployee == null) {
-      _showMessage(
-        'Vui lòng chọn nhân viên.',
-        false,
-      );
-      return;
-    }
-
-    if (_imageBytes == null) {
-      _showMessage(
-        'Vui lòng chọn ảnh khuôn mặt.',
-        false,
-      );
-      return;
-    }
-
-    final userId =
-        _selectedEmployee!['id']?.toString();
-
-    if (userId == null || userId.isEmpty) {
-      _showMessage(
-        'Không tìm thấy ID nhân viên.',
-        false,
-      );
-      return;
-    }
-
-    if (_hasFace(_selectedEmployee!)) {
-      _showMessage(
-        'Nhân viên này đã đăng ký khuôn mặt.',
-        false,
-      );
       return;
     }
 
     if (!mounted) return;
 
     setState(() {
-      _registering = true;
-      _message = null;
-      _success = false;
+      _selectedImageBytes = bytes;
+      _selectedImageName = file.name;
+    });
+  }
+
+  // REGISTER FACE
+
+  Future<void> _registerFace() async {
+    if (_selectedEmployee == null) {
+      _showMessage('Vui lòng chọn nhân viên.');
+      return;
+    }
+
+    if (_selectedImageBytes == null) {
+      _showMessage('Vui lòng chọn ảnh khuôn mặt.');
+      return;
+    }
+
+    final userId = _getEmployeeId(_selectedEmployee!);
+
+    if (userId.isEmpty) {
+      _showMessage('Không xác định được mã nhân viên.');
+      return;
+    }
+
+    setState(() {
+      _isRegistering = true;
     });
 
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse(
-          '${ApiConfig.baseUrl}'
-          '/api/face/register/$userId',
-        ),
+        Uri.parse('${ApiConfig.baseUrl}/api/face/register/$userId'),
       );
 
-      request.headers['Authorization'] =
-          'Bearer ${widget.token}';
+      request.headers['Authorization'] = 'Bearer ${widget.token}';
 
       request.files.add(
         http.MultipartFile.fromBytes(
           'image',
-          _imageBytes!,
-          filename: _imageName ?? 'face.jpg',
+          _selectedImageBytes!,
+          filename: _selectedImageName ?? 'face.jpg',
         ),
       );
 
-      final streamedResponse =
-          await request.send();
+      final streamedResponse = await request.send();
 
-      final response =
-          await http.Response.fromStream(
-        streamedResponse,
-      );
+      final response = await http.Response.fromStream(streamedResponse);
 
-      dynamic body;
+      if (!mounted) return;
 
-      try {
-        if (response.body.isNotEmpty) {
-          body = jsonDecode(response.body);
-        }
-      } catch (_) {
-        body = null;
-      }
-
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
-        if (!mounted) return;
-
-        setState(() {
-          _registering = false;
-          _message =
-              body is Map
-                  ? body['message']?.toString() ??
-                      'Đăng ký khuôn mặt thành công.'
-                  : 'Đăng ký khuôn mặt thành công.';
-          _success = true;
-        });
-
-        final selectedId = userId;
-
-        await _loadEmployees();
-
-        if (!mounted) return;
-
-        final updatedEmployees =
-            _employees.where(
-          (employee) =>
-              employee['id']?.toString() ==
-              selectedId,
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng ký khuôn mặt thành công.')),
         );
 
-        if (updatedEmployees.isNotEmpty) {
-          setState(() {
-            _selectedEmployee =
-                updatedEmployees.first;
-            _imageBytes = null;
-            _imageName = null;
-          });
-        }
+        setState(() {
+          _selectedImageBytes = null;
+          _selectedImageName = null;
+        });
 
-        return;
-      }
-
-      String errorMessage;
-
-      if (body is Map &&
-          body['message'] != null) {
-        errorMessage =
-            body['message'].toString();
+        // Quan trọng:
+        // Tải lại danh sách để cập nhật FaceId
+        // và đổi trạng thái thành "Đã đăng ký".
+        await _loadEmployees();
       } else {
-        errorMessage =
-            'Đăng ký thất bại '
-            '(${response.statusCode}).';
+        String message = 'Đăng ký khuôn mặt thất bại.';
+
+        try {
+          final decoded = const JsonDecoder().convert(response.body);
+
+          if (decoded is Map) {
+            final serverMessage = decoded['message'];
+
+            if (serverMessage is String && serverMessage.isNotEmpty) {
+              message = serverMessage;
+            }
+          }
+        } catch (_) {}
+
+        _showMessage(message);
       }
+    } catch (_) {
+      if (!mounted) return;
 
+      _showMessage('Không thể kết nối đến máy chủ.');
+    } finally {
       if (!mounted) return;
 
       setState(() {
-        _registering = false;
-        _message = errorMessage;
-        _success = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _registering = false;
-        _message =
-            'Không thể kết nối đến server: $e';
-        _success = false;
+        _isRegistering = false;
       });
     }
   }
 
-  void _showMessage(
-    String message,
-    bool success,
-  ) {
-    if (!mounted) return;
+  // HELPERS
+  String _getEmployeeId(Map<String, dynamic> employee) {
+    final value = employee['id'] ?? employee['_id'] ?? employee['userId'];
 
-    setState(() {
-      _message = message;
-      _success = success;
-    });
+    return value?.toString() ?? '';
   }
 
-  bool _hasFace(
-    Map<String, dynamic> employee,
-  ) {
-    final faceId =
-        employee['faceId']?.toString();
-
-    return faceId != null &&
-        faceId.isNotEmpty;
+  String _getEmployeeName(Map<String, dynamic> employee) {
+    final value =
+        employee['fullName'] ?? employee['name'] ?? employee['username'];
+    return value?.toString() ?? 'Nhân viên';
   }
 
-  String _getName(
-    Map<String, dynamic> employee,
-  ) {
-    final fullName =
-        employee['fullName']?.toString();
-
-    if (fullName != null &&
-        fullName.isNotEmpty) {
-      return fullName;
-    }
-
-    final username =
-        employee['username']?.toString();
-
-    if (username != null &&
-        username.isNotEmpty) {
-      return username;
-    }
-
-    return 'Nhân viên';
-  }
-
-  String _getUsername(
-    Map<String, dynamic> employee,
-  ) {
+  String _getUsername(Map<String, dynamic> employee) {
     return employee['username']?.toString() ?? '';
   }
+
+  String _getEmail(Map<String, dynamic> employee) {
+    return employee['email']?.toString() ?? '';
+  }
+
+  bool _hasFace(Map<String, dynamic> employee) {
+    final faceId = employee['faceId'];
+
+    return faceId != null && faceId.toString().trim().isNotEmpty;
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // BUILD
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor:
-            const Color(0xFF172033),
+        backgroundColor: AppColors.cardBackground,
         elevation: 0,
+        centerTitle: false,
         title: const Text(
           'Quản lý khuôn mặt',
           style: TextStyle(
-            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        actions: [
+          IconButton(
+            tooltip: 'Làm mới',
+            onPressed: _isLoading ? null : _loadEmployees,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
-      body: _loading
-          ? const Center(
-              child:
-                  CircularProgressIndicator(),
-            )
-          : Center(
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(
-                  maxWidth: 850,
-                ),
-                child:
-                    SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 20),
-                      _buildMainCard(),
-                    ],
-                  ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadEmployees,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 20),
+                    _buildSummaryCard(),
+                    const SizedBox(height: 20),
+                    _buildEmployeeSection(),
+                    const SizedBox(height: 20),
+                    if (_selectedEmployee != null) _buildRegistrationSection(),
+                  ],
                 ),
               ),
             ),
     );
   }
 
+  // HEADER
+
   Widget _buildHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color:
-                const Color(0xFFEFF3FF),
-            borderRadius:
-                BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.face_retouching_natural,
-            color:
-                Color(0xFF3157D5),
-            size: 27,
+        const Text(
+          'Đăng ký khuôn mặt',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(width: 14),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Đăng ký khuôn mặt',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight:
-                      FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Thiết lập khuôn mặt để sử dụng xác thực khi chấm công.',
-                style: TextStyle(
-                  color:
-                      Color(0xFF737D91),
-                  fontSize: 13,
-                ),
-              ),
-            ],
+        const SizedBox(height: 6),
+        const Text(
+          'Quản lý khuôn mặt dùng để xác thực nhân viên khi chấm công.',
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.textSecondary,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMainCard() {
+  // SUMMARY
+
+  Widget _buildSummaryCard() {
+    final registeredCount = _employees.where(_hasFace).length;
+
+    final unregisteredCount = _employees.length - registeredCount;
+
     return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
-        border: Border.all(
-          color:
-              const Color(0xFFE4E8F0),
-        ),
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
       ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            '1. Chọn nhân viên',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight:
-                  FontWeight.w700,
+          Expanded(
+            child: _buildSummaryItem(
+              icon: Icons.people_alt_outlined,
+              title: 'Tổng nhân viên',
+              value: _employees.length.toString(),
             ),
           ),
-          const SizedBox(height: 10),
-          _buildEmployeeDropdown(),
-
-          const SizedBox(height: 28),
-
-          const Text(
-            '2. Chọn ảnh khuôn mặt',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight:
-                  FontWeight.w700,
+          Container(width: 1, height: 45, color: AppColors.borderColor),
+          Expanded(
+            child: _buildSummaryItem(
+              icon: Icons.face_retouching_natural,
+              title: 'Đã đăng ký',
+              value: registeredCount.toString(),
             ),
           ),
-          const SizedBox(height: 10),
-
-          _buildImageArea(),
-
-          const SizedBox(height: 22),
-
-          _buildMessage(),
-
-          const SizedBox(height: 16),
-
-          _buildRegisterButton(),
+          Container(width: 1, height: 45, color: AppColors.borderColor),
+          Expanded(
+            child: _buildSummaryItem(
+              icon: Icons.face_outlined,
+              title: 'Chưa đăng ký',
+              value: unregisteredCount.toString(),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildEmployeeDropdown() {
-    return DropdownButtonFormField<
-        Map<String, dynamic>>(
-      initialValue: _selectedEmployee,
-      isExpanded: true,
-      decoration:
-          const InputDecoration(
-        prefixIcon:
-            Icon(Icons.person_outline),
-        hintText:
-            'Chọn nhân viên',
-        border: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.all(
-            Radius.circular(12),
+  Widget _buildSummaryItem({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: AppColors.primaryBlue, size: 25),
+        const SizedBox(height: 7),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
           ),
         ),
-      ),
-      items: _employees.map(
-        (employee) {
-          final registered =
-              _hasFace(employee);
-
-          return DropdownMenuItem<
-              Map<String, dynamic>>(
-            value: employee,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_getName(employee)}'
-                    ' (${_getUsername(employee)})',
-                    overflow:
-                        TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  registered
-                      ? 'Đã đăng ký'
-                      : 'Chưa đăng ký',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: registered
-                        ? const Color(
-                            0xFF198754,
-                          )
-                        : const Color(
-                            0xFFB66A00,
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ).toList(),
-      onChanged: _registering
-          ? null
-          : (employee) {
-              setState(() {
-                _selectedEmployee =
-                    employee;
-                _imageBytes = null;
-                _imageName = null;
-                _message = null;
-                _success = false;
-              });
-            },
+        const SizedBox(height: 2),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 
-  Widget _buildImageArea() {
-    if (_imageBytes == null) {
-      return InkWell(
-        onTap:
-            _registering ? null : _pickImage,
-        borderRadius:
-            BorderRadius.circular(16),
-        child: Container(
-          width: double.infinity,
-          height: 280,
-          decoration: BoxDecoration(
-            color:
-                const Color(0xFFF8F9FC),
-            borderRadius:
-                BorderRadius.circular(16),
-            border: Border.all(
-              color:
-                  const Color(0xFFDDE2EC),
-              width: 1.5,
+  // EMPLOYEE LIST
+
+  Widget _buildEmployeeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Danh sách nhân viên',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${_employees.length} nhân viên',
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_errorMessage != null)
+          _buildErrorCard()
+        else if (_employees.isEmpty)
+          _buildEmptyCard()
+        else
+          ..._employees.map((employee) => _buildEmployeeCard(employee)),
+      ],
+    );
+  }
+
+  Widget _buildEmployeeCard(Map<String, dynamic> employee) {
+    final isSelected =
+        _selectedEmployee != null &&
+        _getEmployeeId(_selectedEmployee!) == _getEmployeeId(employee);
+
+    final registered = _hasFace(employee);
+
+    final name = _getEmployeeName(employee);
+    final username = _getUsername(employee);
+    final email = _getEmail(employee);
+
+    return GestureDetector(
+      onTap: () => _selectEmployee(employee),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryBlue : AppColors.borderColor,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.infoBoxBackground,
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : 'N',
+                style: const TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (username.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '@$username',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ] else if (email.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildStatusBadge(registered),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool registered) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: registered ? AppColors.successGreenBg : AppColors.amberBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            registered ? Icons.check_circle_outline : Icons.pending_outlined,
+            size: 14,
+            color: registered ? AppColors.successGreen : AppColors.amber,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            registered ? 'Đã đăng ký' : 'Chưa đăng ký',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: registered ? AppColors.successGreen : AppColors.amber,
             ),
           ),
-          child: const Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
+        ],
+      ),
+    );
+  }
+
+  // REGISTRATION SECTION
+
+  Widget _buildRegistrationSection() {
+    final employee = _selectedEmployee!;
+    final registered = _hasFace(employee);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Icon(
-                Icons
-                    .add_a_photo_outlined,
-                size: 52,
-                color:
-                    Color(0xFF7B8496),
+              const Icon(
+                Icons.face_retouching_natural,
+                color: AppColors.primaryBlue,
               ),
-              SizedBox(height: 14),
-              Text(
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Đăng ký khuôn mặt',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              _buildStatusBadge(registered),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _buildSelectedEmployeeInfo(employee),
+          const SizedBox(height: 18),
+          _buildImagePicker(),
+          const SizedBox(height: 16),
+          _buildRegisterButton(registered),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedEmployeeInfo(Map<String, dynamic> employee) {
+    final name = _getEmployeeName(employee);
+    final username = _getUsername(employee);
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.infoBoxBackground,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 21,
+            backgroundColor: AppColors.cardBackground,
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : 'N',
+              style: const TextStyle(
+                color: AppColors.primaryBlue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (username.isNotEmpty)
+                  Text(
+                    '@$username',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    if (_selectedImageBytes == null) {
+      return InkWell(
+        onTap: _isRegistering ? null : _pickImage,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          height: 190,
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderColor),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: AppColors.infoBoxBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.add_a_photo_outlined,
+                  size: 28,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
                 'Chọn ảnh khuôn mặt',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
+              const SizedBox(height: 5),
+              const Text(
                 'JPG, JPEG hoặc PNG • tối đa 5MB',
-                style: TextStyle(
-                  fontSize: 12,
-                  color:
-                      Color(0xFF8B94A5),
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -645,49 +751,37 @@ class _FaceManagementScreenState
     return Column(
       children: [
         ClipRRect(
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             width: double.infinity,
-            height: 280,
-            color:
-                const Color(0xFFF0F2F6),
-            child: Image.memory(
-              _imageBytes!,
-              fit: BoxFit.contain,
-            ),
+            height: 240,
+            color: AppColors.background,
+            child: Image.memory(_selectedImageBytes!, fit: BoxFit.contain),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           children: [
             const Icon(
               Icons.image_outlined,
               size: 18,
-              color:
-                  Color(0xFF7B8496),
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 7),
             Expanded(
               child: Text(
-                _imageName ?? '',
-                overflow:
-                    TextOverflow.ellipsis,
-                style:
-                    const TextStyle(
-                  fontSize: 12,
-                  color:
-                      Color(0xFF737D91),
+                _selectedImageName ?? 'Ảnh khuôn mặt',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
             TextButton(
-              onPressed:
-                  _registering
-                      ? null
-                      : _pickImage,
-              child:
-                  const Text('Đổi ảnh'),
+              onPressed: _isRegistering ? null : _pickImage,
+              child: const Text('Đổi ảnh'),
             ),
           ],
         ),
@@ -695,48 +789,67 @@ class _FaceManagementScreenState
     );
   }
 
-  Widget _buildMessage() {
-    if (_message == null) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildRegisterButton(bool alreadyRegistered) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton.icon(
+        onPressed: _isRegistering ? null : _registerFace,
+        icon: _isRegistering
+            ? const SizedBox(
+                width: 19,
+                height: 19,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                alreadyRegistered
+                    ? Icons.refresh
+                    : Icons.face_retouching_natural,
+              ),
+        label: Text(
+          _isRegistering
+              ? 'Đang xử lý...'
+              : alreadyRegistered
+              ? 'Đăng ký lại khuôn mặt'
+              : 'Đăng ký khuôn mặt',
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryBlue,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.primaryBlue.withValues(alpha: 0.6),
+          disabledForegroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
 
+  // EMPTY / ERROR
+
+  Widget _buildEmptyCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: _success
-            ? const Color(0xFFEAF8EF)
-            : const Color(0xFFFFF0F0),
-        borderRadius:
-            BorderRadius.circular(12),
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderColor),
       ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      child: const Column(
         children: [
-          Icon(
-            _success
-                ? Icons.check_circle_outline
-                : Icons.error_outline,
-            color: _success
-                ? const Color(0xFF198754)
-                : const Color(0xFFC62828),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              _message!,
-              style: TextStyle(
-                color: _success
-                    ? const Color(
-                        0xFF198754,
-                      )
-                    : const Color(
-                        0xFFC62828,
-                      ),
-                fontSize: 13,
-              ),
+          Icon(Icons.people_outline, size: 45, color: AppColors.textSecondary),
+          SizedBox(height: 12),
+          Text(
+            'Chưa có nhân viên',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -744,56 +857,31 @@ class _FaceManagementScreenState
     );
   }
 
-  Widget _buildRegisterButton() {
-    final registered =
-        _selectedEmployee != null &&
-            _hasFace(
-              _selectedEmployee!,
-            );
-
-    return SizedBox(
+  Widget _buildErrorCard() {
+    return Container(
       width: double.infinity,
-      height: 50,
-      child: ElevatedButton.icon(
-        onPressed:
-            (_registering || registered)
-                ? null
-                : _registerFace,
-        icon: _registering
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child:
-                    CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.face),
-        label: Text(
-          _registering
-              ? 'Đang đăng ký...'
-              : registered
-                  ? 'Nhân viên đã đăng ký'
-                  : 'Đăng ký khuôn mặt',
-        ),
-        style:
-            ElevatedButton.styleFrom(
-          backgroundColor:
-              const Color(0xFF3157D5),
-          foregroundColor:
-              Colors.white,
-          disabledBackgroundColor:
-              const Color(0xFFDDE1E8),
-          disabledForegroundColor:
-              const Color(0xFF747C8D),
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 40, color: AppColors.amber),
+          const SizedBox(height: 10),
+          Text(
+            _errorMessage ?? 'Có lỗi xảy ra.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
-        ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _loadEmployees,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Thử lại'),
+          ),
+        ],
       ),
     );
   }
