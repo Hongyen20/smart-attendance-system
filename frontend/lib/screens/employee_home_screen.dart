@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:camera/camera.dart' show XFile;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/api_config.dart';
 import '../services/auth_state.dart';
 
+import 'face_capture_screen.dart';
 import 'profile_screen.dart';
 import 'history_screen.dart';
 import 'statistics_screen.dart';
@@ -41,8 +43,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   bool? _hasFace;
 
   bool _isLoadingFaceStatus = true;
-
-  final ImagePicker _imagePicker = ImagePicker();
 
   static const List<String> _weekdays = [
     'Chủ Nhật',
@@ -132,11 +132,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         _hasFace = null;
       });
     } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingFaceStatus = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingFaceStatus = false;
+        });
+      }
     }
   }
 
@@ -281,122 +281,130 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   // LẤY GPS HIỆN TẠI
+  // Mọi bước đều có timeout để không bao giờ bị treo vô hạn.
 
-Future<Position?> _getCurrentPosition() async {
-  try {
-    // 1. KIỂM TRA GPS / LOCATION SERVICE
+  Future<Position?> _getCurrentPosition() async {
+    try {
+      // 1. KIỂM TRA GPS / LOCATION SERVICE (chỉ áp dụng cho app native)
 
-    final serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+      if (!kIsWeb) {
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
-    if (!serviceEnabled) {
+        if (!serviceEnabled) {
+          _showSnack('GPS đang tắt. Vui lòng bật định vị trên điện thoại.');
+
+          return null;
+        }
+      }
+
+      // 2. KIỂM TRA QUYỀN LOCATION
+
+      debugPrint('GPS: checkPermission...');
+
+      var permission = await Geolocator.checkPermission().timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (permission == LocationPermission.denied) {
+        _showSnack('Đang yêu cầu quyền truy cập vị trí...');
+
+        debugPrint('GPS: requestPermission...');
+
+        permission = await Geolocator.requestPermission().timeout(
+          const Duration(seconds: 30),
+        );
+      }
+
+      if (permission == LocationPermission.denied) {
+        _showSnack('Bạn chưa cấp quyền vị trí cho trình duyệt.');
+
+        return null;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showSnack(
+          'Quyền vị trí đã bị từ chối vĩnh viễn. '
+          'Hãy vào cài đặt trình duyệt và cho phép Location.',
+        );
+
+        return null;
+      }
+
+      // 3. LẤY GPS
+      // Lần 1: độ chính xác thấp (nhanh, dùng Wi-Fi/mạng)
+      // Lần 2: độ chính xác cao (dùng GPS thật) nếu lần 1 timeout
+
+      _showSnack('Đang lấy vị trí GPS...');
+
+      Position? position;
+
+      try {
+        debugPrint('GPS: getCurrentPosition (low)...');
+
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 10),
+          ),
+        ).timeout(const Duration(seconds: 15));
+      } on TimeoutException {
+        debugPrint('GPS: low accuracy timeout, retry high accuracy...');
+
+        _showSnack('Đang thử lại với độ chính xác cao...');
+
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 20),
+          ),
+        ).timeout(const Duration(seconds: 25));
+      }
+
+      // 4. KIỂM TRA KẾT QUẢ
+
+      if (position.latitude == 0 && position.longitude == 0) {
+        _showSnack('Không nhận được tọa độ GPS hợp lệ.');
+
+        return null;
+      }
+
+      _showSnack('Đã lấy vị trí GPS thành công.');
+
+      return position;
+    } on TimeoutException {
+      debugPrint('GPS: timeout');
+
       _showSnack(
-        'GPS đang tắt. Vui lòng bật định vị trên điện thoại.',
+        'Không lấy được vị trí GPS. Hãy mở trang bằng Chrome/Safari '
+        '(không dùng trình duyệt trong Zalo/Messenger), cấp quyền Vị trí '
+        'cho trình duyệt rồi thử lại.',
       );
 
       return null;
-    }
+    } catch (e) {
+      debugPrint('GPS error: $e');
 
-    // 2. KIỂM TRA QUYỀN LOCATION
-
-    var permission =
-        await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      _showSnack(
-        'Đang yêu cầu quyền truy cập vị trí...',
-      );
-
-      permission =
-          await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied) {
-      _showSnack(
-        'Bạn chưa cấp quyền vị trí cho trình duyệt.',
-      );
+      _showSnack('Lỗi GPS: $e');
 
       return null;
     }
-
-    if (permission ==
-        LocationPermission.deniedForever) {
-      _showSnack(
-        'Quyền vị trí đã bị từ chối vĩnh viễn. '
-        'Hãy vào cài đặt trình duyệt và cho phép Location.',
-      );
-
-      return null;
-    }
-
-    // 3. LẤY GPS
-
-    _showSnack(
-      'Đang lấy vị trí GPS...',
-    );
-
-    final position =
-        await Geolocator.getCurrentPosition(
-      locationSettings:
-          const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-      ),
-    ).timeout(
-      const Duration(seconds: 15),
-    );
-
-    // 4. KIỂM TRA KẾT QUẢ
-
-    if (position.latitude == 0 &&
-        position.longitude == 0) {
-      _showSnack(
-        'Không nhận được tọa độ GPS hợp lệ.',
-      );
-
-      return null;
-    }
-
-    _showSnack(
-      'Đã lấy vị trí GPS thành công.',
-    );
-
-    return position;
-  } on TimeoutException {
-    _showSnack(
-      'Không lấy được vị trí GPS sau 15 giây. '
-      'Vui lòng thử lại hoặc kiểm tra quyền Location.',
-    );
-
-    return null;
-  } catch (e) {
-    _showSnack(
-      'Lỗi GPS: $e',
-    );
-
-    return null;
   }
-}
-
-
 
   // CHỤP KHUÔN MẶT
+  // Mở camera trực tiếp (không cho chọn file từ máy)
 
   Future<XFile?> _captureFaceImage() async {
     if (!mounted) {
       return null;
     }
 
-    _showSnack('Camera đã mở. Vui lòng chụp rõ khuôn mặt.');
-
     try {
-      final image = await _imagePicker
-          .pickImage(
-            source: ImageSource.camera,
-            imageQuality: 85,
-            maxWidth: 1280,
-            maxHeight: 1280,
-          )
-          .timeout(const Duration(seconds: 45));
+      final image = await Navigator.of(context).push<XFile>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const FaceCaptureScreen(),
+        ),
+      );
 
       if (image == null) {
         _showSnack('Bạn chưa chụp ảnh khuôn mặt.');
@@ -405,13 +413,6 @@ Future<Position?> _getCurrentPosition() async {
       }
 
       return image;
-    } on TimeoutException {
-      _showSnack(
-        'Thời gian chụp ảnh đã hết. '
-        'Vui lòng thử lại.',
-      );
-
-      return null;
     } catch (e) {
       debugPrint('Face camera error: $e');
 
@@ -623,10 +624,7 @@ Future<Position?> _getCurrentPosition() async {
     });
 
     try {
-      // ========================================================
-      // CHECK-IN
       // BƯỚC 1: PUBLIC IPV4
-      // ========================================================
 
       _showSnack(
         isCheckIn
@@ -642,9 +640,7 @@ Future<Position?> _getCurrentPosition() async {
         return;
       }
 
-      // ========================================================
       // BƯỚC 2: GPS
-      // ========================================================
 
       _showSnack(
         isCheckIn
@@ -660,10 +656,8 @@ Future<Position?> _getCurrentPosition() async {
         return;
       }
 
-      // ========================================================
       // CHECK-IN
       // BƯỚC 3: CAMERA + FACE VERIFICATION
-      // ========================================================
 
       if (isCheckIn) {
         _showSnack('Bước 3/3: Đang mở camera...');
@@ -673,9 +667,7 @@ Future<Position?> _getCurrentPosition() async {
         return;
       }
 
-      // ========================================================
       // CHECK-OUT
-      // ========================================================
 
       await _performCheckOut(publicIp: publicIp, position: position);
     } catch (e) {
