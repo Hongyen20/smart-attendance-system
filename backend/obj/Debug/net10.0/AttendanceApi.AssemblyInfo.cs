@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AttendanceApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cb042e082459a43f2317ebd58852f4c48c5cd8c5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f175b130e3030ef207e859ad270345e809b3e761")]
 [assembly: System.Reflection.AssemblyProductAttribute("AttendanceApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AttendanceApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

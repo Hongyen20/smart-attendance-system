@@ -25,17 +25,12 @@ public class FaceController : ControllerBase
         return User.FindFirst("companyId")?.Value;
     }
 
-
-     // REGISTER FACE
-
     [HttpPost("register/{userId}")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> RegisterFace(
         string userId,
         IFormFile? image)
     {
-        // 1. Lấy companyId từ JWT
-
         var companyId = GetCompanyId();
 
         if (string.IsNullOrWhiteSpace(companyId))
@@ -43,7 +38,6 @@ public class FaceController : ControllerBase
             return Forbid();
         }
 
-        // 2. Kiểm tra file ảnh
         if (image == null || image.Length == 0)
         {
             return BadRequest(new
@@ -52,37 +46,36 @@ public class FaceController : ControllerBase
             });
         }
 
-        // 3. Kiểm tra loại file
-        var allowedContentTypes = new[]
+        // Kiểm tra phần mở rộng file.
+        var extension = Path.GetExtension(image.FileName)
+            .ToLowerInvariant();
+
+        var allowedExtensions = new[]
         {
-            "image/jpeg",
-            "image/jpg",
-            "image/png"
+            ".jpg",
+            ".jpeg",
+            ".png"
         };
 
-        if (!allowedContentTypes.Contains(
-                image.ContentType,
-                StringComparer.OrdinalIgnoreCase))
+        if (!allowedExtensions.Contains(extension))
         {
             return BadRequest(new
             {
-                message =
-                    "Chỉ hỗ trợ ảnh JPG, JPEG hoặc PNG."
+                message = "Chỉ hỗ trợ ảnh JPG, JPEG hoặc PNG."
             });
         }
 
-        // 4. Giới hạn kích thước ảnh
+        // Giới hạn kích thước ảnh tối đa 5MB.
         const long maxFileSize = 5 * 1024 * 1024;
 
         if (image.Length > maxFileSize)
         {
             return BadRequest(new
             {
-                message =
-                    "Kích thước ảnh không được vượt quá 5MB."
+                message = "Kích thước ảnh không được vượt quá 5MB."
             });
         }
-        // 5. Tìm Employee
+
         var user = await _userService.GetByIdAsync(
             companyId,
             userId);
@@ -105,8 +98,6 @@ public class FaceController : ControllerBase
             });
         }
 
-
-        // 6. Nếu Employee đã có FaceId
         if (!string.IsNullOrWhiteSpace(user.FaceId))
         {
             return BadRequest(new
@@ -116,8 +107,6 @@ public class FaceController : ControllerBase
             });
         }
 
-
-        // 7. Gửi ảnh tới Amazon Rekognition
         string? faceId;
 
         await using (var stream = image.OpenReadStream())
@@ -129,8 +118,6 @@ public class FaceController : ControllerBase
                     stream);
         }
 
-
-        // 8. Không tìm thấy khuôn mặt
         if (string.IsNullOrWhiteSpace(faceId))
         {
             return BadRequest(new
@@ -141,9 +128,7 @@ public class FaceController : ControllerBase
             });
         }
 
-        // 9. Lưu FaceId vào MongoDB
-        var collectionId =
-            $"attendance-{companyId}";
+        var collectionId = $"attendance-{companyId}";
 
         await _userService.UpdateFaceInfoAsync(
             companyId,
@@ -151,17 +136,11 @@ public class FaceController : ControllerBase
             faceId,
             collectionId);
 
-
-        // 10. Trả kết quả
         return Ok(new
         {
-            message =
-                "Đăng ký khuôn mặt thành công.",
-
+            message = "Đăng ký khuôn mặt thành công.",
             faceId = faceId,
-
             faceCollectionId = collectionId,
-
             registeredAt = DateTime.UtcNow
         });
     }
