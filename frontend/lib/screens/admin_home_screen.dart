@@ -1,54 +1,49 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 
-import 'create_employee_screen.dart';
-import 'employee_detail_screen.dart';
+import 'employee_list_screen.dart';
 import 'ip_config_screen.dart';
-import 'leave_approval_screen.dart';
 import 'change_password_screen.dart';
+import 'leave_approval_screen.dart';
+import 'shift_change_approval_screen.dart';
+import 'face_management_screen.dart';
+import 'business_trip_approval_screen.dart';
 
-class EmployeeListScreen extends StatefulWidget {
-  const EmployeeListScreen({super.key});
+class AdminHomeScreen extends StatefulWidget {
+  const AdminHomeScreen({super.key});
 
   @override
-  State<EmployeeListScreen> createState() => _EmployeeListScreenState();
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
-class _EmployeeListScreenState extends State<EmployeeListScreen> {
-  bool _isLoading = true;
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  // STATE
 
-  String? _errorMessage;
+  int _selectedNavIndex = 0;
 
-  List<dynamic> _employees = [];
+  bool _isLoadingStats = true;
 
-  String _searchQuery = '';
+  int _totalEmployees = 0;
 
-  final TextEditingController _searchController = TextEditingController();
+  // Tạm thời giữ các giá trị này theo code hiện tại.
+  // Sau này có API thì có thể thay bằng dữ liệu thực tế.
+  final int _currentlyWorking = 0;
+  final int _pendingLeaveRequests = 0;
+
+  // INIT
 
   @override
   void initState() {
     super.initState();
-    _loadEmployees();
+    _loadStats();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  // LOAD DATA
 
-  // LOAD EMPLOYEES
-
-  Future<void> _loadEmployees() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-
+  Future<void> _loadStats() async {
     final result = await ApiService.getList(
       '/api/employees',
       bearerToken: AuthState.instance.token,
@@ -57,62 +52,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     if (!mounted) return;
 
     setState(() {
-      _isLoading = false;
+      _isLoadingStats = false;
 
       if (result.success) {
-        _employees = result.data ?? [];
-      } else {
-        _errorMessage = result.errorMessage;
+        _totalEmployees = result.data!.length;
       }
     });
-  }
-
-  // FILTER
-
-  List<dynamic> get _filteredEmployees {
-    if (_searchQuery.trim().isEmpty) {
-      return _employees;
-    }
-
-    final query = _searchQuery.trim().toLowerCase();
-
-    return _employees.where((employee) {
-      final e = employee as Map<String, dynamic>;
-
-      final fullName = (e['fullName'] ?? '').toString().toLowerCase();
-
-      final username = (e['username'] ?? '').toString().toLowerCase();
-
-      final department = (e['department'] ?? e['departmentName'] ?? '')
-          .toString()
-          .toLowerCase();
-
-      return fullName.contains(query) ||
-          username.contains(query) ||
-          department.contains(query);
-    }).toList();
-  }
-
-  // STATISTICS
-
-  int get _totalEmployees => _employees.length;
-
-  int get _workingEmployees {
-    return _employees.where((employee) {
-      final e = employee as Map<String, dynamic>;
-      final status = (e['status'] ?? '').toString().toLowerCase();
-
-      return status == 'active' || status == 'working' || status == 'approved';
-    }).length;
-  }
-
-  int get _pendingEmployees {
-    return _employees.where((employee) {
-      final e = employee as Map<String, dynamic>;
-      final status = (e['status'] ?? '').toString().toLowerCase();
-
-      return status == 'pending' || status == 'inactive' || status == 'waiting';
-    }).length;
   }
 
   // BUILD
@@ -120,340 +65,436 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FC),
+      backgroundColor: AppColors.background,
 
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            // TOP BAR
+            _buildTopBar(),
 
+            // MAIN CONTENT
             Expanded(
               child: RefreshIndicator(
-                color: const Color(0xFF244397),
-                onRefresh: _loadEmployees,
-                child: _buildBody(),
+                onRefresh: _loadStats,
+
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      // WELCOME
+                      _buildWelcomeSection(),
+
+                      const SizedBox(height: 14),
+
+                      // OVERVIEW
+                      _buildOverviewCard(),
+
+                      const SizedBox(height: 22),
+
+                      // QUẢN LÝ NHÂN SỰ
+                      _buildSectionCard(
+                        title: 'Quản lý nhân sự',
+                        icon: Icons.person_outline_rounded,
+
+                        children: [
+                          _buildIconGrid([
+                            // Nhân viên
+                            _FunctionTileData(
+                              icon: Icons.groups_rounded,
+                              title: 'Nhân viên',
+                              color: const Color(0xFF3182F6),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const EmployeeListScreen(),
+                                  ),
+                                ).then((_) {
+                                  _loadStats();
+                                });
+                              },
+                            ),
+
+                            // Khuôn mặt
+                            _FunctionTileData(
+                              icon: Icons.face_retouching_natural_rounded,
+                              title: 'Khuôn mặt',
+                              color: const Color(0xFF7C4DFF),
+
+                              onTap: () {
+                                final token = AuthState.instance.token;
+
+                                if (token == null || token.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Phiên đăng nhập không hợp lệ.',
+                                      ),
+                                    ),
+                                  );
+
+                                  return;
+                                }
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        FaceManagementScreen(token: token),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Cấu hình IP
+                            _FunctionTileData(
+                              icon: Icons.router_rounded,
+                              title: 'Cấu hình IP',
+                              color: const Color(0xFF20C997),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const IpConfigScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ]),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // CHẤM CÔNG & CA LÀM VIỆC
+                      _buildSectionCard(
+                        title: 'Chấm công & ca làm việc',
+                        icon: Icons.access_time_rounded,
+
+                        children: [
+                          _buildIconGrid([
+                            // Đổi ca
+                            _FunctionTileData(
+                              icon: Icons.swap_horiz_rounded,
+                              title: 'Đổi ca',
+                              color: const Color(0xFFFF922B),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const ShiftChangeApprovalScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Nghỉ phép
+                            _FunctionTileData(
+                              icon: Icons.calendar_month_rounded,
+                              title: 'Nghỉ phép',
+                              color: const Color(0xFFF5487F),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LeaveApprovalScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Công tác
+                            _FunctionTileData(
+                              icon: Icons.business_center_rounded,
+                              title: 'Công tác',
+                              color: const Color(0xFF4A90E2),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const BusinessTripApprovalScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ]),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // TÀI KHOẢN
+                      _buildSectionCard(
+                        title: 'Tài khoản',
+                        icon: Icons.security_rounded,
+
+                        children: [
+                          _buildIconGrid([
+                            _FunctionTileData(
+                              icon: Icons.lock_rounded,
+                              title: 'Đổi mật khẩu',
+                              color: const Color(0xFF7950F2),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const ChangePasswordScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ]),
+                        ],
+                      ),
+
+                      // KHÔNG CÒN "HOẠT ĐỘNG GẦN ĐÂY"
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
 
-      floatingActionButton: _buildAddEmployeeButton(),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-
-      bottomNavigationBar: _buildBottomNavigation(),
+      // BOTTOM NAVIGATION
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // HEADER
+  // LOGO HEADER
 
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
+  Widget _buildLogoHeader() {
+    return SizedBox(
+      width: 105,
+      height: 48,
 
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Image.asset(
+        'assets/images/logo.png',
 
-      decoration: const BoxDecoration(
-        color: Colors.white,
+        fit: BoxFit.contain,
 
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E8F0), width: 1)),
+        alignment: Alignment.centerLeft,
       ),
+    );
+  }
 
-      child: Column(
+  // TOP BAR
+
+  Widget _buildTopBar() {
+    final fullName = AuthState.instance.fullName;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+
+      color: AppColors.cardBackground,
+
+      child: Row(
         children: [
-          Row(
-            children: [
-              // BACK BUTTON
-              Material(
-                color: Colors.transparent,
+          // LOGO
+          _buildLogoHeader(),
 
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(24),
+          const SizedBox(width: 8),
 
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
+          // ADMIN LABEL
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-                  child: const Padding(
-                    padding: EdgeInsets.all(7),
+              mainAxisAlignment: MainAxisAlignment.center,
 
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Color(0xFF244397),
-                      size: 21,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // LOGO
-              SizedBox(
-                width: 92,
-                height: 42,
-
-                child: Image.asset(
-                  'assets/images/logo.png',
-
-                  fit: BoxFit.contain,
-
-                  alignment: Alignment.centerLeft,
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // TITLE
-              const Expanded(
-                child: Text(
-                  'Nhân viên',
+              children: [
+                Text(
+                  'Quản trị viên',
 
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF244397),
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-
-              // REFRESH
-              IconButton(
-                tooltip: 'Làm mới',
-
-                padding: EdgeInsets.zero,
-
-                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-
-                onPressed: _isLoading ? null : _loadEmployees,
-
-                icon: const Icon(
-                  Icons.refresh_rounded,
-                  color: Color(0xFF244397),
-                  size: 23,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
 
-          const SizedBox(height: 8),
+          // AVATAR
+          Container(
+            width: 43,
+            height: 43,
 
-          _buildSearchField(),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+
+              color: const Color(0xFFEAF2FF),
+
+              border: Border.all(color: const Color(0xFFD7E5FF), width: 1.5),
+            ),
+
+            child: Center(
+              child: Text(
+                (fullName?.isNotEmpty == true)
+                    ? fullName![0].toUpperCase()
+                    : 'A',
+
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // SEARCH
+  // WELCOME SECTION
 
-  Widget _buildSearchField() {
-    return Container(
-      height: 45,
+  Widget _buildWelcomeSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
 
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F5FA),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
 
-        borderRadius: BorderRadius.circular(13),
+        children: [
+          // WELCOME ICON
+          Container(
+            width: 58,
+            height: 58,
 
-        border: Border.all(color: const Color(0xFFE0E5EF)),
-      ),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
 
-      child: TextField(
-        controller: _searchController,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE4EEFF), Color(0xFFD2E3FF)],
+              ),
+            ),
 
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
+            child: const Icon(
+              Icons.admin_panel_settings_rounded,
 
-        style: const TextStyle(fontSize: 13.5, color: Color(0xFF202A3D)),
+              size: 34,
 
-        decoration: InputDecoration(
-          hintText: 'Tìm theo tên, username hoặc phòng ban',
-
-          hintStyle: const TextStyle(color: Color(0xFF969EAF), fontSize: 12.5),
-
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: Color(0xFF77829A),
-            size: 20,
+              color: Color(0xFF2F6FED),
+            ),
           ),
 
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  padding: EdgeInsets.zero,
+          const SizedBox(width: 13),
 
-                  onPressed: () {
-                    _searchController.clear();
+          // TEXT
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-                    setState(() {
-                      _searchQuery = '';
-                    });
-                  },
+              children: [
+                Text(
+                  'Chào Quản Trị Viên',
 
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Color(0xFF77829A),
-                    size: 18,
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF102A67),
                   ),
-                )
-              : null,
+                ),
 
-          border: InputBorder.none,
+                SizedBox(height: 3),
 
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        ),
+                Text(
+                  'Đây là tổng quan hoạt động của bạn hôm nay.',
+
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // BODY
+  // OVERVIEW CARD
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF244397),
-          strokeWidth: 2.5,
-        ),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return _buildErrorState();
-    }
-
-    if (_employees.isEmpty) {
-      return _buildEmptyState(
-        message:
-            'Chưa có nhân viên nào.\n'
-            'Bấm "Thêm nhân viên" để tạo tài khoản đầu tiên.',
-      );
-    }
-
-    final employees = _filteredEmployees;
-
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 110),
-
-      children: [
-        // STATISTICS
-        _buildStatistics(),
-
-        const SizedBox(height: 18),
-
-        // TITLE
-        Row(
-          children: [
-            const Text(
-              'Danh sách nhân viên',
-
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF263A62),
-              ),
-            ),
-
-            const Spacer(),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7EDFF),
-                borderRadius: BorderRadius.circular(20),
-              ),
-
-              child: Text(
-                '${employees.length} nhân viên',
-
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF244397),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 10),
-
-        if (employees.isEmpty)
-          _buildEmptyState(
-            icon: Icons.search_off_rounded,
-            message: 'Không tìm thấy nhân viên phù hợp.',
-          )
-        else
-          ...employees.map((employee) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-
-              child: _buildEmployeeCard(employee as Map<String, dynamic>),
-            );
-          }),
-      ],
-    );
-  }
-
-  // STATISTICS
-
-  Widget _buildStatistics() {
+  Widget _buildOverviewCard() {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
 
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
 
-        borderRadius: BorderRadius.circular(18),
+          colors: [Color(0xFFEAF3FF), Color(0xFFF5F8FF)],
+        ),
 
-        border: Border.all(color: const Color(0xFFE1E6F0)),
+        borderRadius: BorderRadius.circular(22),
 
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.025),
-
-            blurRadius: 10,
-
-            offset: const Offset(0, 3),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFDCE9FF)),
       ),
 
       child: Row(
         children: [
+          // TOTAL EMPLOYEES
           Expanded(
-            child: _buildStatisticItem(
+            child: _buildOverviewItem(
+              icon: Icons.groups_rounded,
+
+              iconColor: const Color(0xFF3182F6),
+
               label: 'Tổng nhân viên',
-              value: '$_totalEmployees',
-              valueColor: const Color(0xFF244397),
+
+              value: _isLoadingStats ? '...' : '$_totalEmployees',
             ),
           ),
 
-          Container(width: 1, height: 42, color: const Color(0xFFE2E6EF)),
+          _buildVerticalDivider(),
 
+          // CURRENTLY WORKING
           Expanded(
-            child: _buildStatisticItem(
+            child: _buildOverviewItem(
+              icon: Icons.access_time_filled_rounded,
+
+              iconColor: const Color(0xFF20B878),
+
               label: 'Đang làm việc',
-              value: '$_workingEmployees',
-              valueColor: const Color(0xFF159957),
+
+              value: '$_currentlyWorking',
             ),
           ),
 
-          Container(width: 1, height: 42, color: const Color(0xFFE2E6EF)),
+          _buildVerticalDivider(),
 
+          // PENDING
           Expanded(
-            child: _buildStatisticItem(
+            child: _buildOverviewItem(
+              icon: Icons.event_available_rounded,
+
+              iconColor: const Color(0xFFFF922B),
+
               label: 'Chờ duyệt',
-              value: '$_pendingEmployees',
-              valueColor: const Color(0xFFEA8A17),
+
+              value: '$_pendingLeaveRequests',
             ),
           ),
         ],
@@ -461,24 +502,30 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
-  Widget _buildStatisticItem({
+  // OVERVIEW ITEM
+
+  Widget _buildOverviewItem({
+    required IconData icon,
+    required Color iconColor,
     required String label,
     required String value,
-    required Color valueColor,
   }) {
     return Column(
       children: [
-        Text(
-          value,
+        Container(
+          width: 44,
+          height: 44,
 
-          style: TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-            color: valueColor,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+
+            color: iconColor.withOpacity(0.13),
           ),
+
+          child: Icon(icon, color: iconColor, size: 23),
         ),
 
-        const SizedBox(height: 3),
+        const SizedBox(height: 7),
 
         Text(
           label,
@@ -491,388 +538,210 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
           style: const TextStyle(
             fontSize: 10.5,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF7A8498),
+          ),
+        ),
+
+        const SizedBox(height: 1),
+
+        Text(
+          value,
+
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: iconColor,
           ),
         ),
       ],
     );
   }
 
-  // EMPLOYEE CARD
+  // VERTICAL DIVIDER
 
-  Widget _buildEmployeeCard(Map<String, dynamic> e) {
-    final status = (e['status'] ?? 'Active').toString();
+  Widget _buildVerticalDivider() {
+    return Container(
+      width: 1,
+      height: 65,
 
-    final fullName = (e['fullName'] ?? '').toString();
+      margin: const EdgeInsets.symmetric(horizontal: 5),
 
-    final username = (e['username'] ?? '').toString();
+      color: const Color(0xFFD9E3F4),
+    );
+  }
 
-    final department = (e['department'] ?? e['departmentName'] ?? '')
-        .toString();
+  // SECTION CARD
 
-    final isActive =
-        status.toLowerCase() == 'active' || status.toLowerCase() == 'working';
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
 
-    return Material(
-      color: Colors.transparent,
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
 
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(21),
 
-        onTap: () async {
-          final employeeId = e['id']?.toString();
+        border: Border.all(color: const Color(0xFFE2EAF7)),
+      ),
 
-          if (employeeId == null || employeeId.isEmpty) {
-            return;
-          }
+      child: Column(
+        children: [
+          // SECTION HEADER
+          Container(
+            width: double.infinity,
 
-          final changed = await Navigator.push<bool>(
-            context,
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
 
-            MaterialPageRoute(
-              builder: (_) => EmployeeDetailScreen(employeeId: employeeId),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F6FF),
+
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(21),
+                topRight: Radius.circular(21),
+              ),
             ),
-          );
 
-          if (changed == true) {
-            _loadEmployees();
-          }
-        },
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
 
-        child: Container(
-          width: double.infinity,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
 
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+                    color: Color(0xFFE0ECFF),
+                  ),
 
-          decoration: BoxDecoration(
-            color: Colors.white,
-
-            borderRadius: BorderRadius.circular(16),
-
-            border: Border.all(color: const Color(0xFFE0E5EF)),
-
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.025),
-
-                blurRadius: 8,
-
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-
-          child: Row(
-            children: [
-              // AVATAR 
-              Container(
-                width: 48,
-                height: 48,
-
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-
-                  color: Color(0xFFEAF0FF),
+                  child: Icon(icon, size: 18, color: Color(0xFF2F6FED)),
                 ),
 
-                child: const Icon(
-                  Icons.person_outline_rounded,
+                const SizedBox(width: 9),
 
-                  color: Color(0xFF5875A8),
+                Text(
+                  title,
 
-                  size: 27,
-                ),
-              ),
-
-              const SizedBox(width: 11),
-
-              // INFORMATION
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    Text(
-                      fullName.isEmpty ? 'Chưa có tên' : fullName,
-
-                      maxLines: 1,
-
-                      overflow: TextOverflow.ellipsis,
-
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF202A3D),
-                      ),
-                    ),
-
-                    const SizedBox(height: 3),
-
-                    Text(
-                      username.isEmpty ? 'Chưa có username' : '@$username',
-
-                      maxLines: 1,
-
-                      overflow: TextOverflow.ellipsis,
-
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF7B8598),
-                      ),
-                    ),
-
-                    if (department.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-
-                      Text(
-                        department,
-
-                        maxLines: 1,
-
-                        overflow: TextOverflow.ellipsis,
-
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          color: Color(0xFF9AA3B4),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 7),
-
-              // STATUS
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? const Color(0xFFE1F7E9)
-                      : const Color(0xFFFFE7E7),
-
-                  borderRadius: BorderRadius.circular(20),
-                ),
-
-                child: Text(
-                  isActive ? 'Đang làm' : 'Chờ duyệt',
-
-                  style: TextStyle(
-                    fontSize: 9.5,
-
-                    fontWeight: FontWeight.w700,
-
-                    color: isActive
-                        ? const Color(0xFF159957)
-                        : const Color(0xFFE05252),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF143375),
                   ),
                 ),
-              ),
-
-              const SizedBox(width: 2),
-
-              const Icon(
-                Icons.chevron_right_rounded,
-
-                color: Color(0xFFA3ABBA),
-
-                size: 22,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+
+          // CONTENT
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 16, 8, 17),
+
+            child: Column(children: children),
+          ),
+        ],
       ),
     );
   }
 
-  // ERROR
+  // ICON GRID - 3 COLUMNS
 
-  Widget _buildErrorState() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+  Widget _buildIconGrid(List<_FunctionTileData> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 4.0;
 
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+        final itemWidth = (constraints.maxWidth - spacing * 2) / 3;
 
-      children: [
-        const SizedBox(height: 70),
+        return Wrap(
+          spacing: spacing,
 
-        Center(
-          child: Container(
-            width: 70,
-            height: 70,
+          runSpacing: 20,
 
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEEEE),
+          alignment: WrapAlignment.start,
 
-              borderRadius: BorderRadius.circular(22),
-            ),
+          children: items.map((item) {
+            return SizedBox(
+              width: items.length == 1 ? constraints.maxWidth : itemWidth,
 
-            child: const Icon(
-              Icons.error_outline_rounded,
-
-              color: Color(0xFFE53935),
-
-              size: 36,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        const Text(
-          'Không thể tải danh sách nhân viên',
-
-          textAlign: TextAlign.center,
-
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF263A62),
-          ),
-        ),
-
-        const SizedBox(height: 7),
-
-        Text(
-          _errorMessage ?? 'Đã xảy ra lỗi.',
-
-          textAlign: TextAlign.center,
-
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF737D92)),
-        ),
-
-        const SizedBox(height: 18),
-
-        Center(
-          child: OutlinedButton.icon(
-            onPressed: _loadEmployees,
-
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-
-            label: const Text('Thử lại', style: TextStyle(fontSize: 13)),
-
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF244397),
-
-              side: const BorderSide(color: Color(0xFF244397)),
-
-              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
-
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ),
-      ],
+              child: _buildFunctionTile(item),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
-  // EMPTY STATE
+  // FUNCTION TILE
 
-  Widget _buildEmptyState({
-    IconData icon = Icons.groups_outlined,
-    required String message,
-  }) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-
-      children: [
-        const SizedBox(height: 65),
-
-        Center(
-          child: Container(
-            width: 76,
-            height: 76,
-
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF0FF),
-
-              borderRadius: BorderRadius.circular(23),
-            ),
-
-            child: Icon(icon, color: const Color(0xFF244397), size: 38),
-          ),
-        ),
-
-        const SizedBox(height: 17),
-
-        Text(
-          message,
-
-          textAlign: TextAlign.center,
-
-          style: const TextStyle(
-            fontSize: 13,
-            height: 1.5,
-            color: Color(0xFF737D92),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ADD EMPLOYEE BUTTON
-
-  Widget _buildAddEmployeeButton() {
+  Widget _buildFunctionTile(_FunctionTileData item) {
     return Material(
-      elevation: 7,
-
-      shadowColor: const Color(0xFF244397).withOpacity(0.25),
-
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
 
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
 
-        onTap: () async {
-          await Navigator.push(
-            context,
+        onTap: item.onTap,
 
-            MaterialPageRoute(builder: (_) => const CreateEmployeeScreen()),
-          );
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
 
-          _loadEmployees();
-        },
-
-        child: Container(
-          height: 52,
-
-          padding: const EdgeInsets.symmetric(horizontal: 17),
-
-          decoration: BoxDecoration(
-            color: const Color(0xFF244397),
-
-            borderRadius: BorderRadius.circular(16),
-          ),
-
-          child: const Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
 
             children: [
-              Icon(
-                Icons.person_add_alt_1_rounded,
+              // --------------------------------------------------
+              // LARGE ROUND ICON
+              // --------------------------------------------------
+              Container(
+                width: 76,
+                height: 76,
 
-                color: Colors.white,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
 
-                size: 21,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+
+                    colors: [item.color.withOpacity(0.82), item.color],
+                  ),
+
+                  boxShadow: [
+                    BoxShadow(
+                      color: item.color.withOpacity(0.18),
+
+                      blurRadius: 10,
+
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+
+                child: Icon(item.icon, color: Colors.white, size: 37),
               ),
 
-              SizedBox(width: 8),
+              const SizedBox(height: 8),
 
+              // --------------------------------------------------
+              // TITLE
+              // --------------------------------------------------
               Text(
-                'Thêm nhân viên',
+                item.title,
 
-                style: TextStyle(
-                  color: Colors.white,
+                textAlign: TextAlign.center,
 
-                  fontSize: 13.5,
+                maxLines: 2,
 
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w700,
+                  color: Color(0xFF152B5F),
                 ),
               ),
             ],
@@ -884,130 +753,173 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   // BOTTOM NAVIGATION
 
-  Widget _buildBottomNavigation() {
+  Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBackground,
 
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(0.06),
 
-            blurRadius: 12,
+            blurRadius: 15,
 
-            offset: const Offset(0, -3),
+            offset: const Offset(0, -4),
           ),
         ],
       ),
 
-      child: SafeArea(
-        top: false,
+      child: BottomNavigationBar(
+        currentIndex: _selectedNavIndex,
 
-        child: SizedBox(
-          height: 62,
+        onTap: (index) {
+          setState(() {
+            _selectedNavIndex = index;
+          });
 
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home_rounded,
-                  label: 'Trang chủ',
+          // TRANG CHỦ
+          if (index == 0) {
+            return;
+          }
 
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
+          // NHÂN VIÊN
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EmployeeListScreen()),
+            ).then((_) {
+              if (!mounted) return;
 
-              Expanded(
-                child: _buildNavItem(
-                  icon: Icons.access_time_outlined,
-                  activeIcon: Icons.access_time_rounded,
-                  label: 'Chấm công',
+              setState(() {
+                _selectedNavIndex = 0;
+              });
 
-                  onTap: () {
-                    Navigator.push(
-                      context,
+              _loadStats();
+            });
+          }
+          // CHẤM CÔNG
+          else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const IpConfigScreen()),
+            ).then((_) {
+              if (!mounted) return;
 
-                      MaterialPageRoute(builder: (_) => const IpConfigScreen()),
-                    );
-                  },
-                ),
-              ),
+              setState(() {
+                _selectedNavIndex = 0;
+              });
+            });
+          }
+          // YÊU CẦU
+          else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LeaveApprovalScreen()),
+            ).then((_) {
+              if (!mounted) return;
 
-              Expanded(
-                child: _buildNavItem(
-                  icon: Icons.assignment_outlined,
-                  activeIcon: Icons.assignment_rounded,
-                  label: 'Yêu cầu',
+              setState(() {
+                _selectedNavIndex = 0;
+              });
+            });
+          }
+          // CÀI ĐẶT
+          else if (index == 4) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+            ).then((_) {
+              if (!mounted) return;
 
-                  onTap: () {
-                    Navigator.push(
-                      context,
+              setState(() {
+                _selectedNavIndex = 0;
+              });
+            });
+          }
+        },
 
-                      MaterialPageRoute(
-                        builder: (_) => const LeaveApprovalScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
+        type: BottomNavigationBarType.fixed,
 
-              Expanded(
-                child: _buildNavItem(
-                  icon: Icons.settings_outlined,
-                  activeIcon: Icons.settings_rounded,
-                  label: 'Cài đặt',
+        backgroundColor: AppColors.cardBackground,
 
-                  onTap: () {
-                    Navigator.push(
-                      context,
+        selectedItemColor: const Color(0xFF7048E8),
 
-                      MaterialPageRoute(
-                        builder: (_) => const ChangePasswordScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+        unselectedItemColor: AppColors.textSecondary,
+
+        selectedFontSize: 11,
+
+        unselectedFontSize: 10,
+
+        showUnselectedLabels: true,
+
+        elevation: 0,
+
+        items: const [
+          // HOME
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+
+            activeIcon: Icon(Icons.home_rounded),
+
+            label: 'Trang chủ',
           ),
-        ),
-      ),
-    );
-  }
 
-  // NAV ITEM
+          // EMPLOYEE
+          BottomNavigationBarItem(
+            icon: Icon(Icons.groups_outlined),
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
+            activeIcon: Icon(Icons.groups_rounded),
 
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+            label: 'Nhân viên',
+          ),
 
-        children: [
-          Icon(icon, color: const Color(0xFF7C879B), size: 22),
+          // ATTENDANCE
+          BottomNavigationBarItem(
+            icon: Icon(Icons.access_time_outlined),
 
-          const SizedBox(height: 3),
+            activeIcon: Icon(Icons.access_time_filled),
 
-          Text(
-            label,
+            label: 'Chấm công',
+          ),
 
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF7C879B),
-            ),
+          // REQUESTS
+          BottomNavigationBarItem(
+            icon: Icon(Icons.description_outlined),
+
+            activeIcon: Icon(Icons.description_rounded),
+
+            label: 'Yêu cầu',
+          ),
+
+          // SETTINGS
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+
+            activeIcon: Icon(Icons.settings_rounded),
+
+            label: 'Cài đặt',
           ),
         ],
       ),
     );
   }
+}
+
+// FUNCTION TILE DATA
+
+class _FunctionTileData {
+  final IconData icon;
+
+  final String title;
+
+  final Color color;
+
+  final VoidCallback onTap;
+
+  const _FunctionTileData({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
 }

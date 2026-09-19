@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 
+import 'admin_home_screen.dart';
+import 'ip_config_screen.dart';
+import 'leave_approval_screen.dart';
+import 'change_password_screen.dart';
+
 import 'create_employee_screen.dart';
 import 'employee_detail_screen.dart';
 
@@ -15,17 +20,18 @@ class EmployeeListScreen extends StatefulWidget {
 
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
   // COLORS
-
   static const Color primaryBlue = Color(0xFF12348F);
+
   static const Color brightBlue = Color(0xFF1464E8);
 
   static const Color background = Color(0xFFF5F9FF);
 
-  static const Color textDark = Color(0xFF102A72);
   static const Color textBlue = Color(0xFF31589D);
+
   static const Color textGrey = Color(0xFF7185A8);
 
   static const Color green = Color(0xFF00A94F);
+
   static const Color orange = Color(0xFFFF8500);
 
   static const Color purple = Color(0xFF5B16E8);
@@ -42,6 +48,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   String _selectedFilter = 'Tất cả';
 
+  // Nhân viên = index 1
   int _currentBottomIndex = 1;
 
   final TextEditingController _searchController = TextEditingController();
@@ -96,6 +103,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     Iterable<dynamic> result = _employees;
 
     // SEARCH
+
     if (_searchQuery.trim().isNotEmpty) {
       final query = _searchQuery.trim().toLowerCase();
 
@@ -117,6 +125,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
 
     // STATUS FILTER
+
     if (_selectedFilter != 'Tất cả') {
       result = result.where((employee) {
         final e = employee as Map<String, dynamic>;
@@ -211,28 +220,28 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
 
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
 
       children: [
         _buildTopHeader(),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         _buildSearchBox(),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         _buildHeroCard(),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         _buildStatistics(),
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 22),
 
         _buildEmployeeSectionHeader(),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         _buildEmployeeContent(),
       ],
@@ -243,16 +252,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildTopHeader() {
     return SizedBox(
-      height: 62,
+      height: 55,
 
       child: Row(
         children: [
-          // LOGO
           Expanded(child: _buildLogoHeader()),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
-          // PROFILE
           _buildProfileButton(),
         ],
       ),
@@ -263,8 +270,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildLogoHeader() {
     return SizedBox(
-      width: 180,
-      height: 52,
+      width: 170,
+      height: 48,
 
       child: Image.asset(
         'assets/images/logo.png',
@@ -282,9 +289,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
               style: TextStyle(
                 color: primaryBlue,
-
-                fontSize: 26,
-
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -298,8 +303,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildProfileButton() {
     return Container(
-      width: 58,
-      height: 58,
+      width: 46,
+      height: 46,
 
       decoration: BoxDecoration(
         color: const Color(0xFFDCEBFF),
@@ -324,7 +329,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           style: TextStyle(
             color: primaryBlue,
 
-            fontSize: 28,
+            fontSize: 21,
 
             fontWeight: FontWeight.w700,
           ),
@@ -337,12 +342,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildSearchBox() {
     return Container(
-      height: 62,
+      height: 50,
 
       decoration: BoxDecoration(
         color: const Color(0xFFEAF3FF),
 
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
 
         border: Border.all(color: const Color(0xFFE0ECFC)),
       ),
@@ -356,7 +361,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           });
         },
 
-        style: const TextStyle(color: textBlue, fontSize: 17),
+        style: const TextStyle(color: textBlue, fontSize: 14),
 
         decoration: InputDecoration(
           border: InputBorder.none,
@@ -364,16 +369,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           prefixIcon: const Icon(
             Icons.search,
             color: Color(0xFF42679F),
-            size: 34,
+            size: 25,
           ),
 
           hintText: 'Tìm kiếm nhân viên...',
 
           hintStyle: const TextStyle(
             color: Color(0xFF5573A5),
-
-            fontSize: 17,
-
+            fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
 
@@ -387,11 +390,15 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                     });
                   },
 
-                  icon: const Icon(Icons.close, color: Color(0xFF5573A5)),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Color(0xFF5573A5),
+                    size: 20,
+                  ),
                 )
               : null,
 
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
@@ -401,9 +408,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildHeroCard() {
     return Container(
-      height: 156,
+      height: 125,
 
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
 
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -414,14 +421,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           colors: [Color(0xFFDDEEFF), Color(0xFFD8EDFF)],
         ),
 
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
       ),
 
       child: Row(
         children: [
           Container(
-            width: 92,
-            height: 92,
+            width: 72,
+            height: 72,
 
             decoration: const BoxDecoration(
               color: Color(0xFFBFD9FF),
@@ -429,10 +436,10 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               shape: BoxShape.circle,
             ),
 
-            child: const Icon(Icons.groups, color: brightBlue, size: 55),
+            child: const Icon(Icons.groups, color: brightBlue, size: 42),
           ),
 
-          const SizedBox(width: 24),
+          const SizedBox(width: 18),
 
           const Expanded(
             child: Column(
@@ -451,13 +458,13 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                   style: TextStyle(
                     color: primaryBlue,
 
-                    fontSize: 24,
+                    fontSize: 19,
 
                     fontWeight: FontWeight.w800,
                   ),
                 ),
 
-                SizedBox(height: 7),
+                SizedBox(height: 5),
 
                 Text(
                   'Quản lý và theo dõi thông tin nhân viên',
@@ -466,7 +473,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
                   overflow: TextOverflow.ellipsis,
 
-                  style: TextStyle(color: textBlue, fontSize: 16, height: 1.25),
+                  style: TextStyle(color: textBlue, fontSize: 12, height: 1.3),
                 ),
               ],
             ),
@@ -477,25 +484,32 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   }
 
   // STATISTICS
+  //
+  // ĐÃ XÓA:
+  // - ICON TRÒN TỔNG NHÂN VIÊN
+  // - ICON TRÒN ĐANG LÀM VIỆC
+  // - ICON TRÒN CHỜ DUYỆT
 
   Widget _buildStatistics() {
     return Container(
-      height: 132,
+      height: 92,
 
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
+
+        border: Border.all(color: const Color(0xFFE2EAF7)),
 
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF47679C).withValues(alpha: 0.10),
+            color: const Color(0xFF47679C).withValues(alpha: 0.07),
 
-            blurRadius: 18,
+            blurRadius: 12,
 
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -504,15 +518,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         children: [
           Expanded(
             child: _buildStatisticItem(
-              icon: Icons.groups,
-
-              iconBackground: const Color(0xFFD9E9FF),
-
-              iconColor: brightBlue,
-
               title: 'Tổng nhân viên',
 
-              value: _totalEmployees.toString(),
+              value: _isLoading ? '...' : _totalEmployees.toString(),
 
               valueColor: brightBlue,
             ),
@@ -522,15 +530,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
           Expanded(
             child: _buildStatisticItem(
-              icon: Icons.person,
-
-              iconBackground: const Color(0xFFD9F9E6),
-
-              iconColor: green,
-
               title: 'Đang làm việc',
 
-              value: _workingEmployees.toString(),
+              value: _isLoading ? '...' : _workingEmployees.toString(),
 
               valueColor: green,
             ),
@@ -540,15 +542,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
           Expanded(
             child: _buildStatisticItem(
-              icon: Icons.pending_actions,
-
-              iconBackground: const Color(0xFFFFEADB),
-
-              iconColor: orange,
-
               title: 'Chờ duyệt',
 
-              value: _pendingEmployees.toString(),
+              value: _isLoading ? '...' : _pendingEmployees.toString(),
 
               valueColor: orange,
             ),
@@ -558,87 +554,62 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
-  Widget _buildStatisticDivider() {
-    return Container(width: 1, height: 72, color: const Color(0xFFD5E0F1));
-  }
+  // STATISTIC ITEM
 
   Widget _buildStatisticItem({
-    required IconData icon,
-
-    required Color iconBackground,
-
-    required Color iconColor,
-
     required String title,
 
     required String value,
 
     required Color valueColor,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
 
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
+      children: [
+        Text(
+          value,
 
-            decoration: BoxDecoration(
-              color: iconBackground,
+          style: TextStyle(
+            color: valueColor,
 
-              shape: BoxShape.circle,
-            ),
+            fontSize: 25,
 
-            child: Icon(icon, color: iconColor, size: 30),
+            fontWeight: FontWeight.w800,
+
+            height: 1,
           ),
+        ),
 
-          const SizedBox(width: 10),
+        const SizedBox(height: 5),
 
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        Text(
+          title,
 
-              crossAxisAlignment: CrossAxisAlignment.start,
+          textAlign: TextAlign.center,
 
-              children: [
-                Text(
-                  title,
+          maxLines: 2,
 
-                  maxLines: 2,
+          overflow: TextOverflow.ellipsis,
 
-                  overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: textBlue,
 
-                  style: const TextStyle(
-                    color: textBlue,
+            fontSize: 10.5,
 
-                    fontSize: 14,
+            fontWeight: FontWeight.w500,
 
-                    height: 1.2,
-                  ),
-                ),
-
-                const SizedBox(height: 2),
-
-                Text(
-                  value,
-
-                  style: TextStyle(
-                    color: valueColor,
-
-                    fontSize: 30,
-
-                    fontWeight: FontWeight.w800,
-
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
+            height: 1.2,
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  // STATISTIC DIVIDER
+
+  Widget _buildStatisticDivider() {
+    return Container(width: 1, height: 50, color: const Color(0xFFD5E0F1));
   }
 
   // EMPLOYEE SECTION HEADER
@@ -646,10 +617,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   Widget _buildEmployeeSectionHeader() {
     return Row(
       children: [
-        const Icon(Icons.groups, color: brightBlue, size: 31),
-
-        const SizedBox(width: 12),
-
         const Expanded(
           child: Text(
             'Danh sách nhân viên',
@@ -657,7 +624,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             style: TextStyle(
               color: primaryBlue,
 
-              fontSize: 22,
+              fontSize: 17,
 
               fontWeight: FontWeight.w800,
             ),
@@ -669,20 +636,20 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 
-  // FILTER DROPDOWN
+  // FILTER
 
   Widget _buildFilterDropdown() {
     return Container(
-      height: 52,
+      height: 42,
 
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(22),
 
-        border: Border.all(color: const Color(0xFFB9D0F2), width: 1.3),
+        border: Border.all(color: const Color(0xFFB9D0F2), width: 1.1),
       ),
 
       child: DropdownButtonHideUnderline(
@@ -694,27 +661,40 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
             color: primaryBlue,
 
-            size: 25,
+            size: 20,
           ),
 
           borderRadius: BorderRadius.circular(14),
 
           items: const [
-            DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả')),
+            DropdownMenuItem(
+              value: 'Tất cả',
+              child: Text('Tất cả', style: TextStyle(fontSize: 12)),
+            ),
 
             DropdownMenuItem(
               value: 'Đang làm việc',
 
-              child: Text('Đang làm việc'),
+              child: Text('Đang làm việc', style: TextStyle(fontSize: 12)),
             ),
 
-            DropdownMenuItem(value: 'Nghỉ phép', child: Text('Nghỉ phép')),
+            DropdownMenuItem(
+              value: 'Nghỉ phép',
 
-            DropdownMenuItem(value: 'Chờ duyệt', child: Text('Chờ duyệt')),
+              child: Text('Nghỉ phép', style: TextStyle(fontSize: 12)),
+            ),
+
+            DropdownMenuItem(
+              value: 'Chờ duyệt',
+
+              child: Text('Chờ duyệt', style: TextStyle(fontSize: 12)),
+            ),
           ],
 
           onChanged: (value) {
-            if (value == null) return;
+            if (value == null) {
+              return;
+            }
 
             setState(() {
               _selectedFilter = value;
@@ -724,7 +704,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           style: const TextStyle(
             color: primaryBlue,
 
-            fontSize: 15,
+            fontSize: 12,
 
             fontWeight: FontWeight.w600,
           ),
@@ -757,7 +737,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     return Column(
       children: employees.map((employee) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 10),
 
           child: _buildEmployeeCard(employee as Map<String, dynamic>),
         );
@@ -841,7 +821,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       color: Colors.transparent,
 
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
 
         onTap: () async {
           final id = employee['id'];
@@ -864,29 +844,33 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         child: Container(
           width: double.infinity,
 
-          constraints: const BoxConstraints(minHeight: 120),
+          constraints: const BoxConstraints(minHeight: 104),
 
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
 
           decoration: BoxDecoration(
             color: Colors.white,
 
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
+
+            border: Border.all(color: const Color(0xFFE4EBF6)),
 
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF5674A6).withValues(alpha: 0.08),
+                color: const Color(0xFF5674A6).withValues(alpha: 0.06),
 
-                blurRadius: 15,
+                blurRadius: 10,
 
-                offset: const Offset(0, 5),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
 
           child: Row(
             children: [
-              // AVATAR
+              // --------------------------------------------------
+              // AVATAR NHÂN VIÊN
+              // --------------------------------------------------
               _buildEmployeeAvatar(
                 fullName: fullName,
 
@@ -895,9 +879,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 background: avatarBackground,
               ),
 
-              const SizedBox(width: 18),
+              const SizedBox(width: 13),
 
-              // NAME + DEPARTMENT
+              // --------------------------------------------------
+              // NAME
+              // --------------------------------------------------
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -915,13 +901,13 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       style: const TextStyle(
                         color: primaryBlue,
 
-                        fontSize: 18,
+                        fontSize: 15,
 
                         fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 4),
 
                     Text(
                       department,
@@ -933,14 +919,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       style: const TextStyle(
                         color: textBlue,
 
-                        fontSize: 15,
+                        fontSize: 12,
 
                         fontWeight: FontWeight.w400,
                       ),
                     ),
 
                     if (username.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
 
                       Text(
                         '@$username',
@@ -949,26 +935,25 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
                         overflow: TextOverflow.ellipsis,
 
-                        style: const TextStyle(color: textGrey, fontSize: 12),
+                        style: const TextStyle(color: textGrey, fontSize: 10),
                       ),
                     ],
                   ],
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
 
+              // --------------------------------------------------
               // STATUS
+              // --------------------------------------------------
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
 
                 decoration: BoxDecoration(
                   color: statusBackground,
 
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(18),
                 ),
 
                 child: Row(
@@ -976,8 +961,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
                   children: [
                     Container(
-                      width: 10,
-                      height: 10,
+                      width: 7,
+                      height: 7,
 
                       decoration: BoxDecoration(
                         color: statusColor,
@@ -986,7 +971,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       ),
                     ),
 
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 5),
 
                     Text(
                       statusText,
@@ -994,7 +979,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       style: TextStyle(
                         color: statusColor,
 
-                        fontSize: 13,
+                        fontSize: 10,
 
                         fontWeight: FontWeight.w600,
                       ),
@@ -1003,15 +988,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 3),
 
-              // ARROW
               const Icon(
                 Icons.chevron_right,
 
                 color: Color(0xFF315589),
 
-                size: 30,
+                size: 24,
               ),
             ],
           ),
@@ -1034,8 +1018,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         : '?';
 
     return Container(
-      width: 74,
-      height: 74,
+      width: 58,
+      height: 58,
 
       decoration: BoxDecoration(color: background, shape: BoxShape.circle),
 
@@ -1044,8 +1028,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               child: Image.network(
                 avatarUrl,
 
-                width: 74,
-                height: 74,
+                width: 58,
+                height: 58,
 
                 fit: BoxFit.cover,
 
@@ -1066,7 +1050,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         style: const TextStyle(
           color: primaryBlue,
 
-          fontSize: 28,
+          fontSize: 22,
 
           fontWeight: FontWeight.w800,
         ),
@@ -1080,22 +1064,22 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
 
       child: Column(
         children: [
           Container(
-            width: 70,
-            height: 70,
+            width: 62,
+            height: 62,
 
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEEEE),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFEEEE),
 
               shape: BoxShape.circle,
             ),
@@ -1105,11 +1089,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
               color: Color(0xFFE53935),
 
-              size: 38,
+              size: 32,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           const Text(
             'Không thể tải danh sách nhân viên',
@@ -1119,30 +1103,30 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             style: TextStyle(
               color: primaryBlue,
 
-              fontSize: 17,
+              fontSize: 15,
 
               fontWeight: FontWeight.w700,
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
 
           Text(
             _errorMessage ?? 'Đã xảy ra lỗi.',
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: textGrey, fontSize: 14),
+            style: const TextStyle(color: textGrey, fontSize: 12),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
           ElevatedButton.icon(
             onPressed: _loadEmployees,
 
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 18),
 
-            label: const Text('Thử lại'),
+            label: const Text('Thử lại', style: TextStyle(fontSize: 12)),
 
             style: ElevatedButton.styleFrom(
               backgroundColor: brightBlue,
@@ -1150,7 +1134,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               foregroundColor: Colors.white,
 
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
@@ -1165,19 +1149,19 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.symmetric(vertical: 50, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
 
       child: Column(
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 68,
+            height: 68,
 
             decoration: const BoxDecoration(
               color: Color(0xFFE6F0FF),
@@ -1190,11 +1174,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
               color: brightBlue,
 
-              size: 42,
+              size: 36,
             ),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
           Text(
             _searchQuery.isNotEmpty
@@ -1203,7 +1187,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: textGrey, fontSize: 15, height: 1.5),
+            style: const TextStyle(color: textGrey, fontSize: 13, height: 1.5),
           ),
         ],
       ),
@@ -1214,8 +1198,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildFloatingButton() {
     return Container(
-      width: 62,
-      height: 62,
+      width: 56,
+      height: 56,
 
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -1230,11 +1214,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF5C18E8).withValues(alpha: 0.35),
+            color: const Color(0xFF5C18E8).withValues(alpha: 0.30),
 
-            blurRadius: 15,
+            blurRadius: 12,
 
-            offset: const Offset(0, 7),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -1250,7 +1234,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           onTap: _addEmployee,
 
           child: const Center(
-            child: Icon(Icons.add, color: Colors.white, size: 39),
+            child: Icon(Icons.add, color: Colors.white, size: 32),
           ),
         ),
       ),
@@ -1273,22 +1257,22 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildBottomNavigation() {
     return Container(
-      height: 92,
+      height: 82,
 
       decoration: const BoxDecoration(
         color: Colors.white,
 
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(38),
+          topLeft: Radius.circular(30),
 
-          topRight: Radius.circular(38),
+          topRight: Radius.circular(30),
         ),
 
         boxShadow: [
           BoxShadow(
             color: Color(0x18000000),
 
-            blurRadius: 18,
+            blurRadius: 15,
 
             offset: Offset(0, -3),
           ),
@@ -1300,6 +1284,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
         child: Row(
           children: [
+            // ----------------------------------------------------
+            // TRANG CHỦ
+            // ----------------------------------------------------
             _buildNavItem(
               index: 0,
 
@@ -1308,8 +1295,19 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               activeIcon: Icons.home,
 
               label: 'Trang chủ',
+
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+
+                  MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+                );
+              },
             ),
 
+            // ----------------------------------------------------
+            // NHÂN VIÊN
+            // ----------------------------------------------------
             _buildNavItem(
               index: 1,
 
@@ -1318,8 +1316,15 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               activeIcon: Icons.people,
 
               label: 'Nhân viên',
+
+              onTap: () {
+                // Đang ở trang này.
+              },
             ),
 
+            // ----------------------------------------------------
+            // CHẤM CÔNG
+            // ----------------------------------------------------
             _buildNavItem(
               index: 2,
 
@@ -1328,8 +1333,19 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               activeIcon: Icons.access_time,
 
               label: 'Chấm công',
+
+              onTap: () {
+                Navigator.push(
+                  context,
+
+                  MaterialPageRoute(builder: (_) => const IpConfigScreen()),
+                );
+              },
             ),
 
+            // ----------------------------------------------------
+            // YÊU CẦU
+            // ----------------------------------------------------
             _buildNavItem(
               index: 3,
 
@@ -1338,8 +1354,21 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               activeIcon: Icons.description,
 
               label: 'Yêu cầu',
+
+              onTap: () {
+                Navigator.push(
+                  context,
+
+                  MaterialPageRoute(
+                    builder: (_) => const LeaveApprovalScreen(),
+                  ),
+                );
+              },
             ),
 
+            // ----------------------------------------------------
+            // CÀI ĐẶT
+            // ----------------------------------------------------
             _buildNavItem(
               index: 4,
 
@@ -1348,6 +1377,16 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               activeIcon: Icons.settings,
 
               label: 'Cài đặt',
+
+              onTap: () {
+                Navigator.push(
+                  context,
+
+                  MaterialPageRoute(
+                    builder: (_) => const ChangePasswordScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -1365,23 +1404,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     required IconData activeIcon,
 
     required String label,
+
+    required VoidCallback onTap,
   }) {
     final isSelected = _currentBottomIndex == index;
 
     return Expanded(
       child: InkWell(
-        onTap: () {
-          setState(() {
-            _currentBottomIndex = index;
-          });
-
-          // Màn nhân viên đang là màn hiện tại.
-          //
-          // Khi bạn có các màn:
-          // Trang chủ / Chấm công / Yêu cầu /
-          // Cài đặt, có thể Navigator.push()
-          // tương ứng ở đây.
-        },
+        onTap: onTap,
 
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1392,10 +1422,10 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
               color: isSelected ? purple : const Color(0xFF526B9B),
 
-              size: 30,
+              size: 26,
             ),
 
-            const SizedBox(height: 5),
+            const SizedBox(height: 3),
 
             Text(
               label,
@@ -1403,20 +1433,20 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               style: TextStyle(
                 color: isSelected ? purple : const Color(0xFF526B9B),
 
-                fontSize: 13,
+                fontSize: 10.5,
 
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
 
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
 
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
 
-              width: isSelected ? 42 : 0,
+              width: isSelected ? 34 : 0,
 
-              height: 3,
+              height: 2.5,
 
               decoration: BoxDecoration(
                 color: isSelected ? purple : Colors.transparent,
