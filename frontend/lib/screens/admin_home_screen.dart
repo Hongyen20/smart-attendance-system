@@ -70,8 +70,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // TOP BAR
-            _buildTopBar(),
 
             // MAIN CONTENT
             Expanded(
@@ -271,9 +269,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ],
         ),
       ),
-
-      // BOTTOM NAVIGATION
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -294,75 +289,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // TOP BAR
-
-  Widget _buildTopBar() {
-    final fullName = AuthState.instance.fullName;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-
-      color: AppColors.cardBackground,
-
-      child: Row(
-        children: [
-          // LOGO
-          _buildLogoHeader(),
-
-          const SizedBox(width: 8),
-
-          // ADMIN LABEL
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              mainAxisAlignment: MainAxisAlignment.center,
-
-              children: [
-                Text(
-                  'Quản trị viên',
-
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // AVATAR
-          Container(
-            width: 43,
-            height: 43,
-
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-
-              color: const Color(0xFFEAF2FF),
-
-              border: Border.all(color: const Color(0xFFD7E5FF), width: 1.5),
-            ),
-
-            child: Center(
-              child: Text(
-                (fullName?.isNotEmpty == true)
-                    ? fullName![0].toUpperCase()
-                    : 'A',
-
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryBlue,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // WELCOME SECTION
 
@@ -374,27 +300,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
 
         children: [
-          // WELCOME ICON
-          Container(
-            width: 58,
-            height: 58,
-
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE4EEFF), Color(0xFFD2E3FF)],
-              ),
-            ),
-
-            child: const Icon(
-              Icons.admin_panel_settings_rounded,
-
-              size: 34,
-
-              color: Color(0xFF2F6FED),
-            ),
-          ),
+          _buildLogoHeader(),
 
           const SizedBox(width: 13),
 
@@ -751,158 +657,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // BOTTOM NAVIGATION
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-
-            blurRadius: 15,
-
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-
-      child: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-
-        onTap: (index) {
-          setState(() {
-            _selectedNavIndex = index;
-          });
-
-          // TRANG CHỦ
-          if (index == 0) {
-            return;
-          }
-
-          // NHÂN VIÊN
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EmployeeListScreen()),
-            ).then((_) {
-              if (!mounted) return;
-
-              setState(() {
-                _selectedNavIndex = 0;
-              });
-
-              _loadStats();
-            });
-          }
-          // CHẤM CÔNG
-          else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const IpConfigScreen()),
-            ).then((_) {
-              if (!mounted) return;
-
-              setState(() {
-                _selectedNavIndex = 0;
-              });
-            });
-          }
-          // YÊU CẦU
-          else if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LeaveApprovalScreen()),
-            ).then((_) {
-              if (!mounted) return;
-
-              setState(() {
-                _selectedNavIndex = 0;
-              });
-            });
-          }
-          // CÀI ĐẶT
-          else if (index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-            ).then((_) {
-              if (!mounted) return;
-
-              setState(() {
-                _selectedNavIndex = 0;
-              });
-            });
-          }
-        },
-
-        type: BottomNavigationBarType.fixed,
-
-        backgroundColor: AppColors.cardBackground,
-
-        selectedItemColor: const Color(0xFF7048E8),
-
-        unselectedItemColor: AppColors.textSecondary,
-
-        selectedFontSize: 11,
-
-        unselectedFontSize: 10,
-
-        showUnselectedLabels: true,
-
-        elevation: 0,
-
-        items: const [
-          // HOME
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-
-            activeIcon: Icon(Icons.home_rounded),
-
-            label: 'Trang chủ',
-          ),
-
-          // EMPLOYEE
-          BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-
-            activeIcon: Icon(Icons.groups_rounded),
-
-            label: 'Nhân viên',
-          ),
-
-          // ATTENDANCE
-          BottomNavigationBarItem(
-            icon: Icon(Icons.access_time_outlined),
-
-            activeIcon: Icon(Icons.access_time_filled),
-
-            label: 'Chấm công',
-          ),
-
-          // REQUESTS
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description_outlined),
-
-            activeIcon: Icon(Icons.description_rounded),
-
-            label: 'Yêu cầu',
-          ),
-
-          // SETTINGS
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-
-            activeIcon: Icon(Icons.settings_rounded),
-
-            label: 'Cài đặt',
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // FUNCTION TILE DATA
