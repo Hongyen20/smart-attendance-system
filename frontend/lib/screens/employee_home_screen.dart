@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,12 +11,17 @@ import '../services/api_service.dart';
 import '../services/api_config.dart';
 import '../services/auth_state.dart';
 
-
+import 'profile_screen.dart';
 import 'history_screen.dart';
 import 'statistics_screen.dart';
 import 'leave_request_screen.dart';
-import 'profile_screen.dart';
 
+enum _CheckState {
+  loading,
+  notCheckedIn,
+  checkedIn,
+  checkedOut,
+}
 
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
@@ -27,15 +33,42 @@ class EmployeeHomeScreen extends StatefulWidget {
 
 class _EmployeeHomeScreenState
     extends State<EmployeeHomeScreen> {
-  final ImagePicker _imagePicker = ImagePicker();
+  int _selectedNavIndex = 0;
+
+  _CheckState _checkState = _CheckState.loading;
+
+  String? _checkInTimeLabel;
+  String? _workingHoursLabel;
 
   bool _isProcessing = false;
 
-  bool _checkedIn = false;
-  bool _checkedOut = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
-  String? _checkInTime;
-  double? _workingHours;
+  static const List<String> _weekdays = [
+    'Chủ Nhật',
+    'Thứ Hai',
+    'Thứ Ba',
+    'Thứ Tư',
+    'Thứ Năm',
+    'Thứ Sáu',
+    'Thứ Bảy',
+  ];
+
+  String get _formattedNow {
+    final now = DateTime.now();
+
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+
+    return '$hh:$mm';
+  }
+
+  String get _formattedDate {
+    final now = DateTime.now();
+
+    return '${_weekdays[now.weekday % 7]}, '
+        '${now.day} Thg ${now.month}';
+  }
 
   @override
   void initState() {
@@ -43,7 +76,277 @@ class _EmployeeHomeScreenState
     _loadTodayStatus();
   }
 
-  // BUILD API URL
+  // LOAD TRẠNG THÁI CHẤM CÔNG HÔM NAY
+
+  Future<void> _loadTodayStatus() async {
+    final result = await ApiService.get(
+      '/api/attendance/today',
+      bearerToken: AuthState.instance.token,
+    );
+
+    if (!mounted) return;
+
+    if (!result.success) {
+      setState(() {
+        _checkState = _CheckState.notCheckedIn;
+        _checkInTimeLabel = null;
+        _workingHoursLabel = null;
+      });
+
+      return;
+    }
+
+    final data = result.data;
+
+    if (data == null) {
+      setState(() {
+        _checkState = _CheckState.notCheckedIn;
+        _checkInTimeLabel = null;
+        _workingHoursLabel = null;
+      });
+
+      return;
+    }
+
+    final checkedIn = data['checkedIn'] == true;
+    final checkedOut = data['checkedOut'] == true;
+
+    setState(() {
+      if (!checkedIn) {
+        _checkState = _CheckState.notCheckedIn;
+        _checkInTimeLabel = null;
+        _workingHoursLabel = null;
+      } else if (checkedIn && !checkedOut) {
+        _checkState = _CheckState.checkedIn;
+
+        _checkInTimeLabel = _formatTimeFromIso(
+          data['checkInTime'] as String?,
+        );
+
+        _workingHoursLabel = null;
+      } else {
+        _checkState = _CheckState.checkedOut;
+
+        _checkInTimeLabel = _formatTimeFromIso(
+          data['checkInTime'] as String?,
+        );
+
+        final hours =
+            (data['workingHours'] as num?)?.toDouble() ?? 0;
+
+        _workingHoursLabel =
+            '${hours.toStringAsFixed(1)}h';
+      }
+    });
+  }
+
+  String? _formatTimeFromIso(String? iso) {
+    if (iso == null) return null;
+
+    final dt = DateTime.tryParse(iso);
+
+    if (dt == null) return null;
+
+    final local = dt.toLocal();
+
+    return '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  // LẤY PUBLIC IPV4
+
+  Future<String?> _getPublicIp() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.ipify.org?format=json',
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+          );
+
+      if (response.statusCode != 200) {
+        _showSnack(
+          'Không thể lấy địa chỉ IP công cộng.',
+        );
+
+        return null;
+      }
+
+      final data = jsonDecode(response.body);
+
+      if (data is! Map<String, dynamic>) {
+        _showSnack(
+          'Dữ liệu IP không hợp lệ.',
+        );
+
+        return null;
+      }
+
+      final ip = data['ip']?.toString().trim();
+
+      if (ip == null || ip.isEmpty) {
+        _showSnack(
+          'Không nhận được địa chỉ IP công cộng.',
+        );
+
+        return null;
+      }
+
+      if (!_isValidIPv4(ip)) {
+        _showSnack(
+          'Địa chỉ IPv4 nhận được không hợp lệ.',
+        );
+
+        return null;
+      }
+
+      return ip;
+    } catch (e) {
+      _showSnack(
+        'Không thể lấy IP công cộng. '
+        'Vui lòng kiểm tra kết nối Internet.',
+      );
+
+      return null;
+    }
+  }
+
+  // KIỂM TRA IPV4
+
+  bool _isValidIPv4(String ip) {
+    final parts = ip.split('.');
+
+    if (parts.length != 4) {
+      return false;
+    }
+
+    for (final part in parts) {
+      final value = int.tryParse(part);
+
+      if (value == null ||
+          value < 0 ||
+          value > 255) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // LẤY GPS HIỆN TẠI
+
+  Future<Position?> _getCurrentPosition() async {
+    var permission =
+        await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission =
+          await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      _showSnack(
+        'Cần cấp quyền vị trí để check-in/check-out.',
+      );
+
+      return null;
+    }
+
+    if (permission ==
+        LocationPermission.deniedForever) {
+      _showSnack(
+        'Quyền vị trí đã bị từ chối vĩnh viễn. '
+        'Vui lòng cấp quyền vị trí trong cài đặt.',
+      );
+
+      return null;
+    }
+
+    final serviceEnabled =
+        await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      _showSnack(
+        'Vui lòng bật định vị (GPS) trên thiết bị.',
+      );
+
+      return null;
+    }
+
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+    } catch (e) {
+      _showSnack(
+        'Không lấy được vị trí hiện tại. '
+        'Vui lòng thử lại.',
+      );
+
+      return null;
+    }
+  }
+
+  // CHỤP KHUÔN MẶT - TỐI ĐA 45 GIÂY
+
+  Future<XFile?> _captureFaceImage() async {
+    if (!mounted) {
+      return null;
+    }
+
+    _showSnack(
+      'Camera đã mở. Vui lòng chụp rõ khuôn mặt trong 45 giây.',
+    );
+
+    try {
+      final image = await _imagePicker
+          .pickImage(
+            source: ImageSource.camera,
+            imageQuality: 85,
+            maxWidth: 1280,
+            maxHeight: 1280,
+          )
+          .timeout(
+            const Duration(seconds: 45),
+          );
+
+      if (image == null) {
+        _showSnack(
+          'Chưa nhận thấy khuôn mặt. '
+          'Vui lòng thử lại.',
+        );
+
+        return null;
+      }
+
+      return image;
+    } on TimeoutException {
+      _showSnack(
+        'Chưa nhận thấy khuôn mặt trong 45 giây. '
+        'Vui lòng thử lại.',
+      );
+
+      return null;
+    } catch (e) {
+      debugPrint(
+        'Face camera error: $e',
+      );
+
+      _showSnack(
+        'Không thể mở camera. '
+        'Vui lòng kiểm tra quyền camera của trình duyệt.',
+      );
+
+      return null;
+    }
+  }
+
+  // TẠO API URI
 
   Uri _buildApiUri(String path) {
     if (ApiConfig.baseUrl.isEmpty) {
@@ -55,204 +358,45 @@ class _EmployeeHomeScreenState
     );
   }
 
-  // LOAD TODAY STATUS
-
-  Future<void> _loadTodayStatus() async {
-    try {
-      final result = await ApiService.get(
-        '/api/attendance/today',
-      );
-
-      if (!mounted || !result.success) {
-        return;
-      }
-
-      final data = result.data;
-
-      if (data == null) {
-        return;
-      }
-
-      if (data is Map<String, dynamic>) {
-        setState(() {
-          _checkedIn =
-              data['checkedIn'] == true;
-
-          _checkedOut =
-              data['checkedOut'] == true;
-
-          _checkInTime =
-              data['checkInTime']?.toString();
-
-          final hours =
-              data['workingHours'];
-
-          if (hours is num) {
-            _workingHours =
-                hours.toDouble();
-          } else {
-            _workingHours = null;
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint(
-        'Load attendance status error: $e',
-      );
-    }
-  }
-
-  // GET PUBLIC IP
-
-  Future<String?> _getPublicIp() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.ipify.org?format=json',
-        ),
-      );
-
-      if (response.statusCode != 200) {
-        return null;
-      }
-
-      final decoded =
-          jsonDecode(response.body);
-
-      if (decoded is Map<String, dynamic>) {
-        return decoded['ip']?.toString();
-      }
-
-      return null;
-    } catch (e) {
-      debugPrint(
-        'Get public IP error: $e',
-      );
-
-      return null;
-    }
-  }
-
-  // GET GPS
-
-  Future<Position?> _getCurrentPosition() async {
-    try {
-      final serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        _showMessage(
-          'Vui lòng bật dịch vụ vị trí.',
-          isError: true,
-        );
-
-        return null;
-      }
-
-      var permission =
-          await Geolocator.checkPermission();
-
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
-      }
-
-      if (permission ==
-              LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        _showMessage(
-          'Quyền vị trí chưa được cấp. '
-          'Vui lòng cho phép trình duyệt sử dụng vị trí.',
-          isError: true,
-        );
-
-        return null;
-      }
-
-      return await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        'Get GPS error: $e',
-      );
-
-      _showMessage(
-        'Không thể lấy vị trí hiện tại.',
-        isError: true,
-      );
-
-      return null;
-    }
-  }
-
-  // OPEN CAMERA
-
-  Future<XFile?> _captureFace() async {
-    try {
-      return await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1280,
-        maxHeight: 1280,
-      );
-    } catch (e) {
-      debugPrint(
-        'Camera error: $e',
-      );
-
-      _showMessage(
-        'Không thể mở camera. '
-        'Vui lòng kiểm tra quyền camera của trình duyệt.',
-        isError: true,
-      );
-
-      return null;
-    }
-  }
-
   // CHECK-IN
-  // IP -> GPS -> FACE -> ATTENDANCE
+  // IP -> GPS -> FACE -> REKOGNITION -> ATTENDANCE
 
-  Future<void> _performCheckIn(
-    String publicIp,
-    Position position,
-  ) async {
-    _showMessage(
-      'Bước 3/3: Vui lòng chụp khuôn mặt...',
-    );
+  Future<void> _performCheckIn({
+    required String publicIp,
+    required Position position,
+  }) async {
+    // BƯỚC 3: CHỤP KHUÔN MẶT
 
     final faceImage =
-        await _captureFace();
+        await _captureFaceImage();
+
+    if (!mounted) return;
 
     if (faceImage == null) {
       return;
     }
 
-    final bytes =
+    // ĐỌC FILE ẢNH
+
+    final imageBytes =
         await faceImage.readAsBytes();
 
-    if (bytes.isEmpty) {
-      _showMessage(
+    if (imageBytes.isEmpty) {
+      _showSnack(
         'Không đọc được ảnh khuôn mặt.',
-        isError: true,
       );
 
       return;
     }
 
-    _showMessage(
+    _showSnack(
       'Đang xác thực khuôn mặt...',
     );
 
     try {
-      final request =
-          http.MultipartRequest(
+      // TẠO MULTIPART REQUEST
+
+      final request = http.MultipartRequest(
         'POST',
         _buildApiUri(
           '/api/attendance/check-in',
@@ -270,10 +414,7 @@ class _EmployeeHomeScreenState
             'Bearer $token';
       }
 
-      // FORM DATA
-
-      request.fields['publicIp'] =
-          publicIp;
+      // FORM FIELDS
 
       request.fields['lat'] =
           position.latitude.toString();
@@ -281,19 +422,23 @@ class _EmployeeHomeScreenState
       request.fields['lng'] =
           position.longitude.toString();
 
-      request.fields['deviceId'] = '';
+      request.fields['publicIp'] =
+          publicIp;
+
+      request.fields['deviceId'] =
+          '';
 
       // FACE IMAGE
 
       request.files.add(
         http.MultipartFile.fromBytes(
           'faceImage',
-          bytes,
+          imageBytes,
           filename: 'face.jpg',
         ),
       );
 
-      // SEND
+      // SEND REQUEST
 
       final response =
           await request.send();
@@ -314,151 +459,99 @@ class _EmployeeHomeScreenState
         data = null;
       }
 
-      final message =
-          data?['message']?.toString() ??
-              'Check-in thất bại.';
+      if (!mounted) return;
 
-      if (!mounted) {
-        return;
-      }
+      // SUCCESS
 
       if (response.statusCode >= 200 &&
           response.statusCode < 300) {
-        setState(() {
-          _checkedIn = true;
-          _checkedOut = false;
-
-          _checkInTime =
-              data?['checkInTime']
-                  ?.toString();
-
-          _workingHours = null;
-        });
-
-        _showMessage(
-          message,
-          isError: false,
+        _showSnack(
+          data?['message']?.toString() ??
+              'Check-in thành công!',
         );
 
         await _loadTodayStatus();
-      } else {
-        _showMessage(
-          message,
-          isError: true,
-        );
-      }
-    } catch (e) {
-      debugPrint(
-        'Check-in error: $e',
-      );
 
-      if (!mounted) {
         return;
       }
 
-      _showMessage(
+      // ERROR
+
+      final errorMessage =
+          data?['message']?.toString() ??
+              'Xác thực khuôn mặt thất bại.';
+
+      _showSnack(
+        errorMessage,
+      );
+    } catch (e) {
+      debugPrint(
+        'Check-in multipart error: $e',
+      );
+
+      if (!mounted) return;
+
+      _showSnack(
         'Không thể kết nối đến máy chủ.',
-        isError: true,
       );
     }
   }
 
   // CHECK-OUT
+  //
   // IP -> GPS -> ATTENDANCE
 
-  Future<void> _performCheckOut(
-    String publicIp,
-    Position position,
-  ) async {
+  Future<void> _performCheckOut({
+    required String publicIp,
+    required Position position,
+  }) async {
     try {
-      final result =
-          await ApiService.post(
+      final body = {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'publicIp': publicIp,
+        'deviceId': '',
+      };
+
+      final result = await ApiService.post(
         '/api/attendance/check-out',
-        {
-          'publicIp': publicIp,
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'deviceId': '',
-        },
+        body,
+        bearerToken: AuthState.instance.token,
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      if (!result.success) {
-        _showMessage(
-          result.errorMessage ??
-              'Check-out thất bại.',
-          isError: true,
+      if (result.success) {
+        _showSnack(
+          'Check-out thành công!',
         );
 
-        return;
+        await _loadTodayStatus();
+      } else {
+        _showSnack(
+          result.errorMessage ??
+              'Xác thực check-out thất bại.',
+        );
       }
-
-      final data = result.data;
-
-      String message =
-          'Check-out thành công.';
-
-      double? hours;
-
-      if (data is Map<String, dynamic>) {
-        message =
-            data['message']?.toString() ??
-                message;
-
-        final value =
-            data['workingHours'];
-
-        if (value is num) {
-          hours =
-              value.toDouble();
-        }
-      }
-
-      setState(() {
-        _checkedOut = true;
-
-        if (hours != null) {
-          _workingHours = hours;
-        }
-      });
-
-      _showMessage(
-        message,
-        isError: false,
-      );
-
-      await _loadTodayStatus();
     } catch (e) {
+      if (!mounted) return;
+
       debugPrint(
         'Check-out error: $e',
       );
 
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Không thể kết nối đến máy chủ.',
-        isError: true,
+      _showSnack(
+        'Có lỗi xảy ra khi thực hiện check-out.',
       );
     }
   }
 
-  // MAIN CHECK BUTTON
+  // CHECK-IN / CHECK-OUT
 
   Future<void> _handleCheckButtonTap() async {
-    if (_isProcessing) {
-      return;
-    }
-
-    if (_checkedOut) {
-      _showMessage(
-        'Bạn đã hoàn thành chấm công hôm nay.',
-      );
-
+    if (_checkState == _CheckState.checkedOut ||
+        _checkState == _CheckState.loading ||
+        _isProcessing) {
       return;
     }
 
@@ -468,49 +561,55 @@ class _EmployeeHomeScreenState
 
     try {
       // ========================================================
-      // STEP 1: IP
+      // BƯỚC 1: PUBLIC IPV4
       // ========================================================
 
-      _showMessage(
-        'Bước 1/3: Đang kiểm tra IP...',
+      _showSnack(
+        'Bước 1/3: Đang kiểm tra địa chỉ IP...',
       );
 
       final publicIp =
           await _getPublicIp();
 
-      if (publicIp == null ||
-          publicIp.trim().isEmpty) {
-        _showMessage(
-          'Không thể lấy địa chỉ IP công cộng.',
-          isError: true,
-        );
+      if (!mounted) return;
 
+      if (publicIp == null) {
         return;
       }
 
       // ========================================================
-      // STEP 2: GPS
+      // BƯỚC 2: GPS
       // ========================================================
 
-      _showMessage(
+      _showSnack(
         'Bước 2/3: Đang xác định vị trí...',
       );
 
       final position =
           await _getCurrentPosition();
 
+      if (!mounted) return;
+
       if (position == null) {
         return;
       }
 
       // ========================================================
+      // XÁC ĐỊNH CHECK-IN / CHECK-OUT
+      // ========================================================
+
+      final isCheckIn =
+          _checkState ==
+              _CheckState.notCheckedIn;
+
+      // ========================================================
       // CHECK-IN
       // ========================================================
 
-      if (!_checkedIn) {
+      if (isCheckIn) {
         await _performCheckIn(
-          publicIp,
-          position,
+          publicIp: publicIp,
+          position: position,
         );
 
         return;
@@ -521,8 +620,18 @@ class _EmployeeHomeScreenState
       // ========================================================
 
       await _performCheckOut(
-        publicIp,
-        position,
+        publicIp: publicIp,
+        position: position,
+      );
+    } catch (e) {
+      debugPrint(
+        'Attendance error: $e',
+      );
+
+      if (!mounted) return;
+
+      _showSnack(
+        'Có lỗi xảy ra khi thực hiện chấm công.',
       );
     } finally {
       if (mounted) {
@@ -533,15 +642,10 @@ class _EmployeeHomeScreenState
     }
   }
 
-  // MESSAGE
+  // SNACKBAR
 
-  void _showMessage(
-    String message, {
-    bool isError = false,
-  }) {
-    if (!mounted) {
-      return;
-    }
+  void _showSnack(String message) {
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -550,8 +654,6 @@ class _EmployeeHomeScreenState
           content: Text(message),
           behavior:
               SnackBarBehavior.floating,
-          duration:
-              const Duration(seconds: 3),
         ),
       );
   }
@@ -564,380 +666,542 @@ class _EmployeeHomeScreenState
       backgroundColor:
           AppColors.background,
 
-      appBar: AppBar(
-        backgroundColor:
-            AppColors.background,
-        elevation: 0,
-        title: const Text(
-          'Chấm công',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(),
+
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh:
+                    _loadTodayStatus,
+
+                child:
+                    SingleChildScrollView(
+                  physics:
+                      const AlwaysScrollableScrollPhysics(),
+
+                  padding:
+                      const EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    32,
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+
+                    children: [
+                      _buildGreetingRow(),
+
+                      const SizedBox(
+                        height: 32,
+                      ),
+
+                      Center(
+                        child:
+                            _buildCheckInButton(),
+                      ),
+
+                      const SizedBox(
+                        height: 32,
+                      ),
+
+                      _buildStatsRow(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
 
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadTodayStatus,
-          child: ListView(
-            padding:
-                const EdgeInsets.all(20),
-            children: [
-              _buildAttendanceCard(),
-              const SizedBox(height: 20),
-              _buildStatusCard(),
-            ],
-          ),
-        ),
-      ),
+      bottomNavigationBar:
+          _buildBottomNav(),
     );
   }
 
-  // ATTENDANCE CARD
+  // TOP BAR
 
-  Widget _buildAttendanceCard() {
-    String status;
-
-    if (_checkedOut) {
-      status =
-          'Bạn đã hoàn thành chấm công hôm nay.';
-    } else if (_checkedIn) {
-      status =
-          'Bạn đã check-in. Hãy check-out khi kết thúc ca.';
-    } else {
-      status =
-          'Bạn chưa check-in hôm nay.';
-    }
-
+  Widget _buildTopBar() {
     return Container(
       padding:
-          const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 15,
-            offset:
-                const Offset(0, 6),
-            color:
-                Colors.black.withOpacity(
-              0.06,
-            ),
-          ),
-        ],
+          const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 14,
       ),
-      child: Column(
+
+      decoration:
+          const BoxDecoration(
+        color:
+            AppColors.cardBackground,
+
+        border: Border(
+          bottom: BorderSide(
+            color:
+                AppColors.borderColor,
+          ),
+        ),
+      ),
+
+      child: Row(
         children: [
+          const Icon(
+            Icons.wifi,
+            color:
+                AppColors.primaryBlue,
+            size: 24,
+          ),
+
+          const SizedBox(width: 8),
+
           const Text(
-            'Chấm công hôm nay',
+            'AttendGo',
             style: TextStyle(
               fontSize: 20,
               fontWeight:
                   FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            status,
-            textAlign:
-                TextAlign.center,
-            style: TextStyle(
               color:
-                  Colors.grey.shade600,
+                  AppColors.primaryBlue,
             ),
           ),
 
-          const SizedBox(height: 28),
+          const Spacer(),
 
-          SizedBox(
-            width: 180,
-            height: 180,
-            child: ElevatedButton(
-              onPressed:
-                  _isProcessing ||
-                          _checkedOut
-                      ? null
-                      : _handleCheckButtonTap,
-              style:
-                  ElevatedButton.styleFrom(
-                shape:
-                    const CircleBorder(),
-                backgroundColor:
-                    AppColors.primaryBlue,
-                disabledBackgroundColor:
-                    Colors.grey.shade300,
-              ),
-              child: _isProcessing
-                  ? const SizedBox(
-                      width: 36,
-                      height: 36,
-                      child:
-                          CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                    )
-                  : Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _checkedIn
-                              ? Icons.logout
-                              : Icons.login,
-                          size: 42,
-                          color:
-                              Colors.white,
-                        ),
-                        const SizedBox(
-                          height: 10,
-                        ),
-                        Text(
-                          _checkedIn
-                              ? 'Check-out'
-                              : 'Check-in',
-                          style:
-                              const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(
+              Icons.notifications_none,
+              color:
+                  AppColors.textPrimary,
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          if (!_checkedIn)
-            const Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.security,
-                  size: 18,
-                  color: Colors.grey,
-                ),
-                SizedBox(width: 6),
-                Text(
-                  'IP • GPS • Khuôn mặt',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-
-          if (_checkedIn &&
-              !_checkedOut)
-            const Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 18,
-                  color: Colors.grey,
-                ),
-                SizedBox(width: 6),
-                Text(
-                  'Check-out: IP • GPS',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
   }
 
-  // STATUS CARD
+  // GREETING
 
-  Widget _buildStatusCard() {
-    return Container(
-      padding:
-          const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 12,
-            offset:
-                const Offset(0, 5),
-            color:
-                Colors.black.withOpacity(
-              0.05,
+  Widget _buildGreetingRow() {
+    final userName =
+        AuthState.instance.fullName ?? '';
+
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
+      mainAxisAlignment:
+          MainAxisAlignment.spaceBetween,
+
+      children: [
+        Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
+          children: [
+            const Text(
+              'XIN CHÀO,',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight:
+                    FontWeight.w600,
+                color:
+                    AppColors.textSecondary,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Trạng thái hôm nay',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.bold,
-            ),
-          ),
 
-          const SizedBox(height: 16),
-
-          _buildStatusRow(
-            Icons.login,
-            'Check-in',
-            _checkedIn
-                ? (_checkInTime == null
-                    ? 'Đã check-in'
-                    : _formatDateTime(
-                        _checkInTime!,
-                      ))
-                : 'Chưa check-in',
-            _checkedIn,
-          ),
-
-          const Divider(
-            height: 24,
-          ),
-
-          _buildStatusRow(
-            Icons.logout,
-            'Check-out',
-            _checkedOut
-                ? 'Đã check-out'
-                : 'Chưa check-out',
-            _checkedOut,
-          ),
-
-          if (_workingHours != null) ...[
-            const Divider(
-              height: 24,
-            ),
-            _buildStatusRow(
-              Icons.access_time,
-              'Thời gian làm việc',
-              '${_workingHours!.toStringAsFixed(2)} giờ',
-              true,
+            Text(
+              '$userName!',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight:
+                    FontWeight.bold,
+                color:
+                    AppColors.textPrimary,
+              ),
             ),
           ],
-        ],
+        ),
+
+        Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.end,
+
+          children: [
+            Text(
+              _formattedNow,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight:
+                    FontWeight.bold,
+                color:
+                    AppColors.primaryBlue,
+              ),
+            ),
+
+            const SizedBox(height: 2),
+
+            Text(
+              _formattedDate,
+              style: const TextStyle(
+                fontSize: 13,
+                color:
+                    AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // CHECK BUTTON
+
+  Widget _buildCheckInButton() {
+    late final String title;
+    late final String subtitle;
+    late final Color color;
+    late final IconData icon;
+
+    switch (_checkState) {
+      case _CheckState.loading:
+        title = '...';
+        subtitle = 'Đang tải';
+        color =
+            AppColors.textSecondary;
+        icon =
+            Icons.hourglass_empty;
+        break;
+
+      case _CheckState.notCheckedIn:
+        title = 'CHẤM CÔNG';
+        subtitle =
+            'Chạm để bắt đầu';
+        color =
+            AppColors.primaryBlue;
+        icon = Icons.fingerprint;
+        break;
+
+      case _CheckState.checkedIn:
+        title = 'CHẤM CÔNG RA';
+        subtitle =
+            'Chạm để kết thúc';
+        color = AppColors.amber;
+        icon = Icons.logout;
+        break;
+
+      case _CheckState.checkedOut:
+        title = 'ĐÃ HOÀN THÀNH';
+        subtitle =
+            'Hẹn gặp lại ngày mai';
+        color =
+            AppColors.successGreen;
+        icon =
+            Icons.check_circle_outline;
+        break;
+    }
+
+    return GestureDetector(
+      onTap:
+          (_checkState ==
+                      _CheckState.checkedOut ||
+                  _checkState ==
+                      _CheckState.loading ||
+                  _isProcessing)
+              ? null
+              : _handleCheckButtonTap,
+
+      child: Container(
+        width: 220,
+        height: 220,
+
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+
+          boxShadow: [
+            BoxShadow(
+              color:
+                  color.withValues(
+                alpha: 0.35,
+              ),
+              blurRadius: 40,
+              spreadRadius: 6,
+            ),
+          ],
+        ),
+
+        child: Center(
+          child: _isProcessing
+              ? const CircularProgressIndicator(
+                  color: Colors.white,
+                )
+              : Column(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 52,
+                    ),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    Text(
+                      title,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize: 20,
+                        fontWeight:
+                            FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 4,
+                    ),
+
+                    Text(
+                      subtitle,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
 
-  // STATUS ROW
+  // STATISTICS
 
-  Widget _buildStatusRow(
-    IconData icon,
-    String title,
-    String value,
-    bool completed,
-  ) {
+  Widget _buildStatsRow() {
     return Row(
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: completed
-                ? AppColors.primaryBlue
-                    .withOpacity(0.1)
-                : Colors.grey.shade100,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: completed
-                ? AppColors.primaryBlue
-                : Colors.grey,
+        Expanded(
+          child: _buildStatCard(
+            icon:
+                Icons.access_time,
+            iconColor:
+                AppColors.accentBlue,
+            label:
+                'Giờ bắt đầu',
+            value:
+                _checkInTimeLabel ??
+                    '--:--',
           ),
         ),
 
         const SizedBox(width: 12),
 
         Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color:
-                      Colors.grey.shade600,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight:
-                      FontWeight.w600,
-                ),
-              ),
-            ],
+          child: _buildStatCard(
+            icon:
+                Icons.timer_outlined,
+            iconColor:
+                AppColors.amber,
+            label:
+                'Tổng giờ làm',
+            value:
+                _workingHoursLabel ??
+                    '0h',
           ),
-        ),
-
-        Icon(
-          completed
-              ? Icons.check_circle
-              : Icons
-                  .radio_button_unchecked,
-          color: completed
-              ? AppColors.primaryBlue
-              : Colors.grey.shade400,
-          size: 22,
         ),
       ],
     );
   }
 
-  // FORMAT DATETIME
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding:
+          const EdgeInsets.all(16),
 
-  String _formatDateTime(
-    String value,
-  ) {
-    try {
-      final date =
-          DateTime.parse(value)
-              .toLocal();
+      decoration: BoxDecoration(
+        color:
+            AppColors.cardBackground,
 
-      final hour =
-          date.hour
-              .toString()
-              .padLeft(2, '0');
+        borderRadius:
+            BorderRadius.circular(16),
 
-      final minute =
-          date.minute
-              .toString()
-              .padLeft(2, '0');
+        border: Border.all(
+          color:
+              AppColors.borderColor,
+        ),
+      ),
 
-      final second =
-          date.second
-              .toString()
-              .padLeft(2, '0');
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
 
-      return '$hour:$minute:$second';
-    } catch (_) {
-      return value;
-    }
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: iconColor,
+              ),
+
+              const SizedBox(
+                width: 6,
+              ),
+
+              Text(
+                label,
+                style:
+                    const TextStyle(
+                  fontSize: 13,
+                  color:
+                      AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            value,
+            style:
+                const TextStyle(
+              fontSize: 20,
+              fontWeight:
+                  FontWeight.bold,
+              color:
+                  AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // BOTTOM NAVIGATION
+
+  Widget _buildBottomNav() {
+    return BottomNavigationBar(
+      currentIndex:
+          _selectedNavIndex,
+
+      onTap: (index) {
+        if (index ==
+            _selectedNavIndex) {
+          return;
+        }
+
+        switch (index) {
+          case 0:
+            break;
+
+          case 1:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const HistoryScreen(),
+              ),
+            );
+            break;
+
+          case 2:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const LeaveRequestScreen(),
+              ),
+            );
+            break;
+
+          case 3:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const StatisticsScreen(),
+              ),
+            );
+            break;
+
+          case 4:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const ProfileScreen(),
+              ),
+            );
+            break;
+        }
+      },
+
+      type:
+          BottomNavigationBarType.fixed,
+
+      selectedItemColor:
+          AppColors.primaryBlue,
+
+      unselectedItemColor:
+          AppColors.textSecondary,
+
+      showUnselectedLabels:
+          true,
+
+      items: const [
+        BottomNavigationBarItem(
+          icon:
+              Icon(Icons.home_outlined),
+          label: 'Trang chủ',
+        ),
+
+        BottomNavigationBarItem(
+          icon:
+              Icon(Icons.history),
+          label: 'Lịch sử',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.event_busy_outlined,
+          ),
+          label: 'Nghỉ phép',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.bar_chart_outlined,
+          ),
+          label: 'Thống kê',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.person_outline,
+          ),
+          label: 'Profile',
+        ),
+      ],
+    );
   }
 }
