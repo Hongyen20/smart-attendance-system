@@ -10,6 +10,7 @@ import 'change_password_screen.dart';
 import 'leave_approval_screen.dart';
 import 'shift_change_approval_screen.dart';
 import 'face_management_screen.dart';
+import 'business_trip_approval_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -220,11 +221,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               color: const Color(0xFF4A90E2),
 
                               onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Chức năng đang được phát triển.',
-                                    ),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const BusinessTripApprovalScreen(),
                                   ),
                                 );
                               },
