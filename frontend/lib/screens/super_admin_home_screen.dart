@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'create_company_screen.dart';
 import 'company_list_screen.dart';
-
+import 'company_detail_screen.dart';
 class SuperAdminHomeScreen extends StatelessWidget {
   const SuperAdminHomeScreen({super.key});
 
