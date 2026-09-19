@@ -285,9 +285,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
   }
 
   bool _hasFace(Map<String, dynamic> employee) {
-    final faceId = employee['faceId'];
-
-    return faceId != null && faceId.toString().trim().isNotEmpty;
+    return employee['hasFace'] == true;
   }
 
   void _showMessage(String message) {
