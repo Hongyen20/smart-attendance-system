@@ -19,6 +19,7 @@ public class AttendanceController : ControllerBase
     private readonly LeaveRequestService _leaveRequestService;
     private readonly UserService _userService;
     private readonly FaceRecognitionService _faceRecognitionService;
+    private readonly BusinessTripRequestService _businessTripRequestService;
 
     public AttendanceController(
         AttendanceRecordService attendanceService,
@@ -26,7 +27,8 @@ public class AttendanceController : ControllerBase
         AuditLogService auditLogService,
         LeaveRequestService leaveRequestService,
         UserService userService,
-        FaceRecognitionService faceRecognitionService)
+        FaceRecognitionService faceRecognitionService,
+        BusinessTripRequestService businessTripRequestService)
     {
         _attendanceService = attendanceService;
         _ipConfigService = ipConfigService;
@@ -34,13 +36,38 @@ public class AttendanceController : ControllerBase
         _leaveRequestService = leaveRequestService;
         _userService = userService;
         _faceRecognitionService = faceRecognitionService;
+        _businessTripRequestService = businessTripRequestService;
     }
+
+    // CLAIMS
 
     private string? GetCompanyId()
         => User.FindFirst("companyId")?.Value;
 
     private string? GetUserId()
         => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    // CLIENT IP
+
+    private string GetClientIp()
+    {
+        var forwarded =
+            Request.Headers["X-Forwarded-For"].FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(forwarded))
+        {
+            return forwarded
+                .Split(',')
+                .FirstOrDefault()
+                ?.Trim()
+                ?? "unknown";
+        }
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+    }
+
+    // VALIDATE IPV4
 
     private static bool IsValidIPv4(string ip)
     {
@@ -49,39 +76,48 @@ public class AttendanceController : ControllerBase
             return false;
         }
 
-        return IPAddress.TryParse(ip, out var parsed)
-               && parsed.AddressFamily ==
-                  System.Net.Sockets.AddressFamily.InterNetwork;
+        return IPAddress.TryParse(
+                   ip,
+                   out var parsed)
+               &&
+               parsed.AddressFamily ==
+                   System.Net.Sockets.AddressFamily.InterNetwork;
     }
+
+    // FIND MATCHING IP + GPS CONFIG
 
     private async Task<IpConfig?> FindMatchingConfigAsync(
         string companyId,
-        string publicIp,
+        string clientIp,
         double lat,
         double lng)
     {
         var configs =
-            await _ipConfigService.GetActiveByCompanyAsync(companyId);
+            await _ipConfigService
+                .GetActiveByCompanyAsync(companyId);
 
         return configs.FirstOrDefault(config =>
             string.Equals(
-                config.AllowedIp.Trim(),
-                publicIp.Trim(),
+                config.AllowedIp?.Trim(),
+                clientIp.Trim(),
                 StringComparison.OrdinalIgnoreCase)
             &&
             GeoUtils.DistanceInMeters(
                 config.GpsCenter.Lat,
                 config.GpsCenter.Lng,
                 lat,
-                lng
-            ) <= config.RadiusMeters
+                lng)
+            <= config.RadiusMeters
         );
     }
+
+    // CHECK-IN STATUS
 
     private static string DetermineCheckInStatus(
         User employee,
         DateTime checkInTimeUtc)
     {
+        // Flexible Time không bị ràng buộc giờ cố định.
         if (employee.CurrentShiftType == "Flexible")
         {
             return "OnTime";
@@ -126,41 +162,49 @@ public class AttendanceController : ControllerBase
             });
         }
 
-        var fromDate = new DateTime(year, month, 1);
+        var fromDate =
+            new DateTime(year, month, 1);
 
-        var toDate = fromDate
-            .AddMonths(1)
-            .AddDays(-1);
+        var toDate =
+            fromDate
+                .AddMonths(1)
+                .AddDays(-1);
 
         var records =
-            await _attendanceService.GetHistoryByUserAsync(
-                companyId,
-                userId,
-                fromDate,
-                toDate);
+            await _attendanceService
+                .GetHistoryByUserAsync(
+                    companyId,
+                    userId,
+                    fromDate,
+                    toDate);
 
         var attendanceDates =
             records
                 .Select(r => r.WorkDate)
                 .ToHashSet();
 
-        var items = records
-            .Select(r => new AttendanceHistoryItemResponse
-            {
-                WorkDate = r.WorkDate,
-                CheckInTime = r.CheckInTime,
-                CheckOutTime = r.CheckOutTime,
-                Status = r.Status,
-                WorkingHours = r.WorkingHours
-            })
-            .ToList();
+        var items =
+            records
+                .Select(r =>
+                    new AttendanceHistoryItemResponse
+                    {
+                        WorkDate = r.WorkDate,
+                        CheckInTime = r.CheckInTime,
+                        CheckOutTime = r.CheckOutTime,
+                        Status = r.Status,
+                        WorkingHours = r.WorkingHours
+                    })
+                .ToList();
+
+        // APPROVED LEAVE
 
         var approvedLeaves =
-            await _leaveRequestService.GetApprovedInRangeAsync(
-                companyId,
-                userId,
-                fromDate,
-                toDate);
+            await _leaveRequestService
+                .GetApprovedInRangeAsync(
+                    companyId,
+                    userId,
+                    fromDate,
+                    toDate);
 
         foreach (var leave in approvedLeaves)
         {
@@ -188,17 +232,19 @@ public class AttendanceController : ControllerBase
                     new AttendanceHistoryItemResponse
                     {
                         WorkDate = d,
-                        Status = leave.IsPaid == true
-                            ? "PaidLeave"
-                            : "UnpaidLeave",
+                        Status =
+                            leave.IsPaid == true
+                                ? "PaidLeave"
+                                : "UnpaidLeave",
                         LeaveType = leave.Type
                     });
             }
         }
 
-        items = items
-            .OrderByDescending(i => i.WorkDate)
-            .ToList();
+        items =
+            items
+                .OrderByDescending(i => i.WorkDate)
+                .ToList();
 
         var totalHours =
             Math.Round(
@@ -210,7 +256,8 @@ public class AttendanceController : ControllerBase
                 i.CheckInTime is not null ||
                 i.Status == "PaidLeave");
 
-        var today = DateTime.UtcNow.Date;
+        var today =
+            DateTime.UtcNow.Date;
 
         var countUntil =
             (year == today.Year &&
@@ -256,13 +303,15 @@ public class AttendanceController : ControllerBase
             return Forbid();
         }
 
-        var today = DateTime.UtcNow.Date;
+        var today =
+            DateTime.UtcNow.Date;
 
         var record =
-            await _attendanceService.GetByUserAndDateAsync(
-                companyId,
-                userId,
-                today);
+            await _attendanceService
+                .GetByUserAndDateAsync(
+                    companyId,
+                    userId,
+                    today);
 
         if (record is null)
         {
@@ -294,7 +343,13 @@ public class AttendanceController : ControllerBase
     }
 
     // CHECK-IN
+    //
+    // NORMAL:
     // FACE ID → IP → GPS → CAMERA → REKOGNITION → ATTENDANCE
+    //
+    // BUSINESS TRIP:
+    // FACE ID → CAMERA → REKOGNITION → ATTENDANCE
+    //             (BỎ QUA IP/GPS)
 
     [HttpPost("check-in")]
     [RequestSizeLimit(10 * 1024 * 1024)]
@@ -327,9 +382,10 @@ public class AttendanceController : ControllerBase
             });
         }
 
-        // 2. KIỂM TRA NHÂN VIÊN ĐÃ ĐĂNG KÝ KHUÔN MẶT CHƯA
+        // 2. KIỂM TRA FACE ID
 
-        if (string.IsNullOrWhiteSpace(employee.FaceId))
+        if (string.IsNullOrWhiteSpace(
+                employee.FaceId))
         {
             await _auditLogService.LogAsync(
                 companyId,
@@ -347,13 +403,15 @@ public class AttendanceController : ControllerBase
 
         // 3. KIỂM TRA HÔM NAY ĐÃ CHECK-IN CHƯA
 
-        var today = DateTime.UtcNow.Date;
+        var today =
+            DateTime.UtcNow.Date;
 
         var existing =
-            await _attendanceService.GetByUserAndDateAsync(
-                companyId,
-                userId,
-                today);
+            await _attendanceService
+                .GetByUserAndDateAsync(
+                    companyId,
+                    userId,
+                    today);
 
         if (existing is not null &&
             existing.CheckInTime is not null)
@@ -365,71 +423,94 @@ public class AttendanceController : ControllerBase
             });
         }
 
-        // 4. KIỂM TRA PUBLIC IPv4
+        // 4. LẤY CLIENT IP TỪ SERVER
 
-        if (string.IsNullOrWhiteSpace(request.PublicIp))
+        var clientIp =
+            GetClientIp();
+
+        // 5. KIỂM TRA ĐI CÔNG TÁC ĐÃ ĐƯỢC DUYỆT
+
+        var approvedTrip =
+            await _businessTripRequestService
+                .GetApprovedTripForDateAsync(
+                    companyId,
+                    userId,
+                    today);
+
+        var isBusinessTrip =
+            approvedTrip is not null;
+
+        // 6. NORMAL EMPLOYEE:
+        // KIỂM TRA IP + GPS
+        //
+        // BUSINESS TRIP:
+        // BỎ QUA HOÀN TOÀN IP + GPS
+
+        if (!isBusinessTrip)
         {
-            return BadRequest(new
+            if (string.IsNullOrWhiteSpace(clientIp) ||
+                clientIp == "unknown")
             {
-                message =
-                    "Không lấy được địa chỉ IP công cộng."
-            });
-        }
+                return BadRequest(new
+                {
+                    message =
+                        "Không xác định được địa chỉ IP công cộng."
+                });
+            }
 
-        var publicIp = request.PublicIp.Trim();
-
-        if (!IsValidIPv4(publicIp))
-        {
-            return BadRequest(new
+            // Client IP phải là IPv4.
+            if (!IsValidIPv4(clientIp))
             {
-                message =
-                    "Địa chỉ IP công cộng không hợp lệ."
-            });
-        }
+                return BadRequest(new
+                {
+                    message =
+                        "Địa chỉ IP công cộng không hợp lệ."
+                });
+            }
 
-        // 5. KIỂM TRA CẤU HÌNH IP
+            var configs =
+                await _ipConfigService
+                    .GetActiveByCompanyAsync(
+                        companyId);
 
-        var configs =
-            await _ipConfigService.GetActiveByCompanyAsync(
-                companyId);
-
-        if (configs.Count == 0)
-        {
-            return BadRequest(new
+            if (configs.Count == 0)
             {
-                message =
-                    "Công ty chưa cấu hình IP cho phép chấm công. " +
-                    "Vui lòng liên hệ Admin."
-            });
-        }
+                return BadRequest(new
+                {
+                    message =
+                        "Công ty chưa cấu hình IP cho phép chấm công. " +
+                        "Vui lòng liên hệ Admin."
+                });
+            }
 
-        // 6. KIỂM TRA IP + GPS
+            var matched =
+                await FindMatchingConfigAsync(
+                    companyId,
+                    clientIp,
+                    request.Lat,
+                    request.Lng);
 
-        var matched =
-            await FindMatchingConfigAsync(
-                companyId,
-                publicIp,
-                request.Lat,
-                request.Lng);
-
-        if (matched is null)
-        {
-            await _auditLogService.LogAsync(
-                companyId,
-                userId,
-                "CHECK_IN_FAILED",
-                $"IP hoặc GPS không khớp cấu hình. " +
-                $"IP={publicIp}, " +
-                $"Lat={request.Lat}, " +
-                $"Lng={request.Lng}");
-
-            return StatusCode(403, new
+            if (matched is null)
             {
-                message =
-                    "Xác thực vị trí thất bại. " +
-                    "Vui lòng đảm bảo bạn đang kết nối đúng mạng " +
-                    "và ở trong khu vực công ty."
-            });
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_IN_FAILED",
+                    $"IP hoặc GPS không khớp cấu hình. " +
+                    $"IP={clientIp}, " +
+                    $"Lat={request.Lat}, " +
+                    $"Lng={request.Lng}");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "Xác thực vị trí thất bại. " +
+                            "Vui lòng đảm bảo bạn đang kết nối đúng mạng " +
+                            "và ở trong khu vực công ty."
+                    });
+            }
         }
 
         // 7. KIỂM TRA ẢNH CAMERA
@@ -471,14 +552,16 @@ public class AttendanceController : ControllerBase
 
         FaceVerificationResult verification;
 
-        await using (var imageStream =
-                     faceImage.OpenReadStream())
+        await using (
+            var imageStream =
+                faceImage.OpenReadStream())
         {
             verification =
-                await _faceRecognitionService.VerifyFaceAsync(
-                    companyId,
-                    userId,
-                    imageStream);
+                await _faceRecognitionService
+                    .VerifyFaceAsync(
+                        companyId,
+                        userId,
+                        imageStream);
         }
 
         if (!verification.Success)
@@ -491,42 +574,51 @@ public class AttendanceController : ControllerBase
                 $"Message={verification.Message}, " +
                 $"Similarity={verification.Similarity}");
 
-            return StatusCode(403, new
-            {
-                message =
-                    verification.Message
-            });
+            return StatusCode(
+                403,
+                new
+                {
+                    message =
+                        verification.Message
+                });
         }
 
-        // 10. TẠO ATTENDANCE
+        // 10. TẠO ATTENDANCE RECORD
 
-        var checkInTime = DateTime.UtcNow;
+        var checkInTime =
+            DateTime.UtcNow;
 
-        var record = new AttendanceRecord
-        {
-            CompanyId = companyId,
-            UserId = userId,
-            WorkDate = today,
-
-            CheckInTime = checkInTime,
-
-            CheckInLocation = new GeoLocation
+        var record =
+            new AttendanceRecord
             {
-                Lat = request.Lat,
-                Lng = request.Lng
-            },
+                CompanyId = companyId,
+                UserId = userId,
+                WorkDate = today,
 
-            CheckInIp = publicIp,
+                CheckInTime =
+                    checkInTime,
 
-            CheckInDeviceId = request.DeviceId,
+                CheckInLocation =
+                    new GeoLocation
+                    {
+                        Lat = request.Lat,
+                        Lng = request.Lng
+                    },
 
-            Status =
-                DetermineCheckInStatus(
-                    employee,
-                    checkInTime)
-        };
+                CheckInIp =
+                    clientIp,
 
-        await _attendanceService.CreateAsync(record);
+                CheckInDeviceId =
+                    request.DeviceId,
+
+                Status =
+                    DetermineCheckInStatus(
+                        employee,
+                        checkInTime)
+            };
+
+        await _attendanceService
+            .CreateAsync(record);
 
         // 11. AUDIT LOG
 
@@ -534,21 +626,40 @@ public class AttendanceController : ControllerBase
             companyId,
             userId,
             "CHECK_IN_SUCCESS",
-            $"Face verified. " +
-            $"Similarity={verification.Similarity}");
+            isBusinessTrip
+                ? $"Business trip check-in. " +
+                  $"Face verified. " +
+                  $"Similarity={verification.Similarity}"
+                : $"Face verified. " +
+                  $"Similarity={verification.Similarity}");
 
         // 12. RESPONSE
 
         return Ok(new
         {
-            message = "Check-in thành công.",
-            checkInTime = record.CheckInTime,
-            faceSimilarity = verification.Similarity
+            message =
+                isBusinessTrip
+                    ? "Check-in công tác thành công."
+                    : "Check-in thành công.",
+
+            checkInTime =
+                record.CheckInTime,
+
+            faceSimilarity =
+                verification.Similarity,
+
+            businessTrip =
+                isBusinessTrip
         });
     }
 
     // CHECK-OUT
+    //
+    // NORMAL:
     // IP + GPS
+    //
+    // BUSINESS TRIP:
+    // BỎ QUA IP + GPS
 
     [HttpPost("check-out")]
     public async Task<IActionResult> CheckOut(
@@ -563,33 +674,17 @@ public class AttendanceController : ControllerBase
             return Forbid();
         }
 
-        if (string.IsNullOrWhiteSpace(request.PublicIp))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Không lấy được địa chỉ IP công cộng."
-            });
-        }
+        // 1. KIỂM TRA ATTENDANCE HÔM NAY
 
-        var publicIp = request.PublicIp.Trim();
-
-        if (!IsValidIPv4(publicIp))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Địa chỉ IP công cộng không hợp lệ."
-            });
-        }
-
-        var today = DateTime.UtcNow.Date;
+        var today =
+            DateTime.UtcNow.Date;
 
         var existing =
-            await _attendanceService.GetByUserAndDateAsync(
-                companyId,
-                userId,
-                today);
+            await _attendanceService
+                .GetByUserAndDateAsync(
+                    companyId,
+                    userId,
+                    today);
 
         if (existing is null ||
             existing.CheckInTime is null)
@@ -610,34 +705,99 @@ public class AttendanceController : ControllerBase
             });
         }
 
-        var matched =
-            await FindMatchingConfigAsync(
-                companyId,
-                publicIp,
-                request.Lat,
-                request.Lng);
+        // 2. LẤY CLIENT IP
 
-        if (matched is null)
+        var clientIp =
+            GetClientIp();
+
+        // 3. KIỂM TRA ĐI CÔNG TÁC
+
+        var approvedTrip =
+            await _businessTripRequestService
+                .GetApprovedTripForDateAsync(
+                    companyId,
+                    userId,
+                    today);
+
+        var isBusinessTrip =
+            approvedTrip is not null;
+
+        // 4. NORMAL EMPLOYEE:
+        // KIỂM TRA IP + GPS
+        //
+        // BUSINESS TRIP:
+        // BỎ QUA IP + GPS
+
+        if (!isBusinessTrip)
         {
-            await _auditLogService.LogAsync(
-                companyId,
-                userId,
-                "CHECK_OUT_FAILED",
-                $"IP hoặc GPS không khớp cấu hình. " +
-                $"IP={publicIp}, " +
-                $"Lat={request.Lat}, " +
-                $"Lng={request.Lng}");
-
-            return StatusCode(403, new
+            if (string.IsNullOrWhiteSpace(clientIp) ||
+                clientIp == "unknown")
             {
-                message =
-                    "Xác thực thất bại. Vui lòng đảm bảo " +
-                    "đang kết nối đúng mạng và ở trong " +
-                    "khu vực công ty."
-            });
+                return BadRequest(new
+                {
+                    message =
+                        "Không xác định được địa chỉ IP công cộng."
+                });
+            }
+
+            if (!IsValidIPv4(clientIp))
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Địa chỉ IP công cộng không hợp lệ."
+                });
+            }
+
+            var configs =
+                await _ipConfigService
+                    .GetActiveByCompanyAsync(
+                        companyId);
+
+            if (configs.Count == 0)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Công ty chưa cấu hình IP cho phép chấm công. " +
+                        "Vui lòng liên hệ Admin."
+                });
+            }
+
+            var matched =
+                await FindMatchingConfigAsync(
+                    companyId,
+                    clientIp,
+                    request.Lat,
+                    request.Lng);
+
+            if (matched is null)
+            {
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_OUT_FAILED",
+                    $"IP hoặc GPS không khớp cấu hình. " +
+                    $"IP={clientIp}, " +
+                    $"Lat={request.Lat}, " +
+                    $"Lng={request.Lng}");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "Xác thực thất bại. " +
+                            "Vui lòng đảm bảo đang kết nối đúng mạng " +
+                            "và ở trong khu vực công ty."
+                    });
+            }
         }
 
-        var checkOutTime = DateTime.UtcNow;
+        // 5. TÍNH GIỜ LÀM
+
+        var checkOutTime =
+            DateTime.UtcNow;
 
         var workingHours =
             Math.Round(
@@ -647,34 +807,51 @@ public class AttendanceController : ControllerBase
                 ).TotalHours,
                 2);
 
-        await _attendanceService.UpdateCheckOutAsync(
-            companyId,
-            userId,
-            today,
-            checkOutTime,
+        // 6. UPDATE ATTENDANCE
+        //
+        // Giữ nguyên Status OnTime/Late.
 
-            new GeoLocation
-            {
-                Lat = request.Lat,
-                Lng = request.Lng
-            },
+        await _attendanceService
+            .UpdateCheckOutAsync(
+                companyId,
+                userId,
+                today,
+                checkOutTime,
 
-            publicIp,
-            request.DeviceId,
-            workingHours,
-            existing.Status
-        );
+                new GeoLocation
+                {
+                    Lat = request.Lat,
+                    Lng = request.Lng
+                },
+
+                clientIp,
+                request.DeviceId,
+                workingHours,
+                existing.Status);
+
+        // 7. AUDIT LOG
 
         await _auditLogService.LogAsync(
             companyId,
             userId,
             "CHECK_OUT_SUCCESS");
 
+        // 8. RESPONSE
+
         return Ok(new
         {
-            message = "Check-out thành công.",
+            message =
+                isBusinessTrip
+                    ? "Check-out công tác thành công."
+                    : "Check-out thành công.",
+
             checkOutTime,
-            workingHours
+
+            workingHours,
+
+            businessTrip =
+                isBusinessTrip
         });
     }
 }
+
