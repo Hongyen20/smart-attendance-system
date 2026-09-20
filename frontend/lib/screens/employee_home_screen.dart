@@ -16,8 +16,10 @@ import '../services/auth_state.dart';
 import 'face_capture_screen.dart';
 import 'profile_screen.dart';
 import 'history_screen.dart';
-import 'statistics_screen.dart';
 import 'leave_request_screen.dart';
+import 'change_password_screen.dart';
+import 'shift_change_request_screen.dart';
+import 'business_trip_request_screen.dart';
 
 enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
@@ -45,6 +47,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   bool _isLoadingFaceStatus = true;
 
+  Timer? _clockTimer;
+
   static const List<String> _weekdays = [
     'Chủ Nhật',
     'Thứ Hai',
@@ -54,6 +58,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     'Thứ Sáu',
     'Thứ Bảy',
   ];
+
+  // TIME
 
   String get _formattedNow {
     final now = DateTime.now();
@@ -71,18 +77,33 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         '${now.day} Thg ${now.month}';
   }
 
+  // LIFECYCLE
+
   @override
   void initState() {
     super.initState();
 
     _initializeScreen();
+
+    // Cập nhật giờ trên giao diện mỗi phút.
+    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeScreen() async {
     await Future.wait([_loadTodayStatus(), _loadFaceStatus()]);
   }
 
-  // LOAD TRẠNG THÁI KHUÔN MẶT
+  // LOAD FACE STATUS
 
   Future<void> _loadFaceStatus() async {
     if (!mounted) return;
@@ -141,62 +162,82 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
   }
 
-  // LOAD TRẠNG THÁI CHẤM CÔNG HÔM NAY
+  // LOAD ATTENDANCE TODAY
 
   Future<void> _loadTodayStatus() async {
-    final result = await ApiService.get(
-      '/api/attendance/today',
-      bearerToken: AuthState.instance.token,
-    );
+    try {
+      final result = await ApiService.get(
+        '/api/attendance/today',
+        bearerToken: AuthState.instance.token,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (!result.success) {
-      setState(() {
-        _checkState = _CheckState.notCheckedIn;
-        _checkInTimeLabel = null;
-        _workingHoursLabel = null;
-      });
+      if (!result.success) {
+        setState(() {
+          _checkState = _CheckState.notCheckedIn;
+          _checkInTimeLabel = null;
+          _workingHoursLabel = null;
+        });
 
-      return;
-    }
-
-    final data = result.data;
-
-    if (data == null) {
-      setState(() {
-        _checkState = _CheckState.notCheckedIn;
-        _checkInTimeLabel = null;
-        _workingHoursLabel = null;
-      });
-
-      return;
-    }
-
-    final checkedIn = data['checkedIn'] == true;
-    final checkedOut = data['checkedOut'] == true;
-
-    setState(() {
-      if (!checkedIn) {
-        _checkState = _CheckState.notCheckedIn;
-        _checkInTimeLabel = null;
-        _workingHoursLabel = null;
-      } else if (checkedIn && !checkedOut) {
-        _checkState = _CheckState.checkedIn;
-
-        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
-
-        _workingHoursLabel = null;
-      } else {
-        _checkState = _CheckState.checkedOut;
-
-        _checkInTimeLabel = _formatTimeFromIso(data['checkInTime'] as String?);
-
-        final hours = (data['workingHours'] as num?)?.toDouble() ?? 0;
-
-        _workingHoursLabel = '${hours.toStringAsFixed(1)}h';
+        return;
       }
-    });
+
+      final data = result.data;
+
+      if (data == null) {
+        setState(() {
+          _checkState = _CheckState.notCheckedIn;
+          _checkInTimeLabel = null;
+          _workingHoursLabel = null;
+        });
+
+        return;
+      }
+
+      final checkedIn = data['checkedIn'] == true;
+      final checkedOut = data['checkedOut'] == true;
+
+      setState(() {
+        if (!checkedIn) {
+          _checkState = _CheckState.notCheckedIn;
+
+          _checkInTimeLabel = null;
+          _workingHoursLabel = null;
+        } else if (checkedIn && !checkedOut) {
+          _checkState = _CheckState.checkedIn;
+
+          _checkInTimeLabel = _formatTimeFromIso(
+            data['checkInTime'] as String?,
+          );
+
+          // Khi chưa check-out, backend có thể chưa trả workingHours.
+          _workingHoursLabel = _formatCurrentWorkingTime(
+            data['checkInTime'] as String?,
+          );
+        } else {
+          _checkState = _CheckState.checkedOut;
+
+          _checkInTimeLabel = _formatTimeFromIso(
+            data['checkInTime'] as String?,
+          );
+
+          final hours = (data['workingHours'] as num?)?.toDouble() ?? 0;
+
+          _workingHoursLabel = _formatWorkingHours(hours);
+        }
+      });
+    } catch (e) {
+      debugPrint('Load today attendance error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _checkState = _CheckState.notCheckedIn;
+        _checkInTimeLabel = null;
+        _workingHoursLabel = null;
+      });
+    }
   }
 
   String? _formatTimeFromIso(String? iso) {
@@ -212,7 +253,57 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         '${local.minute.toString().padLeft(2, '0')}';
   }
 
-  // LẤY PUBLIC IPV4
+  String _formatWorkingHours(double hours) {
+    final totalMinutes = (hours * 60).round();
+
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+
+    if (h == 0) {
+      return '$m phút';
+    }
+
+    if (m == 0) {
+      return '$h giờ';
+    }
+
+    return '$h giờ $m phút';
+  }
+
+  String? _formatCurrentWorkingTime(String? iso) {
+    if (iso == null) return null;
+
+    final checkIn = DateTime.tryParse(iso);
+
+    if (checkIn == null) return null;
+
+    final now = DateTime.now();
+
+    final localCheckIn = checkIn.toLocal();
+
+    final difference = now.difference(localCheckIn);
+
+    if (difference.isNegative) {
+      return 'Đang làm';
+    }
+
+    final totalMinutes = difference.inMinutes;
+
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+
+    if (hours == 0) {
+      return '$minutes phút';
+    }
+
+    if (minutes == 0) {
+      return '$hours giờ';
+    }
+
+    return '$hours giờ $minutes phút';
+  }
+
+  // PUBLIC IP
 
   Future<String?> _getPublicIp() async {
     try {
@@ -261,8 +352,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
   }
 
-  // KIỂM TRA IPV4
-
   bool _isValidIPv4(String ip) {
     final parts = ip.split('.');
 
@@ -281,35 +370,31 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return true;
   }
 
-  // LẤY GPS HIỆN TẠI
-  // Mọi bước đều có timeout để không bao giờ bị treo vô hạn.
+  // GPS
 
   Future<Position?> _getCurrentPosition() async {
     try {
-      // 1. KIỂM TRA GPS / LOCATION SERVICE (chỉ áp dụng cho app native)
-
+      // Native app: kiểm tra Location Service.
       if (!kIsWeb) {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
         if (!serviceEnabled) {
-          _showSnack('GPS đang tắt. Vui lòng bật định vị trên điện thoại.');
+          _showSnack(
+            'GPS đang tắt. '
+            'Vui lòng bật định vị trên điện thoại.',
+          );
 
           return null;
         }
       }
 
-      // 2. KIỂM TRA QUYỀN LOCATION
-
-      debugPrint('GPS: checkPermission...');
-
+      // Kiểm tra quyền.
       var permission = await Geolocator.checkPermission().timeout(
         const Duration(seconds: 10),
       );
 
       if (permission == LocationPermission.denied) {
         _showSnack('Đang yêu cầu quyền truy cập vị trí...');
-
-        debugPrint('GPS: requestPermission...');
 
         permission = await Geolocator.requestPermission().timeout(
           const Duration(seconds: 30),
@@ -331,17 +416,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return null;
       }
 
-      // 3. LẤY GPS
-      // Lần 1: độ chính xác thấp (nhanh, dùng Wi-Fi/mạng)
-      // Lần 2: độ chính xác cao (dùng GPS thật) nếu lần 1 timeout
-
       _showSnack('Đang lấy vị trí GPS...');
 
       Position? position;
 
       try {
-        debugPrint('GPS: getCurrentPosition (low)...');
-
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.low,
@@ -361,8 +440,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ).timeout(const Duration(seconds: 25));
       }
 
-      // 4. KIỂM TRA KẾT QUẢ
-
       if (position.latitude == 0 && position.longitude == 0) {
         _showSnack('Không nhận được tọa độ GPS hợp lệ.');
 
@@ -376,9 +453,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       debugPrint('GPS: timeout');
 
       _showSnack(
-        'Không lấy được vị trí GPS. Hãy mở trang bằng Chrome/Safari '
-        '(không dùng trình duyệt trong Zalo/Messenger), cấp quyền Vị trí '
-        'cho trình duyệt rồi thử lại.',
+        'Không lấy được vị trí GPS. '
+        'Hãy mở trang bằng Chrome/Safari '
+        '(không dùng trình duyệt trong Zalo/Messenger), '
+        'cấp quyền Vị trí cho trình duyệt rồi thử lại.',
       );
 
       return null;
@@ -391,8 +469,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
   }
 
-  // CHỤP KHUÔN MẶT
-  // Mở camera trực tiếp (không cho chọn file từ máy)
+  // FACE CAMERA
 
   Future<XFile?> _captureFaceImage() async {
     if (!mounted) {
@@ -426,7 +503,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
   }
 
-  // TẠO API URI
+  // API URI
 
   Uri _buildApiUri(String path) {
     if (ApiConfig.baseUrl.isEmpty) {
@@ -437,14 +514,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   // CHECK-IN
-  // IP → GPS → CAMERA → REKOGNITION
 
   Future<void> _performCheckIn({
     required String publicIp,
     required Position position,
   }) async {
-    // 1. MỞ CAMERA
-
+    // Mở camera.
     final faceImage = await _captureFaceImage();
 
     if (!mounted) return;
@@ -453,8 +528,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       return;
     }
 
-    // 2. ĐỌC ẢNH
-
+    // Đọc ảnh.
     final imageBytes = await faceImage.readAsBytes();
 
     if (imageBytes.isEmpty) {
@@ -466,36 +540,28 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     _showSnack('Đang xác thực khuôn mặt...');
 
     try {
-      // 3. MULTIPART REQUEST
-
       final request = http.MultipartRequest(
         'POST',
         _buildApiUri('/api/attendance/check-in'),
       );
 
-      // 4. JWT
-
+      // JWT.
       final token = AuthState.instance.token;
 
       if (token != null && token.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // 5. FORM FIELDS
-
+      // Form fields.
       request.fields['lat'] = position.latitude.toString();
 
       request.fields['lng'] = position.longitude.toString();
 
       request.fields['publicIp'] = publicIp;
 
-      // Không gửi chuỗi rỗng: ASP.NET đổi "" thành null trong multipart form.
       request.fields['deviceId'] = 'web';
 
-      // 6. FACE IMAGE
-      // Phải khai báo contentType, nếu không http gửi application/octet-stream
-      // và backend sẽ từ chối với 400.
-
+      // Face image.
       request.files.add(
         http.MultipartFile.fromBytes(
           'faceImage',
@@ -505,13 +571,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ),
       );
 
-      // 7. SEND
-
       final response = await request.send();
 
       final responseBody = await response.stream.bytesToString();
 
       debugPrint('Check-in status: ${response.statusCode}');
+
       debugPrint('Check-in body: $responseBody');
 
       Map<String, dynamic>? data;
@@ -528,8 +593,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
       if (!mounted) return;
 
-      // 8. SUCCESS
-
       if (response.statusCode >= 200 && response.statusCode < 300) {
         _showSnack(data?['message']?.toString() ?? 'Check-in thành công!');
 
@@ -537,8 +600,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
         return;
       }
-
-      // 9. ERROR
 
       final errorMessage =
           data?['message']?.toString() ??
@@ -556,7 +617,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   // CHECK-OUT
-  // IP → GPS → ATTENDANCE
 
   Future<void> _performCheckOut({
     required String publicIp,
@@ -594,7 +654,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
   }
 
-  // CHECK-IN / CHECK-OUT
+  // CHECK-IN / CHECK-OUT HANDLER
 
   Future<void> _handleCheckButtonTap() async {
     if (_checkState == _CheckState.checkedOut ||
@@ -606,8 +666,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
     final isCheckIn = _checkState == _CheckState.notCheckedIn;
 
-    // CHECK-IN: PHẢI CÓ FACE STATUS TRƯỚC
-
+    // Check-in bắt buộc có khuôn mặt.
     if (isCheckIn) {
       if (_hasFace == null) {
         _showSnack(
@@ -634,8 +693,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     });
 
     try {
-      // BƯỚC 1: PUBLIC IPV4
-
+      // STEP 1: PUBLIC IP
       _showSnack(
         isCheckIn
             ? 'Bước 1/3: Đang kiểm tra địa chỉ IP...'
@@ -650,8 +708,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return;
       }
 
-      // BƯỚC 2: GPS
-
+      // STEP 2: GPS
       _showSnack(
         isCheckIn
             ? 'Bước 2/3: Đang xác định vị trí...'
@@ -667,8 +724,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       }
 
       // CHECK-IN
-      // BƯỚC 3: CAMERA + FACE VERIFICATION
-
       if (isCheckIn) {
         _showSnack('Bước 3/3: Đang mở camera...');
 
@@ -678,7 +733,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       }
 
       // CHECK-OUT
-
       await _performCheckOut(publicIp: publicIp, position: position);
     } catch (e) {
       debugPrint('Attendance error: $e');
@@ -717,8 +771,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(),
-
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
@@ -728,29 +780,21 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
 
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
 
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
-                      _buildGreetingRow(),
+                      _buildGreetingHeader(),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
-                      Center(child: _buildCheckInButton()),
+                      _buildAttendanceCard(),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 26),
 
-                      _buildStatsRow(),
-
-                      const SizedBox(height: 16),
-
-                      if (!_isLoadingFaceStatus && _hasFace == false)
-                        _buildFaceWarning(),
-
-                      if (!_isLoadingFaceStatus && _hasFace == null)
-                        _buildFaceStatusError(),
+                      _buildUtilitiesSection(),
                     ],
                   ),
                 ),
@@ -764,13 +808,629 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     );
   }
 
+  // LOGO HEADER
+
+  Widget _buildLogoHeader() {
+    return SizedBox(
+      width: 105,
+      height: 48,
+
+      child: Image.asset(
+        'assets/images/logo.png',
+
+        fit: BoxFit.contain,
+
+        alignment: Alignment.centerLeft,
+      ),
+    );
+  }
+
+  // GREETING HEADER
+
+  Widget _buildGreetingHeader() {
+    final userName = AuthState.instance.fullName ?? '';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+
+      children: [
+        _buildLogoHeader(),
+
+        const SizedBox(width: 14),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                'Chào ${userName.isEmpty ? 'bạn' : userName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              const Text(
+                'Chúc bạn một ngày làm việc hiệu quả.',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+
+          children: [
+            Text(
+              _formattedNow,
+
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryBlue,
+              ),
+            ),
+
+            const SizedBox(height: 2),
+
+            Text(
+              _formattedDate,
+
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ATTENDANCE CARD
+
+  Widget _buildAttendanceCard() {
+    final isLoading = _checkState == _CheckState.loading;
+
+    final isCheckedIn = _checkState == _CheckState.checkedIn;
+
+    final isCheckedOut = _checkState == _CheckState.checkedOut;
+
+    String statusText;
+    Color statusColor;
+    Color statusBackground;
+    IconData statusIcon;
+
+    if (isLoading || _isLoadingFaceStatus) {
+      statusText = 'Đang tải trạng thái...';
+      statusColor = AppColors.textSecondary;
+      statusBackground = AppColors.background;
+      statusIcon = Icons.hourglass_empty;
+    } else if (isCheckedOut) {
+      statusText = 'Đã hoàn thành hôm nay';
+      statusColor = AppColors.successGreen;
+      statusBackground = AppColors.successGreen.withValues(alpha: 0.10);
+      statusIcon = Icons.check_circle_outline;
+    } else if (isCheckedIn) {
+      statusText = 'Đang làm việc';
+      statusColor = AppColors.successGreen;
+      statusBackground = AppColors.successGreen.withValues(alpha: 0.10);
+      statusIcon = Icons.access_time;
+    } else {
+      statusText = 'Chưa chấm công';
+      statusColor = AppColors.dangerRed;
+      statusBackground = AppColors.dangerRedBg;
+      statusIcon = Icons.radio_button_unchecked;
+    }
+
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(18),
+
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+
+        borderRadius: BorderRadius.circular(24),
+
+        border: Border.all(color: AppColors.borderColor),
+
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+
+                decoration: BoxDecoration(
+                  color: AppColors.infoBoxBackground,
+
+                  shape: BoxShape.circle,
+                ),
+
+                child: const Icon(
+                  Icons.fingerprint_rounded,
+                  size: 32,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    const Text(
+                      'Chấm công',
+
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+
+                    const SizedBox(height: 7),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+
+                      decoration: BoxDecoration(
+                        color: statusBackground,
+
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+
+                        children: [
+                          Icon(statusIcon, size: 14, color: statusColor),
+
+                          const SizedBox(width: 5),
+
+                          Text(
+                            statusText,
+
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          if (!_isLoadingFaceStatus && _hasFace == false) _buildFaceWarning(),
+
+          if (!_isLoadingFaceStatus && _hasFace == null)
+            _buildFaceStatusError(),
+
+          if ((!_isLoadingFaceStatus && _hasFace != false) ||
+              _checkState == _CheckState.checkedIn ||
+              _checkState == _CheckState.checkedOut)
+            _buildAttendanceDescription(),
+
+          const SizedBox(height: 16),
+
+          _buildAttendanceButton(),
+
+          const SizedBox(height: 16),
+
+          _buildStatsRow(),
+        ],
+      ),
+    );
+  }
+
+  // ATTENDANCE DESCRIPTION
+
+  Widget _buildAttendanceDescription() {
+    String text;
+
+    switch (_checkState) {
+      case _CheckState.loading:
+        text = 'Đang tải thông tin chấm công của bạn.';
+        break;
+
+      case _CheckState.notCheckedIn:
+        text = 'Vui lòng chấm công để bắt đầu ngày làm việc của bạn.';
+        break;
+
+      case _CheckState.checkedIn:
+        text = 'Bạn đang làm việc. Hãy chấm công ra khi kết thúc ngày.';
+        break;
+
+      case _CheckState.checkedOut:
+        text = 'Bạn đã hoàn thành ngày làm việc hôm nay.';
+        break;
+    }
+
+    return Text(
+      text,
+
+      style: const TextStyle(
+        fontSize: 13,
+        height: 1.45,
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  // ATTENDANCE BUTTON
+
+  Widget _buildAttendanceButton() {
+    final canCheckIn =
+        _checkState == _CheckState.notCheckedIn && _hasFace == true;
+
+    final canCheckOut = _checkState == _CheckState.checkedIn;
+
+    final canTap =
+        !_isLoadingFaceStatus && !_isProcessing && (canCheckIn || canCheckOut);
+
+    String label;
+    IconData icon;
+    Color backgroundColor;
+
+    if (_isProcessing) {
+      label = 'Đang xử lý...';
+      icon = Icons.sync;
+      backgroundColor = AppColors.primaryBlue;
+    } else if (_checkState == _CheckState.checkedIn) {
+      label = 'Chấm công ra';
+      icon = Icons.logout_rounded;
+      backgroundColor = AppColors.amber;
+    } else if (_checkState == _CheckState.checkedOut) {
+      label = 'Đã hoàn thành';
+      icon = Icons.check_circle_outline;
+      backgroundColor = AppColors.successGreen;
+    } else if (_isLoadingFaceStatus) {
+      label = 'Đang kiểm tra...';
+      icon = Icons.hourglass_empty;
+      backgroundColor = AppColors.textSecondary;
+    } else {
+      label = 'Chấm công vào';
+      icon = Icons.access_time_rounded;
+      backgroundColor = AppColors.primaryBlue;
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+
+      child: ElevatedButton.icon(
+        onPressed: canTap ? _handleCheckButtonTap : null,
+
+        icon: _isProcessing
+            ? const SizedBox(
+                width: 19,
+                height: 19,
+
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.2,
+                ),
+              )
+            : Icon(icon, color: Colors.white, size: 22),
+
+        label: Text(
+          label,
+
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+
+          disabledBackgroundColor: backgroundColor.withValues(alpha: 0.55),
+
+          elevation: 0,
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // STATISTICS
+
+  Widget _buildStatsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.access_time,
+            iconColor: AppColors.primaryBlue,
+            label: 'Giờ bắt đầu',
+            value: _checkInTimeLabel ?? '--:--',
+          ),
+        ),
+
+        const SizedBox(width: 12),
+
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.timer_outlined,
+            iconColor: AppColors.amber,
+            label: 'Tổng giờ làm',
+            value: _workingHoursLabel ?? '0 giờ',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+
+      decoration: BoxDecoration(
+        color: AppColors.background,
+
+        borderRadius: BorderRadius.circular(16),
+
+        border: Border.all(color: AppColors.borderColor),
+      ),
+
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.10),
+
+              shape: BoxShape.circle,
+            ),
+
+            child: Icon(icon, size: 21, color: iconColor),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              children: [
+                Text(
+                  label,
+
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  value,
+
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // UTILITIES
+
+  Widget _buildUtilitiesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+
+      children: [
+        const Text(
+          'Tiện ích',
+
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        Row(
+          children: [
+            Expanded(
+              child: _buildUtilityTile(
+                icon: Icons.lock_outline,
+                title: 'Đổi mật khẩu',
+                color: AppColors.primaryBlue,
+                backgroundColor: const Color(0xFFEAF2FF),
+                onTap: _openChangePassword,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: _buildUtilityTile(
+                icon: Icons.swap_horiz_rounded,
+                title: 'Yêu cầu đổi ca',
+                color: const Color(0xFF7047D8),
+                backgroundColor: const Color(0xFFF1ECFF),
+                onTap: _openShiftChangeRequest,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        Row(
+          children: [
+            Expanded(
+              child: _buildUtilityTile(
+                icon: Icons.flight_takeoff_rounded,
+                title: 'Đi công tác',
+                color: const Color(0xFF16B88A),
+                backgroundColor: const Color(0xFFE9F9F4),
+                onTap: _openBusinessTripRequest,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: _buildUtilityTile(
+                icon: Icons.event_busy_outlined,
+                title: 'Xin nghỉ phép',
+                color: const Color(0xFFF28B30),
+                backgroundColor: const Color(0xFFFFF3E8),
+                onTap: _openLeaveRequest,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUtilityTile({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required Color backgroundColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+
+      child: InkWell(
+        onTap: onTap,
+
+        borderRadius: BorderRadius.circular(18),
+
+        child: Ink(
+          height: 138,
+
+          decoration: BoxDecoration(
+            color: backgroundColor,
+
+            borderRadius: BorderRadius.circular(18),
+
+            border: Border.all(color: color.withValues(alpha: 0.10)),
+          ),
+
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              mainAxisAlignment: MainAxisAlignment.center,
+
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+
+                const SizedBox(height: 14),
+
+                Text(
+                  title,
+
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // FACE WARNING
 
   Widget _buildFaceWarning() {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+
+      padding: const EdgeInsets.all(12),
 
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -784,16 +1444,25 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(Icons.face_retouching_natural, color: AppColors.amber),
+          const Icon(
+            Icons.face_retouching_natural,
+            color: AppColors.amber,
+            size: 21,
+          ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
 
           const Expanded(
             child: Text(
               'Bạn chưa đăng ký khuôn mặt. '
               'Vui lòng đăng ký khuôn mặt trước '
               'khi thực hiện check-in.',
-              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],
@@ -801,13 +1470,15 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     );
   }
 
-  // FACE STATUS ERROR
+  // FACE ERROR
 
   Widget _buildFaceStatusError() {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+
+      padding: const EdgeInsets.all(12),
 
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -824,327 +1495,62 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           const Icon(
             Icons.warning_amber_rounded,
             color: AppColors.textSecondary,
+            size: 21,
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
 
           const Expanded(
             child: Text(
               'Không thể kiểm tra trạng thái '
-              'khuôn mặt. Vui lòng tải lại trang '
+              'khuôn mặt. Vui lòng tải lại '
               'hoặc thử lại sau.',
-              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  // TOP BAR
-
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-
-      decoration: const BoxDecoration(
-        color: AppColors.cardBackground,
-
-        border: Border(bottom: BorderSide(color: AppColors.borderColor)),
-      ),
-
-      child: Row(
-        children: [
-          const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
-
-          const SizedBox(width: 8),
-
-          const Text(
-            'AttendGo',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryBlue,
-            ),
-          ),
-
-          const Spacer(),
-
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // GREETING
-
-  Widget _buildGreetingRow() {
-    final userName = AuthState.instance.fullName ?? '';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-
-          children: [
-            const Text(
-              'XIN CHÀO,',
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-
-            Text(
-              '$userName!',
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                height: 1.4,
                 color: AppColors.textPrimary,
               ),
             ),
-          ],
-        ),
-
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-
-          children: [
-            Text(
-              _formattedNow,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryBlue,
-              ),
-            ),
-
-            const SizedBox(height: 2),
-
-            Text(
-              _formattedDate,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // CHECK BUTTON
-
-  Widget _buildCheckInButton() {
-    late final String title;
-    late final String subtitle;
-    late final Color color;
-    late final IconData icon;
-
-    if (_isLoadingFaceStatus) {
-      title = '...';
-      subtitle = 'Đang kiểm tra';
-      color = AppColors.textSecondary;
-      icon = Icons.hourglass_empty;
-    } else {
-      switch (_checkState) {
-        case _CheckState.loading:
-          title = '...';
-          subtitle = 'Đang tải';
-          color = AppColors.textSecondary;
-          icon = Icons.hourglass_empty;
-          break;
-
-        case _CheckState.notCheckedIn:
-          if (_hasFace == null) {
-            title = 'CHẤM CÔNG';
-            subtitle = 'Không thể kiểm tra khuôn mặt';
-            color = AppColors.textSecondary;
-            icon = Icons.warning_amber_rounded;
-          } else if (_hasFace == false) {
-            title = 'CHẤM CÔNG';
-            subtitle = 'Chưa đăng ký khuôn mặt';
-            color = AppColors.textSecondary;
-            icon = Icons.face_retouching_natural;
-          } else {
-            title = 'CHẤM CÔNG';
-            subtitle = 'Chạm để bắt đầu';
-            color = AppColors.primaryBlue;
-            icon = Icons.fingerprint;
-          }
-          break;
-
-        case _CheckState.checkedIn:
-          title = 'CHẤM CÔNG RA';
-          subtitle = 'Chạm để kết thúc';
-          color = AppColors.amber;
-          icon = Icons.logout;
-          break;
-
-        case _CheckState.checkedOut:
-          title = 'ĐÃ HOÀN THÀNH';
-          subtitle = 'Hẹn gặp lại ngày mai';
-          color = AppColors.successGreen;
-          icon = Icons.check_circle_outline;
-          break;
-      }
-    }
-
-    final canTap =
-        !_isLoadingFaceStatus &&
-        !_isProcessing &&
-        _checkState != _CheckState.checkedOut &&
-        _checkState != _CheckState.loading &&
-        (_checkState != _CheckState.notCheckedIn || _hasFace == true);
-
-    return GestureDetector(
-      onTap: canTap ? _handleCheckButtonTap : null,
-
-      child: Container(
-        width: 220,
-        height: 220,
-
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.35),
-              blurRadius: 40,
-              spreadRadius: 6,
-            ),
-          ],
-        ),
-
-        child: Center(
-          child: _isProcessing
-              ? const CircularProgressIndicator(color: Colors.white)
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-
-                  children: [
-                    Icon(icon, color: Colors.white, size: 52),
-
-                    const SizedBox(height: 12),
-
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-
-  // STATISTICS
-
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.access_time,
-            iconColor: AppColors.accentBlue,
-            label: 'Giờ bắt đầu',
-            value: _checkInTimeLabel ?? '--:--',
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.timer_outlined,
-            iconColor: AppColors.amber,
-            label: 'Tổng giờ làm',
-            value: _workingHoursLabel ?? '0h',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-
-        borderRadius: BorderRadius.circular(16),
-
-        border: Border.all(color: AppColors.borderColor),
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-
-              const SizedBox(width: 6),
-
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
           ),
         ],
       ),
+    );
+  }
+
+  // CHANGE PASSWORD
+
+  void _openChangePassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+    );
+  }
+
+  // SHIFT CHANGE
+
+  void _openShiftChangeRequest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ShiftChangeRequestScreen()),
+    );
+  }
+
+  // BUSINESS TRIP
+
+  void _openBusinessTripRequest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BusinessTripRequestScreen()),
+    );
+  }
+
+  // LEAVE REQUEST
+
+  void _openLeaveRequest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LeaveRequestScreen()),
     );
   }
 
@@ -1159,10 +1565,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           return;
         }
 
+        setState(() {
+          _selectedNavIndex = index;
+        });
+
         switch (index) {
+          // Trang chủ
           case 0:
             break;
 
+          // Lịch sử
           case 1:
             Navigator.pushReplacement(
               context,
@@ -1170,6 +1582,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             );
             break;
 
+          // Yêu cầu
           case 2:
             Navigator.pushReplacement(
               context,
@@ -1177,14 +1590,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             );
             break;
 
+          // Cá nhân
           case 3:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const StatisticsScreen()),
-            );
-            break;
-
-          case 4:
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -1204,24 +1611,22 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       items: const [
         BottomNavigationBarItem(
           icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home_rounded),
           label: 'Trang chủ',
         ),
 
         BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
 
         BottomNavigationBarItem(
-          icon: Icon(Icons.event_busy_outlined),
-          label: 'Nghỉ phép',
-        ),
-
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart_outlined),
-          label: 'Thống kê',
+          icon: Icon(Icons.description_outlined),
+          activeIcon: Icon(Icons.description),
+          label: 'Yêu cầu',
         ),
 
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
-          label: 'Profile',
+          activeIcon: Icon(Icons.person),
+          label: 'Cá nhân',
         ),
       ],
     );

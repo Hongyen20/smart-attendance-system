@@ -1284,9 +1284,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
         child: Row(
           children: [
-            // ----------------------------------------------------
             // TRANG CHỦ
-            // ----------------------------------------------------
             _buildNavItem(
               index: 0,
 
@@ -1305,9 +1303,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               },
             ),
 
-            // ----------------------------------------------------
             // NHÂN VIÊN
-            // ----------------------------------------------------
             _buildNavItem(
               index: 1,
 
@@ -1322,9 +1318,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               },
             ),
 
-            // ----------------------------------------------------
             // CHẤM CÔNG
-            // ----------------------------------------------------
             _buildNavItem(
               index: 2,
 
@@ -1343,9 +1337,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               },
             ),
 
-            // ----------------------------------------------------
             // YÊU CẦU
-            // ----------------------------------------------------
             _buildNavItem(
               index: 3,
 
@@ -1366,9 +1358,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               },
             ),
 
-            // ----------------------------------------------------
             // CÀI ĐẶT
-            // ----------------------------------------------------
             _buildNavItem(
               index: 4,
 
