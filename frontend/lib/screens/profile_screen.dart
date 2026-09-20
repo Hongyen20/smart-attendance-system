@@ -236,8 +236,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildLogoHeader() {
     return SizedBox(
-      width: 62,
-      height: 48,
+      width: 150,
+      height: 60,
       child: Image.asset(
         'assets/images/logo.png',
         fit: BoxFit.contain,

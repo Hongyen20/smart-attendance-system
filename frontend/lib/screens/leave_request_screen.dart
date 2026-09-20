@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
+
 import 'employee_home_screen.dart';
 import 'history_screen.dart';
-import 'statistics_screen.dart';
 import 'profile_screen.dart';
 
 enum LeaveRequestStatus { accepted, pending, rejected }
@@ -25,12 +26,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   ];
 
   String _selectedType = _leaveTypes.first;
+
   DateTime? _fromDate;
   DateTime? _toDate;
-  final _reasonController = TextEditingController();
-  bool _isSubmitting = false;
 
+  final _reasonController = TextEditingController();
+
+  bool _isSubmitting = false;
   bool _isLoadingRequests = true;
+
   List<dynamic> _recentRequests = [];
 
   @override
@@ -45,8 +49,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     super.dispose();
   }
 
+  // LOAD REQUESTS
+
   Future<void> _loadRecentRequests() async {
-    setState(() => _isLoadingRequests = true);
+    setState(() {
+      _isLoadingRequests = true;
+    });
 
     final result = await ApiService.getList(
       '/api/leave-requests/me',
@@ -57,40 +65,68 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
     setState(() {
       _isLoadingRequests = false;
+
       if (result.success) {
         _recentRequests = result.data!;
       }
     });
   }
 
+  // DATE FORMAT
+
   String _formatDate(DateTime? date) {
-    if (date == null) return 'mm/dd/yyyy';
-    final mm = date.month.toString().padLeft(2, '0');
-    final dd = date.day.toString().padLeft(2, '0');
-    return '$mm/$dd/${date.year}';
+    if (date == null) {
+      return 'dd/mm/yyyy';
+    }
+
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+
+    return '$day/$month/${date.year}';
   }
+
+  // PICK DATE
 
   Future<void> _pickDate({required bool isFromDate}) async {
     final now = DateTime.now();
-    final initial = (isFromDate ? _fromDate : _toDate) ?? now;
+
+    final initialDate = (isFromDate ? _fromDate : _toDate) ?? now;
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initialDate,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 2),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primaryBlue,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    if (picked != null) {
-      setState(() {
-        if (isFromDate) {
-          _fromDate = picked;
-        } else {
-          _toDate = picked;
+    if (picked == null) return;
+
+    setState(() {
+      if (isFromDate) {
+        _fromDate = picked;
+
+        // Nếu ngày bắt đầu lớn hơn ngày kết thúc
+        // thì reset ngày kết thúc.
+        if (_toDate != null && _toDate!.isBefore(picked)) {
+          _toDate = null;
         }
-      });
-    }
+      } else {
+        _toDate = picked;
+      }
+    });
   }
+
+  // SUBMIT
 
   Future<void> _handleSubmit() async {
     if (_fromDate == null || _toDate == null) {
@@ -99,16 +135,21 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           content: Text('Vui lòng chọn đầy đủ Từ ngày và Đến ngày.'),
         ),
       );
+
       return;
     }
+
     if (_toDate!.isBefore(_fromDate!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đến ngày phải sau hoặc bằng Từ ngày.')),
       );
+
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+    });
 
     final result = await ApiService.post('/api/leave-requests', {
       'type': _selectedType,
@@ -118,18 +159,31 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }, bearerToken: AuthState.instance.token);
 
     if (!mounted) return;
-    setState(() => _isSubmitting = false);
+
+    setState(() {
+      _isSubmitting = false;
+    });
 
     if (result.success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã gửi đơn nghỉ phép.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Đã gửi đơn nghỉ phép.'),
+          backgroundColor: AppColors.successGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+
       _reasonController.clear();
+
       setState(() {
         _fromDate = null;
         _toDate = null;
         _selectedType = _leaveTypes.first;
       });
+
       _loadRecentRequests();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,146 +192,77 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
   }
 
+  // BUILD
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+
       body: SafeArea(
         child: Column(
           children: [
             _buildTopBar(),
+
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildForm(),
-                    const SizedBox(height: 28),
-                    const Text(
-                      'Trạng thái đơn gần đây',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isLoadingRequests)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (_recentRequests.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: Text(
-                            'Chưa có đơn nghỉ phép nào.',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                        ),
-                      )
-                    else
-                      ..._recentRequests.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildStatusCard(item as Map<String, dynamic>),
-                        ),
-                      ),
-                  ],
+              child: RefreshIndicator(
+                color: AppColors.primaryBlue,
+                onRefresh: _loadRecentRequests,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPageTitle(),
+
+                      const SizedBox(height: 18),
+
+                      _buildForm(),
+
+                      const SizedBox(height: 28),
+
+                      _buildRecentRequestsSection(),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildBottomNav() {
-    return BottomNavigationBar(
-      currentIndex: 2,
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const EmployeeHomeScreen()),
-            );
-            break;
-          case 1:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HistoryScreen()),
-            );
-            break;
-          case 3:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const StatisticsScreen()),
-            );
-            break;
-          case 4:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
-            break;
-        }
-      },
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primaryBlue,
-      unselectedItemColor: AppColors.textSecondary,
-      showUnselectedLabels: true,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          label: 'Trang chủ',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.event_busy_outlined),
-          label: 'Nghỉ phép',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart_outlined),
-          label: 'Thống kê',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Profile',
-        ),
-      ],
-    );
-  }
+  // TOP BAR
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: const BoxDecoration(
         color: AppColors.cardBackground,
         border: Border(bottom: BorderSide(color: AppColors.borderColor)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.wifi, color: AppColors.primaryBlue, size: 24),
-          const SizedBox(width: 8),
-          const Text(
-            'AttendGo',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryBlue,
-            ),
-          ),
+          _buildLogoHeader(),
+
           const Spacer(),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none,
-              color: AppColors.textPrimary,
+
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.infoBoxBackground,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_none_outlined,
+              color: AppColors.primaryBlue,
+              size: 22,
             ),
           ),
         ],
@@ -285,45 +270,97 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     );
   }
 
+  // LOGO
+
+  Widget _buildLogoHeader() {
+    return SizedBox(
+      width: 150,
+      height: 60,
+      child: Image.asset(
+        'assets/images/logo.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
+      ),
+    );
+  }
+
+  // PAGE TITLE
+
+  Widget _buildPageTitle() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.infoBoxBackground,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.event_busy_outlined,
+            color: AppColors.primaryBlue,
+            size: 25,
+          ),
+        ),
+
+        const SizedBox(width: 13),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'Xin nghỉ phép',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+
+              SizedBox(height: 3),
+
+              Text(
+                'Gửi yêu cầu nghỉ phép đến quản lý',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // FORM
+
   Widget _buildForm() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFieldLabel('LOẠI NGHỈ PHÉP'),
+
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderColor),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedType,
-                isExpanded: true,
-                icon: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: AppColors.textSecondary,
-                ),
-                items: _leaveTypes
-                    .map(
-                      (type) =>
-                          DropdownMenuItem(value: type, child: Text(type)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedType = value!),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+
+          _buildLeaveTypeDropdown(),
+
+          const SizedBox(height: 18),
+
           Row(
             children: [
               Expanded(
@@ -333,7 +370,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   isFromDate: true,
                 ),
               ),
-              const SizedBox(width: 12),
+
+              const SizedBox(width: 10),
+
               Expanded(
                 child: _buildDateField(
                   label: 'ĐẾN NGÀY',
@@ -343,50 +382,65 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 18),
+
           _buildFieldLabel('LÝ DO'),
+
           const SizedBox(height: 8),
+
           TextField(
             controller: _reasonController,
             maxLines: 4,
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Nhập lý do nghỉ phép của bạn...',
-              hintStyle: const TextStyle(color: Color(0xFFB0B3BD)),
+              hintStyle: const TextStyle(
+                color: Color(0xFFB0B3BD),
+                fontSize: 13,
+              ),
+              filled: true,
+              fillColor: AppColors.background,
               contentPadding: const EdgeInsets.all(14),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: AppColors.borderColor),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: AppColors.borderColor),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(
-                  color: AppColors.accentBlue,
+                  color: AppColors.primaryBlue,
                   width: 1.5,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 18),
+
           SizedBox(
             width: double.infinity,
-            height: 52,
+            height: 50,
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _handleSubmit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                backgroundColor: AppColors.primaryBlue,
+                disabledBackgroundColor: AppColors.primaryBlue.withOpacity(
+                  0.55,
                 ),
                 elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
               child: _isSubmitting
                   ? const SizedBox(
-                      width: 22,
-                      height: 22,
+                      width: 21,
+                      height: 21,
                       child: CircularProgressIndicator(
                         color: Colors.white,
                         strokeWidth: 2.4,
@@ -395,14 +449,20 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.send, color: Colors.white, size: 18),
+                        Icon(
+                          Icons.send_outlined,
+                          color: Colors.white,
+                          size: 19,
+                        ),
+
                         SizedBox(width: 8),
+
                         Text(
-                          'Gửi Đơn',
+                          'Gửi đơn nghỉ phép',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -414,17 +474,65 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     );
   }
 
+  // LEAVE TYPE DROPDOWN
+
+  Widget _buildLeaveTypeDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedType,
+          isExpanded: true,
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+            color: AppColors.textSecondary,
+          ),
+          items: _leaveTypes
+              .map(
+                (type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(
+                    type,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null) return;
+
+            setState(() {
+              _selectedType = value;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  // FIELD LABEL
+
   Widget _buildFieldLabel(String text) {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
         color: AppColors.textSecondary,
         letterSpacing: 0.5,
       ),
     );
   }
+
+  // DATE FIELD
 
   Widget _buildDateField({
     required String label,
@@ -435,14 +543,17 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFieldLabel(label),
-        const SizedBox(height: 8),
+
+        const SizedBox(height: 7),
+
         InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: () => _pickDate(isFromDate: isFromDate),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderColor),
             ),
             child: Row(
@@ -451,16 +562,21 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   child: Text(
                     _formatDate(date),
                     style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: date == null
+                          ? FontWeight.normal
+                          : FontWeight.w600,
                       color: date == null
                           ? const Color(0xFFB0B3BD)
                           : AppColors.textPrimary,
                     ),
                   ),
                 ),
+
                 const Icon(
                   Icons.calendar_today_outlined,
-                  size: 16,
-                  color: AppColors.textSecondary,
+                  size: 17,
+                  color: AppColors.primaryBlue,
                 ),
               ],
             ),
@@ -470,8 +586,87 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     );
   }
 
+  // RECENT REQUESTS
+
+  Widget _buildRecentRequestsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Đơn nghỉ phép gần đây',
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        if (_isLoadingRequests)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 30),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primaryBlue),
+            ),
+          )
+        else if (_recentRequests.isEmpty)
+          _buildEmptyRequests()
+        else
+          ..._recentRequests.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildStatusCard(item as Map<String, dynamic>),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // EMPTY REQUEST
+
+  Widget _buildEmptyRequests() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.infoBoxBackground,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.description_outlined,
+              color: AppColors.primaryBlue,
+              size: 25,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          const Text(
+            'Chưa có đơn nghỉ phép nào.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // STATUS CARD
+
   Widget _buildStatusCard(Map<String, dynamic> item) {
     final status = item['status'] as String;
+
     late final IconData icon;
     late final Color iconColor;
     late final Color iconBg;
@@ -488,6 +683,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         pillBg = AppColors.successGreenBg;
         pillFg = AppColors.successGreen;
         break;
+
       case 'Rejected':
         icon = Icons.cancel;
         iconColor = AppColors.dangerRed;
@@ -496,6 +692,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         pillBg = AppColors.dangerRedBg;
         pillFg = AppColors.dangerRed;
         break;
+
       default:
         icon = Icons.access_time;
         iconColor = AppColors.pendingBlue;
@@ -506,20 +703,31 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
 
     final startDate = DateTime.parse(item['startDate'] as String);
+
     final endDate = DateTime.parse(item['endDate'] as String);
-    final dateLabel =
+
+    final sameDay =
         startDate.day == endDate.day &&
-            startDate.month == endDate.month &&
-            startDate.year == endDate.year
-        ? '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year}'
-        : '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year} - '
-              '${endDate.day.toString().padLeft(2, '0')}/${endDate.month.toString().padLeft(2, '0')}/${endDate.year}';
+        startDate.month == endDate.month &&
+        startDate.year == endDate.year;
+
+    final startLabel =
+        '${startDate.day.toString().padLeft(2, '0')}/'
+        '${startDate.month.toString().padLeft(2, '0')}/'
+        '${startDate.year}';
+
+    final endLabel =
+        '${endDate.day.toString().padLeft(2, '0')}/'
+        '${endDate.month.toString().padLeft(2, '0')}/'
+        '${endDate.year}';
+
+    final dateLabel = sameDay ? startLabel : '$startLabel - $endLabel';
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
@@ -530,33 +738,41 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 22),
           ),
-          const SizedBox(width: 14),
+
+          const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item['type'] ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+
+                const SizedBox(height: 3),
+
                 Text(
                   dateLabel,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
+
           const SizedBox(width: 8),
+
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: pillBg,
               borderRadius: BorderRadius.circular(20),
@@ -565,14 +781,93 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
                 color: pillFg,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // BOTTOM NAVIGATION
+
+  Widget _buildBottomNav() {
+    return BottomNavigationBar(
+      currentIndex: 2,
+
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const EmployeeHomeScreen()),
+            );
+            break;
+
+          case 1:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            );
+            break;
+
+          case 2:
+            // Đang ở màn hình Yêu cầu.
+            break;
+
+          case 3:
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            break;
+        }
+      },
+
+      type: BottomNavigationBarType.fixed,
+
+      backgroundColor: AppColors.cardBackground,
+
+      selectedItemColor: AppColors.primaryBlue,
+
+      unselectedItemColor: AppColors.textSecondary,
+
+      selectedFontSize: 12,
+
+      unselectedFontSize: 12,
+
+      showUnselectedLabels: true,
+
+      elevation: 8,
+
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'Trang chủ',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(Icons.history_outlined),
+          activeIcon: Icon(Icons.history),
+          label: 'Lịch sử',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(Icons.description_outlined),
+          activeIcon: Icon(Icons.description),
+          label: 'Yêu cầu',
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          activeIcon: Icon(Icons.person),
+          label: 'Cá nhân',
+        ),
+      ],
     );
   }
 }
