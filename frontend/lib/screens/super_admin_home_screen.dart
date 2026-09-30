@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../services/auth_state.dart';
+
 import 'create_company_screen.dart';
 import 'company_list_screen.dart';
 import 'company_detail_screen.dart';
+import 'login_screen.dart';
+
 class SuperAdminHomeScreen extends StatelessWidget {
   const SuperAdminHomeScreen({super.key});
 
@@ -18,6 +23,65 @@ class SuperAdminHomeScreen extends StatelessWidget {
   static const Color border = Color(0xFFC9D9FF);
   static const Color softBlue = Color(0xFFEAF0FF);
 
+  static const Color logoutRed = Color(0xFFE03131);
+  static const Color logoutRedBackground = Color(0xFFFFECEC);
+
+  // LOGOUT
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+
+          title: const Text(
+            'Đăng xuất',
+
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+
+          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+
+              child: const Text('Hủy'),
+            ),
+
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+
+              child: const Text(
+                'Đăng xuất',
+
+                style: TextStyle(color: logoutRed, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    if (!context.mounted) return;
+
+    // Xóa token và thông tin đăng nhập.
+    AuthState.instance.clear();
+
+    // Quay về màn hình đăng nhập và xóa toàn bộ lịch sử màn hình cũ,
+    // để bấm Back không quay lại trang SuperAdmin được.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,7 +92,7 @@ class SuperAdminHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(context),
 
               const SizedBox(height: 42),
               _buildWelcome(),
@@ -96,8 +160,8 @@ class SuperAdminHomeScreen extends StatelessWidget {
   }
 
   // HEADER
-  // HEADER
-  Widget _buildHeader() {
+
+  Widget _buildHeader(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -109,16 +173,52 @@ class SuperAdminHomeScreen extends StatelessWidget {
 
         const SizedBox(width: 14),
 
-        const Text(
-          'Quản trị hệ thống',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: textSecondary,
-            letterSpacing: -0.2,
+        const Expanded(
+          child: Text(
+            'Quản trị hệ thống',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: textSecondary,
+              letterSpacing: -0.2,
+            ),
           ),
         ),
+
+        const SizedBox(width: 10),
+
+        // LOGOUT BUTTON
+        _buildLogoutButton(context),
       ],
+    );
+  }
+
+  // LOGOUT BUTTON
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return Tooltip(
+      message: 'Đăng xuất',
+
+      child: Material(
+        color: logoutRedBackground,
+
+        borderRadius: BorderRadius.circular(14),
+
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+
+          onTap: () => _confirmLogout(context),
+
+          child: const SizedBox(
+            width: 46,
+            height: 46,
+
+            child: Icon(Icons.logout_rounded, color: logoutRed, size: 24),
+          ),
+        ),
+      ),
     );
   }
 

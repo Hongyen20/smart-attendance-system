@@ -326,12 +326,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(width: 10),
-
-              const Text(
-                'Ghi nhớ đăng nhập',
-                style: TextStyle(color: Color(0xFF30394D), fontSize: 15),
-              ),
 
               const Spacer(),
 
@@ -482,7 +476,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildFooter() {
     return const Text(
-      '© 2024 AttendGo. Tất cả quyền được bảo lưu.',
+      '© 2026 AttendGo. Created by MavisNguyen.',
       textAlign: TextAlign.center,
       style: TextStyle(color: Color(0xFF68738A), fontSize: 13),
     );

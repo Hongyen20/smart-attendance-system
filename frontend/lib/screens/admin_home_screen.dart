@@ -11,6 +11,7 @@ import 'leave_approval_screen.dart';
 import 'shift_change_approval_screen.dart';
 import 'face_management_screen.dart';
 import 'business_trip_approval_screen.dart';
+import 'login_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -60,6 +61,69 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     });
   }
 
+  // LOGOUT
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+
+          title: const Text(
+            'Đăng xuất',
+
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+
+          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+
+              child: const Text('Hủy'),
+            ),
+
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+
+              child: const Text(
+                'Đăng xuất',
+
+                style: TextStyle(
+                  color: Color(0xFFE03131),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+
+    _logout();
+  }
+
+  void _logout() {
+    // Xóa token và thông tin đăng nhập.
+    AuthState.instance.clear();
+
+    // Quay về màn hình đăng nhập và xóa toàn bộ lịch sử màn hình cũ,
+    // để bấm Back không quay lại trang admin được.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   // BUILD
 
   @override
@@ -70,7 +134,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-
             // MAIN CONTENT
             Expanded(
               child: RefreshIndicator(
@@ -241,6 +304,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                         children: [
                           _buildIconGrid([
+                            // Đổi mật khẩu
                             _FunctionTileData(
                               icon: Icons.lock_rounded,
                               title: 'Đổi mật khẩu',
@@ -255,6 +319,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   ),
                                 );
                               },
+                            ),
+
+                            // Đăng xuất
+                            _FunctionTileData(
+                              icon: Icons.logout_rounded,
+                              title: 'Đăng xuất',
+                              color: const Color(0xFFE03131),
+
+                              onTap: _confirmLogout,
                             ),
                           ]),
                         ],
@@ -287,7 +360,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
   }
-
 
   // WELCOME SECTION
 
@@ -655,7 +727,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
   }
-
 }
 
 // FUNCTION TILE DATA
