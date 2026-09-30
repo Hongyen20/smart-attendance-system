@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/auth_gate.dart';
 
 void main() {
   runApp(const AttendGoApp());
@@ -14,7 +14,7 @@ class AttendGoApp extends StatelessWidget {
       title: 'AttendGo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
-      home: const LoginScreen(),
+      home: const AuthGate(),
     );
   }
 }
