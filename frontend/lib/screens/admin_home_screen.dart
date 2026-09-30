@@ -276,8 +276,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildLogoHeader() {
     return SizedBox(
-      width: 105,
-      height: 48,
+      height: 60,
 
       child: Image.asset(
         'assets/images/logo.png',
@@ -314,7 +313,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   'Chào Quản Trị Viên',
 
                   style: TextStyle(
-                    fontSize: 23,
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF102A67),
                   ),

@@ -812,7 +812,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Widget _buildLogoHeader() {
     return SizedBox(
-      width: 150,
       height: 60,
 
       child: Image.asset(

@@ -51,20 +51,64 @@ public class AttendanceController : ControllerBase
 
     private string GetClientIp()
     {
-        var forwarded =
-            Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        // Nginx nên gửi:
+        // proxy_set_header X-Real-IP $remote_addr;
 
-        if (!string.IsNullOrEmpty(forwarded))
+        var realIp =
+            Request.Headers["X-Real-IP"]
+                .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(realIp))
         {
-            return forwarded
-                .Split(',')
-                .FirstOrDefault()
-                ?.Trim()
-                ?? "unknown";
+            var cleanedIp = realIp.Trim();
+
+            if (IsValidIPv4(cleanedIp))
+            {
+                return cleanedIp;
+            }
         }
 
-        return HttpContext.Connection.RemoteIpAddress?.ToString()
-            ?? "unknown";
+        // Fallback nếu X-Real-IP không tồn tại.
+        var forwarded =
+            Request.Headers["X-Forwarded-For"]
+                .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(forwarded))
+        {
+            // X-Forwarded-For có thể có nhiều IP:
+            // client, proxy1, proxy2...
+            //
+            // Lấy IP đầu tiên và kiểm tra lại nó có phải IPv4 hay không.
+            var firstIp = forwarded
+                .Split(',')
+                .FirstOrDefault()
+                ?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(firstIp) &&
+                IsValidIPv4(firstIp))
+            {
+                return firstIp;
+            }
+        }
+
+        // Fallback cuối cùng.
+        var remoteIp =
+            HttpContext.Connection.RemoteIpAddress;
+
+        if (remoteIp is not null)
+        {
+            // Nếu backend nhận IPv4-mapped IPv6.
+            if (remoteIp.IsIPv4MappedToIPv6)
+            {
+                return remoteIp
+                    .MapToIPv4()
+                    .ToString();
+            }
+
+            return remoteIp.ToString();
+        }
+
+        return "unknown";
     }
 
     // VALIDATE IPV4
@@ -77,20 +121,18 @@ public class AttendanceController : ControllerBase
         }
 
         return IPAddress.TryParse(
-                   ip,
+                   ip.Trim(),
                    out var parsed)
                &&
                parsed.AddressFamily ==
                    System.Net.Sockets.AddressFamily.InterNetwork;
     }
 
-    // FIND MATCHING IP + GPS CONFIG
+    // FIND IP CONFIG
 
-    private async Task<IpConfig?> FindMatchingConfigAsync(
+    private async Task<IpConfig?> FindMatchingIpConfigAsync(
         string companyId,
-        string clientIp,
-        double lat,
-        double lng)
+        string clientIp)
     {
         var configs =
             await _ipConfigService
@@ -100,15 +142,24 @@ public class AttendanceController : ControllerBase
             string.Equals(
                 config.AllowedIp?.Trim(),
                 clientIp.Trim(),
-                StringComparison.OrdinalIgnoreCase)
-            &&
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    // CHECK GPS
+
+    private static bool IsWithinGpsRadius(
+        IpConfig config,
+        double lat,
+        double lng)
+    {
+        var distance =
             GeoUtils.DistanceInMeters(
                 config.GpsCenter.Lat,
                 config.GpsCenter.Lng,
                 lat,
-                lng)
-            <= config.RadiusMeters
-        );
+                lng);
+
+        return distance <= config.RadiusMeters;
     }
 
     // CHECK-IN STATUS
@@ -345,7 +396,7 @@ public class AttendanceController : ControllerBase
     // CHECK-IN
     //
     // NORMAL:
-    // FACE ID → IP → GPS → CAMERA → REKOGNITION → ATTENDANCE
+    // FACE ID → IPV4 → GPS → CAMERA → REKOGNITION → ATTENDANCE
     //
     // BUSINESS TRIP:
     // FACE ID → CAMERA → REKOGNITION → ATTENDANCE
@@ -423,12 +474,12 @@ public class AttendanceController : ControllerBase
             });
         }
 
-        // 4. LẤY CLIENT IP TỪ SERVER
+        // 4. LẤY CLIENT IP
 
         var clientIp =
             GetClientIp();
 
-        // 5. KIỂM TRA ĐI CÔNG TÁC ĐÃ ĐƯỢC DUYỆT
+        // 5. KIỂM TRA BUSINESS TRIP
 
         var approvedTrip =
             await _businessTripRequestService
@@ -440,33 +491,57 @@ public class AttendanceController : ControllerBase
         var isBusinessTrip =
             approvedTrip is not null;
 
-        // 6. NORMAL EMPLOYEE:
-        // KIỂM TRA IP + GPS
+        // 6. NORMAL EMPLOYEE
         //
-        // BUSINESS TRIP:
-        // BỎ QUA HOÀN TOÀN IP + GPS
+        // QUAN TRỌNG:
+        //
+        // BƯỚC 1: IPV4
+        // BƯỚC 2: GPS
+        //
+        // Nếu IPv4 sai → DỪNG NGAY.
+        // Không kiểm tra GPS.
+        // Không xử lý camera.
 
         if (!isBusinessTrip)
         {
+            // 6.1 KIỂM TRA CLIENT IP
+
             if (string.IsNullOrWhiteSpace(clientIp) ||
                 clientIp == "unknown")
             {
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_IN_FAILED",
+                    "Không xác định được địa chỉ IPv4.");
+
                 return BadRequest(new
                 {
                     message =
-                        "Không xác định được địa chỉ IP công cộng."
+                        "Không xác định được địa chỉ IPv4 công cộng."
                 });
             }
 
-            // Client IP phải là IPv4.
+            // 6.2 IP PHẢI LÀ IPv4
+
             if (!IsValidIPv4(clientIp))
             {
-                return BadRequest(new
-                {
-                    message =
-                        "Địa chỉ IP công cộng không hợp lệ."
-                });
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_IN_FAILED",
+                    $"IP không phải IPv4 hợp lệ. IP={clientIp}");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "Địa chỉ IPv4 công cộng không hợp lệ."
+                    });
             }
+
+            // 6.3 LẤY CẤU HÌNH IP
 
             var configs =
                 await _ipConfigService
@@ -483,37 +558,81 @@ public class AttendanceController : ControllerBase
                 });
             }
 
-            var matched =
-                await FindMatchingConfigAsync(
-                    companyId,
-                    clientIp,
-                    request.Lat,
-                    request.Lng);
+            // 6.4 KIỂM TRA IPV4 CHÍNH XÁC
+            //
+            // KHÔNG kiểm tra GPS ở đây.
+            //
+            // Ví dụ:
+            //
+            // Config: 113.161.20.50
+            // Client: 113.161.20.51
+            //
+            // => FAIL NGAY.
 
-            if (matched is null)
+            var matchedIpConfig =
+                await FindMatchingIpConfigAsync(
+                    companyId,
+                    clientIp);
+
+            if (matchedIpConfig is null)
             {
                 await _auditLogService.LogAsync(
                     companyId,
                     userId,
                     "CHECK_IN_FAILED",
-                    $"IP hoặc GPS không khớp cấu hình. " +
-                    $"IP={clientIp}, " +
-                    $"Lat={request.Lat}, " +
-                    $"Lng={request.Lng}");
+                    $"IPv4 không khớp cấu hình. " +
+                    $"ClientIPv4={clientIp}");
 
                 return StatusCode(
                     403,
                     new
                     {
                         message =
-                            "Xác thực vị trí thất bại. " +
-                            "Vui lòng đảm bảo bạn đang kết nối đúng mạng " +
-                            "và ở trong khu vực công ty."
+                            $"IPv4 hiện tại ({clientIp}) " +
+                            "không được phép chấm công."
+                    });
+            }
+
+            // 6.5 IPV4 ĐÚNG
+
+            var isGpsValid =
+                IsWithinGpsRadius(
+                    matchedIpConfig,
+                    request.Lat,
+                    request.Lng);
+
+            if (!isGpsValid)
+            {
+                var distance =
+                    GeoUtils.DistanceInMeters(
+                        matchedIpConfig.GpsCenter.Lat,
+                        matchedIpConfig.GpsCenter.Lng,
+                        request.Lat,
+                        request.Lng);
+
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_IN_FAILED",
+                    $"IPv4 đúng nhưng GPS không hợp lệ. " +
+                    $"IP={clientIp}, " +
+                    $"Lat={request.Lat}, " +
+                    $"Lng={request.Lng}, " +
+                    $"Distance={distance}m, " +
+                    $"Radius={matchedIpConfig.RadiusMeters}m");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "IPv4 hợp lệ nhưng bạn đang ở ngoài " +
+                            "phạm vi chấm công."
                     });
             }
         }
 
-        // 7. KIỂM TRA ẢNH CAMERA
+        // 7. ĐẾN ĐÂY MỚI KIỂM TRA ẢNH CAMERA
 
         if (faceImage is null ||
             faceImage.Length == 0)
@@ -630,7 +749,9 @@ public class AttendanceController : ControllerBase
                 ? $"Business trip check-in. " +
                   $"Face verified. " +
                   $"Similarity={verification.Similarity}"
-                : $"Face verified. " +
+                : $"IPv4={clientIp}. " +
+                  $"GPS verified. " +
+                  $"Face verified. " +
                   $"Similarity={verification.Similarity}");
 
         // 12. RESPONSE
@@ -656,10 +777,10 @@ public class AttendanceController : ControllerBase
     // CHECK-OUT
     //
     // NORMAL:
-    // IP + GPS
+    // IPV4 → GPS
     //
     // BUSINESS TRIP:
-    // BỎ QUA IP + GPS
+    // BỎ QUA IPV4 + GPS
 
     [HttpPost("check-out")]
     public async Task<IActionResult> CheckOut(
@@ -710,7 +831,7 @@ public class AttendanceController : ControllerBase
         var clientIp =
             GetClientIp();
 
-        // 3. KIỂM TRA ĐI CÔNG TÁC
+        // 3. KIỂM TRA BUSINESS TRIP
 
         var approvedTrip =
             await _businessTripRequestService
@@ -722,32 +843,49 @@ public class AttendanceController : ControllerBase
         var isBusinessTrip =
             approvedTrip is not null;
 
-        // 4. NORMAL EMPLOYEE:
-        // KIỂM TRA IP + GPS
-        //
-        // BUSINESS TRIP:
-        // BỎ QUA IP + GPS
+        // 4. NORMAL EMPLOYEE
+        // IPV4 → GPS
 
         if (!isBusinessTrip)
         {
+            // 4.1 KIỂM TRA IPV4
+
             if (string.IsNullOrWhiteSpace(clientIp) ||
                 clientIp == "unknown")
             {
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_OUT_FAILED",
+                    "Không xác định được địa chỉ IPv4.");
+
                 return BadRequest(new
                 {
                     message =
-                        "Không xác định được địa chỉ IP công cộng."
+                        "Không xác định được địa chỉ IPv4 công cộng."
                 });
             }
 
+            // 4.2 IPV4 PHẢI HỢP LỆ
+
             if (!IsValidIPv4(clientIp))
             {
-                return BadRequest(new
-                {
-                    message =
-                        "Địa chỉ IP công cộng không hợp lệ."
-                });
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_OUT_FAILED",
+                    $"IP không phải IPv4 hợp lệ. IP={clientIp}");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "Địa chỉ IPv4 công cộng không hợp lệ."
+                    });
             }
+
+            // 4.3 LẤY CONFIG
 
             var configs =
                 await _ipConfigService
@@ -764,32 +902,67 @@ public class AttendanceController : ControllerBase
                 });
             }
 
-            var matched =
-                await FindMatchingConfigAsync(
-                    companyId,
-                    clientIp,
-                    request.Lat,
-                    request.Lng);
+            // 4.4 KIỂM TRA IPV4 TRƯỚC
 
-            if (matched is null)
+            var matchedIpConfig =
+                await FindMatchingIpConfigAsync(
+                    companyId,
+                    clientIp);
+
+            if (matchedIpConfig is null)
             {
                 await _auditLogService.LogAsync(
                     companyId,
                     userId,
                     "CHECK_OUT_FAILED",
-                    $"IP hoặc GPS không khớp cấu hình. " +
-                    $"IP={clientIp}, " +
-                    $"Lat={request.Lat}, " +
-                    $"Lng={request.Lng}");
+                    $"IPv4 không khớp cấu hình. " +
+                    $"ClientIPv4={clientIp}");
 
                 return StatusCode(
                     403,
                     new
                     {
                         message =
-                            "Xác thực thất bại. " +
-                            "Vui lòng đảm bảo đang kết nối đúng mạng " +
-                            "và ở trong khu vực công ty."
+                            $"IPv4 hiện tại ({clientIp}) " +
+                            "không được phép check-out."
+                    });
+            }
+
+            // 4.5 IPV4 ĐÚNG 
+
+            var isGpsValid =
+                IsWithinGpsRadius(
+                    matchedIpConfig,
+                    request.Lat,
+                    request.Lng);
+
+            if (!isGpsValid)
+            {
+                var distance =
+                    GeoUtils.DistanceInMeters(
+                        matchedIpConfig.GpsCenter.Lat,
+                        matchedIpConfig.GpsCenter.Lng,
+                        request.Lat,
+                        request.Lng);
+
+                await _auditLogService.LogAsync(
+                    companyId,
+                    userId,
+                    "CHECK_OUT_FAILED",
+                    $"IPv4 đúng nhưng GPS không hợp lệ. " +
+                    $"IP={clientIp}, " +
+                    $"Lat={request.Lat}, " +
+                    $"Lng={request.Lng}, " +
+                    $"Distance={distance}m, " +
+                    $"Radius={matchedIpConfig.RadiusMeters}m");
+
+                return StatusCode(
+                    403,
+                    new
+                    {
+                        message =
+                            "IPv4 hợp lệ nhưng bạn đang ở ngoài " +
+                            "phạm vi check-out."
                     });
             }
         }
@@ -808,8 +981,6 @@ public class AttendanceController : ControllerBase
                 2);
 
         // 6. UPDATE ATTENDANCE
-        //
-        // Giữ nguyên Status OnTime/Late.
 
         await _attendanceService
             .UpdateCheckOutAsync(
@@ -834,7 +1005,10 @@ public class AttendanceController : ControllerBase
         await _auditLogService.LogAsync(
             companyId,
             userId,
-            "CHECK_OUT_SUCCESS");
+            "CHECK_OUT_SUCCESS",
+            isBusinessTrip
+                ? "Business trip check-out."
+                : $"IPv4={clientIp}. GPS verified.");
 
         // 8. RESPONSE
 

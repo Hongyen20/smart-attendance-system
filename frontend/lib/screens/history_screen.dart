@@ -1114,11 +1114,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
 
         BottomNavigationBarItem(
-          icon: Icon(Icons.event_busy_outlined),
-
-          activeIcon: Icon(Icons.event_busy_rounded),
-
-          label: 'Nghỉ phép',
+          icon: Icon(Icons.description_outlined),
+          activeIcon: Icon(Icons.description),
+          label: 'Yêu cầu',
         ),
 
         BottomNavigationBarItem(
