@@ -23,6 +23,8 @@ import 'business_trip_request_screen.dart';
 
 enum _CheckState { loading, notCheckedIn, checkedIn, checkedOut }
 
+enum _StepStatus { pending, running, success, failed }
+
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
 
@@ -48,6 +50,33 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   bool _isLoadingFaceStatus = true;
 
   Timer? _clockTimer;
+
+  // STEP PROGRESS
+
+  static const List<String> _checkInStepLabels = [
+    'Kiểm tra địa chỉ IP',
+    'Xác định vị trí GPS',
+    'Xác thực IP và vị trí với hệ thống',
+    'Xác thực khuôn mặt',
+  ];
+
+  static const List<String> _checkOutStepLabels = [
+    'Kiểm tra địa chỉ IP',
+    'Xác định vị trí GPS',
+    'Xác thực và chấm công ra',
+  ];
+
+  // Index các bước.
+  static const int _stepIp = 0;
+  static const int _stepGps = 1;
+  static const int _stepServer = 2; // check-in: precheck, check-out: check-out
+  static const int _stepFace = 3; // chỉ check-in
+
+  bool _showSteps = false;
+
+  List<String> _stepLabels = const [];
+  List<_StepStatus> _stepStatuses = const [];
+  List<String?> _stepDetails = const [];
 
   static const List<String> _weekdays = [
     'Chủ Nhật',
@@ -101,6 +130,56 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Future<void> _initializeScreen() async {
     await Future.wait([_loadTodayStatus(), _loadFaceStatus()]);
+  }
+
+  // STEP HELPERS
+
+  void _startSteps(List<String> labels) {
+    if (!mounted) return;
+
+    setState(() {
+      _showSteps = true;
+      _stepLabels = labels;
+      _stepStatuses = List<_StepStatus>.filled(
+        labels.length,
+        _StepStatus.pending,
+      );
+      _stepDetails = List<String?>.filled(labels.length, null);
+    });
+  }
+
+  void _setStep(int index, _StepStatus status, {String? detail}) {
+    if (!mounted) return;
+
+    if (index < 0 || index >= _stepStatuses.length) return;
+
+    setState(() {
+      _stepStatuses = List<_StepStatus>.from(_stepStatuses)..[index] = status;
+
+      _stepDetails = List<String?>.from(_stepDetails)..[index] = detail;
+    });
+  }
+
+  void _setStepDetail(int index, String? detail) {
+    if (!mounted) return;
+
+    if (index < 0 || index >= _stepDetails.length) return;
+
+    setState(() {
+      _stepDetails = List<String?>.from(_stepDetails)..[index] = detail;
+    });
+  }
+
+  void _hideStepsLater() {
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!mounted) return;
+
+      if (_isProcessing) return;
+
+      setState(() {
+        _showSteps = false;
+      });
+    });
   }
 
   // LOAD FACE STATUS
@@ -394,7 +473,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       );
 
       if (permission == LocationPermission.denied) {
-        _showSnack('Đang yêu cầu quyền truy cập vị trí...');
+        _setStepDetail(_stepGps, 'Đang yêu cầu quyền truy cập vị trí...');
 
         permission = await Geolocator.requestPermission().timeout(
           const Duration(seconds: 30),
@@ -416,7 +495,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return null;
       }
 
-      _showSnack('Đang lấy vị trí GPS...');
+      _setStepDetail(_stepGps, 'Đang lấy tọa độ GPS...');
 
       Position? position;
 
@@ -430,7 +509,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       } on TimeoutException {
         debugPrint('GPS: low accuracy timeout, retry high accuracy...');
 
-        _showSnack('Đang thử lại với độ chính xác cao...');
+        _setStepDetail(_stepGps, 'Đang thử lại với độ chính xác cao...');
 
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -445,8 +524,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
         return null;
       }
-
-      _showSnack('Đã lấy vị trí GPS thành công.');
 
       return position;
     } on TimeoutException {
@@ -513,31 +590,82 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return Uri.parse('${ApiConfig.baseUrl}$path');
   }
 
-  // CHECK-IN
+  // PRECHECK
+  //
+  // Gửi IP + GPS lên server để kiểm tra TRƯỚC khi mở camera.
+  // Trả về null nếu hợp lệ, ngược lại trả về message lỗi.
 
-  Future<void> _performCheckIn({
+  Future<String?> _precheckCheckIn({
+    required String publicIp,
+    required Position position,
+  }) async {
+    try {
+      final body = {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'publicIp': publicIp,
+        'deviceId': 'web',
+      };
+
+      final result = await ApiService.post(
+        '/api/attendance/precheck',
+        body,
+        bearerToken: AuthState.instance.token,
+      );
+
+      if (result.success) {
+        return null;
+      }
+
+      return result.errorMessage ?? 'Không thể xác thực IP và vị trí.';
+    } catch (e) {
+      debugPrint('Precheck error: $e');
+
+      return 'Không thể kết nối đến máy chủ.';
+    }
+  }
+
+  // CHECK-IN
+  //
+  // Trả về true nếu check-in thành công.
+
+  Future<bool> _performCheckIn({
     required String publicIp,
     required Position position,
   }) async {
     // Mở camera.
+    _setStep(_stepFace, _StepStatus.running, detail: 'Đang mở camera...');
+
     final faceImage = await _captureFaceImage();
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     if (faceImage == null) {
-      return;
+      _setStep(
+        _stepFace,
+        _StepStatus.failed,
+        detail: 'Chưa chụp ảnh khuôn mặt',
+      );
+
+      return false;
     }
 
     // Đọc ảnh.
     final imageBytes = await faceImage.readAsBytes();
 
     if (imageBytes.isEmpty) {
+      _setStep(_stepFace, _StepStatus.failed, detail: 'Không đọc được ảnh');
+
       _showSnack('Không đọc được ảnh khuôn mặt.');
 
-      return;
+      return false;
     }
 
-    _showSnack('Đang xác thực khuôn mặt...');
+    _setStep(
+      _stepFace,
+      _StepStatus.running,
+      detail: 'Đang xác thực khuôn mặt...',
+    );
 
     try {
       final request = http.MultipartRequest(
@@ -591,14 +719,18 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         data = null;
       }
 
-      if (!mounted) return;
+      if (!mounted) return false;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _showSnack(data?['message']?.toString() ?? 'Check-in thành công!');
+        final message = data?['message']?.toString() ?? 'Check-in thành công!';
+
+        _setStep(_stepFace, _StepStatus.success, detail: 'Khuôn mặt hợp lệ');
+
+        _showSnack(message);
 
         await _loadTodayStatus();
 
-        return;
+        return true;
       }
 
       final errorMessage =
@@ -606,19 +738,33 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           data?['title']?.toString() ??
           'Xác thực khuôn mặt thất bại.';
 
+      _setStep(_stepFace, _StepStatus.failed, detail: errorMessage);
+
       _showSnack(errorMessage);
+
+      return false;
     } catch (e) {
       debugPrint('Check-in multipart error: $e');
 
-      if (!mounted) return;
+      if (!mounted) return false;
+
+      _setStep(
+        _stepFace,
+        _StepStatus.failed,
+        detail: 'Không thể kết nối đến máy chủ',
+      );
 
       _showSnack('Không thể kết nối đến máy chủ.');
+
+      return false;
     }
   }
 
   // CHECK-OUT
+  //
+  // Trả về true nếu check-out thành công.
 
-  Future<void> _performCheckOut({
+  Future<bool> _performCheckOut({
     required String publicIp,
     required Position position,
   }) async {
@@ -636,21 +782,39 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         bearerToken: AuthState.instance.token,
       );
 
-      if (!mounted) return;
+      if (!mounted) return false;
 
       if (result.success) {
+        _setStep(_stepServer, _StepStatus.success, detail: 'Đã chấm công ra');
+
         _showSnack('Check-out thành công!');
 
         await _loadTodayStatus();
-      } else {
-        _showSnack(result.errorMessage ?? 'Xác thực check-out thất bại.');
+
+        return true;
       }
+
+      final message = result.errorMessage ?? 'Xác thực check-out thất bại.';
+
+      _setStep(_stepServer, _StepStatus.failed, detail: message);
+
+      _showSnack(message);
+
+      return false;
     } catch (e) {
       debugPrint('Check-out error: $e');
 
-      if (!mounted) return;
+      if (!mounted) return false;
+
+      _setStep(
+        _stepServer,
+        _StepStatus.failed,
+        detail: 'Không thể kết nối đến máy chủ',
+      );
 
       _showSnack('Có lỗi xảy ra khi thực hiện check-out.');
+
+      return false;
     }
   }
 
@@ -692,27 +856,35 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       _isProcessing = true;
     });
 
+    _startSteps(isCheckIn ? _checkInStepLabels : _checkOutStepLabels);
+
+    var completed = false;
+
     try {
       // STEP 1: PUBLIC IP
-      _showSnack(
-        isCheckIn
-            ? 'Bước 1/3: Đang kiểm tra địa chỉ IP...'
-            : 'Bước 1/2: Đang kiểm tra địa chỉ IP...',
-      );
+      _setStep(_stepIp, _StepStatus.running, detail: 'Đang lấy địa chỉ IP...');
 
       final publicIp = await _getPublicIp();
 
       if (!mounted) return;
 
       if (publicIp == null) {
+        _setStep(
+          _stepIp,
+          _StepStatus.failed,
+          detail: 'Không lấy được địa chỉ IP',
+        );
+
         return;
       }
 
+      _setStep(_stepIp, _StepStatus.success, detail: 'IPv4: $publicIp');
+
       // STEP 2: GPS
-      _showSnack(
-        isCheckIn
-            ? 'Bước 2/3: Đang xác định vị trí...'
-            : 'Bước 2/2: Đang xác định vị trí...',
+      _setStep(
+        _stepGps,
+        _StepStatus.running,
+        detail: 'Đang xác định vị trí...',
       );
 
       final position = await _getCurrentPosition();
@@ -720,20 +892,67 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       if (!mounted) return;
 
       if (position == null) {
+        _setStep(
+          _stepGps,
+          _StepStatus.failed,
+          detail: 'Không lấy được vị trí GPS',
+        );
+
         return;
       }
 
+      _setStep(_stepGps, _StepStatus.success, detail: 'Đã xác định vị trí');
+
       // CHECK-IN
       if (isCheckIn) {
-        _showSnack('Bước 3/3: Đang mở camera...');
+        // STEP 3: SERVER KIỂM TRA IP + GPS (TRƯỚC KHI MỞ CAMERA)
+        _setStep(
+          _stepServer,
+          _StepStatus.running,
+          detail: 'Đang đối chiếu với cấu hình công ty...',
+        );
 
-        await _performCheckIn(publicIp: publicIp, position: position);
+        final precheckError = await _precheckCheckIn(
+          publicIp: publicIp,
+          position: position,
+        );
+
+        if (!mounted) return;
+
+        if (precheckError != null) {
+          _setStep(_stepServer, _StepStatus.failed, detail: precheckError);
+
+          _showSnack(precheckError);
+
+          return;
+        }
+
+        _setStep(
+          _stepServer,
+          _StepStatus.success,
+          detail: 'IP và vị trí hợp lệ',
+        );
+
+        // STEP 4: CAMERA + FACE
+        completed = await _performCheckIn(
+          publicIp: publicIp,
+          position: position,
+        );
 
         return;
       }
 
       // CHECK-OUT
-      await _performCheckOut(publicIp: publicIp, position: position);
+      _setStep(
+        _stepServer,
+        _StepStatus.running,
+        detail: 'Đang gửi yêu cầu chấm công ra...',
+      );
+
+      completed = await _performCheckOut(
+        publicIp: publicIp,
+        position: position,
+      );
     } catch (e) {
       debugPrint('Attendance error: $e');
 
@@ -745,17 +964,24 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         setState(() {
           _isProcessing = false;
         });
+
+        if (completed) {
+          _hideStepsLater();
+        }
       }
     }
   }
 
   // SNACKBAR
+  //
+  // removeCurrentSnackBar: xóa ngay snackbar hiện tại,
+  // không bị xếp hàng chờ như hideCurrentSnackBar.
 
   void _showSnack(String message) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
+      ..removeCurrentSnackBar()
       ..showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
@@ -1048,6 +1274,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
               _checkState == _CheckState.checkedOut)
             _buildAttendanceDescription(),
 
+          if (_showSteps) _buildStepProgress(),
+
           const SizedBox(height: 16),
 
           _buildAttendanceButton(),
@@ -1057,6 +1285,138 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           _buildStatsRow(),
         ],
       ),
+    );
+  }
+
+  // STEP PROGRESS PANEL
+
+  Widget _buildStepProgress() {
+    return Container(
+      width: double.infinity,
+
+      margin: const EdgeInsets.only(top: 14),
+
+      padding: const EdgeInsets.all(12),
+
+      decoration: BoxDecoration(
+        color: AppColors.background,
+
+        borderRadius: BorderRadius.circular(14),
+
+        border: Border.all(color: AppColors.borderColor),
+      ),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          for (var i = 0; i < _stepLabels.length; i++) ...[
+            _buildStepRow(i),
+
+            if (i != _stepLabels.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepRow(int index) {
+    final status = _stepStatuses[index];
+
+    final detail = _stepDetails[index];
+
+    Widget leading;
+    Color labelColor;
+
+    switch (status) {
+      case _StepStatus.pending:
+        leading = const Icon(
+          Icons.radio_button_unchecked,
+          size: 20,
+          color: AppColors.textSecondary,
+        );
+        labelColor = AppColors.textSecondary;
+        break;
+
+      case _StepStatus.running:
+        leading = const SizedBox(
+          width: 18,
+          height: 18,
+
+          child: Padding(
+            padding: EdgeInsets.all(1),
+
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: AppColors.primaryBlue,
+            ),
+          ),
+        );
+        labelColor = AppColors.primaryBlue;
+        break;
+
+      case _StepStatus.success:
+        leading = const Icon(
+          Icons.check_circle,
+          size: 20,
+          color: AppColors.successGreen,
+        );
+        labelColor = AppColors.textPrimary;
+        break;
+
+      case _StepStatus.failed:
+        leading = const Icon(
+          Icons.cancel,
+          size: 20,
+          color: AppColors.dangerRed,
+        );
+        labelColor = AppColors.dangerRed;
+        break;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+
+      children: [
+        SizedBox(width: 20, height: 20, child: Center(child: leading)),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                'Bước ${index + 1}/${_stepLabels.length}: '
+                '${_stepLabels[index]}',
+
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: labelColor,
+                ),
+              ),
+
+              if (detail != null && detail.isNotEmpty) ...[
+                const SizedBox(height: 2),
+
+                Text(
+                  detail,
+
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: status == _StepStatus.failed
+                        ? AppColors.dangerRed
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
