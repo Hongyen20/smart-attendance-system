@@ -54,14 +54,14 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   // STEP PROGRESS
 
   static const List<String> _checkInStepLabels = [
-    'Kiểm tra địa chỉ IP',
+    'Kiểm tra kết nối mạng',
     'Xác định vị trí GPS',
-    'Xác thực IP và vị trí với hệ thống',
+    'Xác thực Wi-Fi và vị trí',
     'Xác thực khuôn mặt',
   ];
 
   static const List<String> _checkOutStepLabels = [
-    'Kiểm tra địa chỉ IP',
+    'Kiểm tra kết nối mạng',
     'Xác định vị trí GPS',
     'Xác thực và chấm công ra',
   ];
@@ -76,7 +76,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   List<String> _stepLabels = const [];
   List<_StepStatus> _stepStatuses = const [];
-  List<String?> _stepDetails = const [];
+  // Thông báo lỗi hiển thị ở dòng cuối bảng tiến trình.
+  String? _stepError;
 
   static const List<String> _weekdays = [
     'Chủ Nhật',
@@ -144,7 +145,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         labels.length,
         _StepStatus.pending,
       );
-      _stepDetails = List<String?>.filled(labels.length, null);
+      _stepError = null;
     });
   }
 
@@ -156,17 +157,18 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     setState(() {
       _stepStatuses = List<_StepStatus>.from(_stepStatuses)..[index] = status;
 
-      _stepDetails = List<String?>.from(_stepDetails)..[index] = detail;
+      // Chỉ lưu thông báo khi bước lỗi (giữ thông báo cụ thể có sẵn).
+      if (status == _StepStatus.failed) {
+        _stepError ??= detail;
+      }
     });
   }
 
-  void _setStepDetail(int index, String? detail) {
+  void _setStepError(String message) {
     if (!mounted) return;
 
-    if (index < 0 || index >= _stepDetails.length) return;
-
     setState(() {
-      _stepDetails = List<String?>.from(_stepDetails)..[index] = detail;
+      _stepError = message;
     });
   }
 
@@ -391,7 +393,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
-        _showSnack('Không thể lấy địa chỉ IP công cộng.');
+        _showSnack('Không kiểm tra được kết nối mạng. Vui lòng thử lại.');
 
         return null;
       }
@@ -399,7 +401,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       final data = jsonDecode(response.body);
 
       if (data is! Map<String, dynamic>) {
-        _showSnack('Dữ liệu IP không hợp lệ.');
+        _showSnack('Không kiểm tra được kết nối mạng. Vui lòng thử lại.');
 
         return null;
       }
@@ -407,13 +409,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       final ip = data['ip']?.toString().trim();
 
       if (ip == null || ip.isEmpty) {
-        _showSnack('Không nhận được địa chỉ IP công cộng.');
+        _showSnack('Không kiểm tra được kết nối mạng. Vui lòng thử lại.');
 
         return null;
       }
 
       if (!_isValidIPv4(ip)) {
-        _showSnack('Địa chỉ IPv4 nhận được không hợp lệ.');
+        _showSnack(
+          'Mạng bạn đang dùng chưa được hỗ trợ. '
+          'Vui lòng kết nối Wi-Fi của công ty.',
+        );
 
         return null;
       }
@@ -423,8 +428,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       debugPrint('Get public IP error: $e');
 
       _showSnack(
-        'Không thể lấy IP công cộng. '
-        'Vui lòng kiểm tra kết nối Internet.',
+        'Không kiểm tra được kết nối mạng. '
+        'Vui lòng kiểm tra Wi-Fi/Internet rồi thử lại.',
       );
 
       return null;
@@ -473,8 +478,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       );
 
       if (permission == LocationPermission.denied) {
-        _setStepDetail(_stepGps, 'Đang yêu cầu quyền truy cập vị trí...');
-
         permission = await Geolocator.requestPermission().timeout(
           const Duration(seconds: 30),
         );
@@ -495,8 +498,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return null;
       }
 
-      _setStepDetail(_stepGps, 'Đang lấy tọa độ GPS...');
-
       Position? position;
 
       try {
@@ -508,8 +509,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ).timeout(const Duration(seconds: 15));
       } on TimeoutException {
         debugPrint('GPS: low accuracy timeout, retry high accuracy...');
-
-        _setStepDetail(_stepGps, 'Đang thử lại với độ chính xác cao...');
 
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -617,7 +616,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return null;
       }
 
-      return result.errorMessage ?? 'Không thể xác thực IP và vị trí.';
+      return result.errorMessage ?? 'Không thể xác thực Wi-Fi và vị trí.';
     } catch (e) {
       debugPrint('Precheck error: $e');
 
@@ -722,11 +721,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       if (!mounted) return false;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final message = data?['message']?.toString() ?? 'Check-in thành công!';
-
-        _setStep(_stepFace, _StepStatus.success, detail: 'Khuôn mặt hợp lệ');
-
-        _showSnack(message);
+        _setStep(_stepFace, _StepStatus.success);
 
         await _loadTodayStatus();
 
@@ -785,9 +780,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       if (!mounted) return false;
 
       if (result.success) {
-        _setStep(_stepServer, _StepStatus.success, detail: 'Đã chấm công ra');
-
-        _showSnack('Check-out thành công!');
+        _setStep(_stepServer, _StepStatus.success);
 
         await _loadTodayStatus();
 
@@ -862,7 +855,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
     try {
       // STEP 1: PUBLIC IP
-      _setStep(_stepIp, _StepStatus.running, detail: 'Đang lấy địa chỉ IP...');
+      _setStep(
+        _stepIp,
+        _StepStatus.running,
+        detail: 'Đang kiểm tra kết nối mạng...',
+      );
 
       final publicIp = await _getPublicIp();
 
@@ -872,13 +869,13 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         _setStep(
           _stepIp,
           _StepStatus.failed,
-          detail: 'Không lấy được địa chỉ IP',
+          detail: 'Không kiểm tra được kết nối mạng',
         );
 
         return;
       }
 
-      _setStep(_stepIp, _StepStatus.success, detail: 'IPv4: $publicIp');
+      _setStep(_stepIp, _StepStatus.success);
 
       // STEP 2: GPS
       _setStep(
@@ -909,7 +906,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         _setStep(
           _stepServer,
           _StepStatus.running,
-          detail: 'Đang đối chiếu với cấu hình công ty...',
+          detail: 'Đang đối chiếu Wi-Fi và vị trí...',
         );
 
         final precheckError = await _precheckCheckIn(
@@ -930,7 +927,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         _setStep(
           _stepServer,
           _StepStatus.success,
-          detail: 'IP và vị trí hợp lệ',
+          detail: 'Wi-Fi và vị trí hợp lệ',
         );
 
         // STEP 4: CAMERA + FACE
@@ -979,6 +976,13 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
+
+    // Đang chấm công: hiển thị lỗi ở dòng cuối bảng tiến trình.
+    if (_isProcessing && _showSteps) {
+      _setStepError(message);
+
+      return;
+    }
 
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar()
@@ -1315,6 +1319,21 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
             if (i != _stepLabels.length - 1) const SizedBox(height: 10),
           ],
+
+          if (_stepError != null && _stepError!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+
+            Text(
+              _stepError!,
+
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: AppColors.dangerRed,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1322,8 +1341,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Widget _buildStepRow(int index) {
     final status = _stepStatuses[index];
-
-    final detail = _stepDetails[index];
 
     Widget leading;
     Color labelColor;
@@ -1397,22 +1414,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   color: labelColor,
                 ),
               ),
-
-              if (detail != null && detail.isNotEmpty) ...[
-                const SizedBox(height: 2),
-
-                Text(
-                  detail,
-
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: status == _StepStatus.failed
-                        ? AppColors.dangerRed
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

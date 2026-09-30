@@ -51,8 +51,7 @@ public class AttendanceController : ControllerBase
 
     private string GetClientIp()
     {
-        // Nginx nên gửi:
-        // proxy_set_header X-Real-IP $remote_addr;
+        // Nginx gửi IPv4
 
         var realIp =
             Request.Headers["X-Real-IP"]
@@ -75,9 +74,6 @@ public class AttendanceController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(forwarded))
         {
-            // X-Forwarded-For có thể có nhiều IP:
-            // client, proxy1, proxy2...
-            //
             // Lấy IP đầu tiên và kiểm tra lại nó có phải IPv4 hay không.
             var firstIp = forwarded
                 .Split(',')
@@ -196,7 +192,8 @@ public class AttendanceController : ControllerBase
             return BadRequest(new
             {
                 message =
-                    "Không xác định được địa chỉ IPv4 công cộng."
+                    "Không xác định được mạng Wi-Fi bạn đang dùng. " +
+                    "Vui lòng thử lại."
             });
         }
 
@@ -215,7 +212,8 @@ public class AttendanceController : ControllerBase
                 new
                 {
                     message =
-                        "Địa chỉ IPv4 công cộng không hợp lệ."
+                        "Mạng bạn đang dùng không hợp lệ. " +
+                        "Vui lòng kết nối Wi-Fi của công ty rồi thử lại."
                 });
         }
 
@@ -230,7 +228,7 @@ public class AttendanceController : ControllerBase
             return BadRequest(new
             {
                 message =
-                    "Công ty chưa cấu hình IP cho phép chấm công. " +
+                    "Công ty chưa cấu hình Wi-Fi cho phép chấm công. " +
                     "Vui lòng liên hệ Admin."
             });
         }
@@ -258,8 +256,9 @@ public class AttendanceController : ControllerBase
                 new
                 {
                     message =
-                        $"IPv4 hiện tại ({clientIp}) " +
-                        $"không được phép {actionLabel}."
+                        "Bạn chưa kết nối Wi-Fi của công ty " +
+                        $"nên không thể {actionLabel}. " +
+                        "Vui lòng kết nối đúng Wi-Fi rồi thử lại."
                 });
         }
 
@@ -296,7 +295,7 @@ public class AttendanceController : ControllerBase
                 new
                 {
                     message =
-                        "IPv4 hợp lệ nhưng bạn đang ở ngoài " +
+                        "Bạn đã kết nối đúng Wi-Fi nhưng đang ở ngoài " +
                         $"phạm vi {actionLabel}."
                 });
         }
