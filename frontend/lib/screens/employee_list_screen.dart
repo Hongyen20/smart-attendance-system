@@ -69,6 +69,21 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     super.dispose();
   }
 
+  // ROLE
+
+  bool _isAdminAccount(dynamic employee) {
+    if (employee is! Map) {
+      return false;
+    }
+
+    final role = (employee['role'] ?? employee['roleName'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+
+    return role == 'admin';
+  }
+
   // LOAD EMPLOYEES
 
   Future<void> _loadEmployees() async {
@@ -90,7 +105,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       _isLoading = false;
 
       if (result.success) {
-        _employees = result.data ?? [];
+        // Bỏ các tài khoản Admin.
+        // Danh sách, ô tìm kiếm và số liệu thống kê đều dùng _employees
+        // nên đều không còn tính Admin.
+        _employees = (result.data ?? [])
+            .where((employee) => !_isAdminAccount(employee))
+            .toList();
       } else {
         _errorMessage = result.errorMessage;
       }

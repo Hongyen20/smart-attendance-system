@@ -227,16 +227,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // LOGO HEADER
   Widget _buildLogoHeader() {
-  return Column(
-    children: [
-      Image.asset(
-        'assets/images/logo.png',
-        width: 300,
-        fit: BoxFit.contain,
-      ),
-    ],
-  );
-}
+    return Column(
+      children: [
+        Image.asset('assets/images/logo.png', width: 300, fit: BoxFit.contain),
+      ],
+    );
+  }
   // LOGIN CARD
 
   Widget _buildLoginCard() {
@@ -308,25 +304,6 @@ class _LoginScreenState extends State<LoginScreen> {
           // Remember + Forgot password
           Row(
             children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Checkbox(
-                  value: _rememberMe,
-                  onChanged: (value) {
-                    setState(() {
-                      _rememberMe = value ?? false;
-                    });
-                  },
-                  side: const BorderSide(color: Color(0xFFB8C0D0), width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  activeColor: const Color(0xFF2864E8),
-                ),
-              ),
-
-
               const Spacer(),
 
               TextButton(
