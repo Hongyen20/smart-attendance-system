@@ -12,6 +12,7 @@ import 'shift_change_approval_screen.dart';
 import 'face_management_screen.dart';
 import 'business_trip_approval_screen.dart';
 import 'login_screen.dart';
+import 'attendance_report_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -287,6 +288,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   MaterialPageRoute(
                                     builder: (_) =>
                                         const BusinessTripApprovalScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Báo cáo chấm công
+                            _FunctionTileData(
+                              icon: Icons.bar_chart_rounded,
+                              title: 'Báo cáo',
+                              color: const Color(0xFF2864E8),
+
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AttendanceReportScreen(),
                                   ),
                                 );
                               },

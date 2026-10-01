@@ -98,6 +98,19 @@ public class LeaveRequestService
             .ToListAsync();
     }
 
+    // Lấy các đơn đã Approved của CẢ CÔNG TY, giao với khoảng ngày [fromDate, toDate] -
+    // dùng cho báo cáo chấm công của Admin (1 truy vấn thay vì truy vấn từng nhân viên).
+    public async Task<List<LeaveRequest>> GetApprovedInRangeByCompanyAsync(
+        string companyId, DateTime fromDate, DateTime toDate)
+    {
+        return await _requests
+            .Find(r => r.CompanyId == companyId
+                    && r.Status == "Approved"
+                    && r.StartDate <= toDate
+                    && r.EndDate >= fromDate)
+            .ToListAsync();
+    }
+
     public async Task CreateAsync(LeaveRequest request)
     {
         await _requests.InsertOneAsync(request);

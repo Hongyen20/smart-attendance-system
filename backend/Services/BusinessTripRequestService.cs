@@ -46,6 +46,19 @@ public class BusinessTripRequestService
             .FirstOrDefaultAsync();
     }
 
+    // Lấy các đơn công tác đã Approved của CẢ CÔNG TY, giao với khoảng ngày [fromDate, toDate] -
+    // dùng cho báo cáo chấm công của Admin (1 truy vấn thay vì truy vấn từng nhân viên theo từng ngày).
+    public async Task<List<BusinessTripRequest>> GetApprovedInRangeByCompanyAsync(
+        string companyId, DateTime fromDate, DateTime toDate)
+    {
+        return await _requests
+            .Find(r => r.CompanyId == companyId
+                    && r.Status == "Approved"
+                    && r.StartDate <= toDate
+                    && r.EndDate >= fromDate)
+            .ToListAsync();
+    }
+
     public async Task CreateAsync(BusinessTripRequest request)
     {
         await _requests.InsertOneAsync(request);
