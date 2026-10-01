@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -22,146 +24,160 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  static const Color _navy = Color(0xFF102A67);
-  static const Color _blue = Color(0xFF2864E8);
-  static const Color _bg = Color(0xFFF4F7FC);
-  static const Color _border = Color(0xFFE3EAF5);
-  static const Color _muted = Color(0xFF78869D);
-  static const Color _green = Color(0xFF20A875);
-  static const Color _red = Color(0xFFE03131);
+  // ============================================================
+  // COLORS
+  // ============================================================
 
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  static const Color _navy = Color(0xFF0D2858);
+  static const Color _blue = Color(0xFF246BDE);
+  static const Color _pageBackground = Color(0xFFF4F7FC);
+  static const Color _border = Color(0xFFE3EAF4);
+  static const Color _text = Color(0xFF183153);
+  static const Color _muted = Color(0xFF71819A);
+
+  // ============================================================
+  // STATE
+  // ============================================================
 
   bool _isLoadingStats = true;
-  bool _isLoadingActivities = true;
 
   int _totalEmployees = 0;
-  final int _currentlyWorking = 0;
-  final int _pendingLeaveRequests = 0;
 
-  List<dynamic> _recentActivities = [];
-  String? _activityError;
+  // Dữ liệu mẫu cho dashboard.
+  // Khi backend có API thống kê riêng thì thay bằng dữ liệu API.
+  final List<_AttendanceDayData> _attendanceWeek = const [
+    _AttendanceDayData(day: 'T2', present: 42, late: 4, absent: 2),
+    _AttendanceDayData(day: 'T3', present: 45, late: 3, absent: 1),
+    _AttendanceDayData(day: 'T4', present: 43, late: 5, absent: 1),
+    _AttendanceDayData(day: 'T5', present: 46, late: 2, absent: 1),
+    _AttendanceDayData(day: 'T6', present: 44, late: 4, absent: 1),
+    _AttendanceDayData(day: 'T7', present: 30, late: 2, absent: 1),
+    _AttendanceDayData(day: 'CN', present: 12, late: 1, absent: 0),
+  ];
+
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
     super.initState();
     _loadStats();
-    _loadRecentActivities();
   }
+
+  // ============================================================
+  // LOAD DATA
+  // ============================================================
 
   Future<void> _loadStats() async {
-    try {
-      final result = await ApiService.getList(
-        '/api/employees',
-        bearerToken: AuthState.instance.token,
-      );
+    setState(() {
+      _isLoadingStats = true;
+    });
 
-      if (!mounted) return;
+    final result = await ApiService.getList(
+      '/api/employees',
+      bearerToken: AuthState.instance.token,
+    );
 
-      setState(() {
-        _isLoadingStats = false;
+    if (!mounted) return;
 
-        if (result.success) {
-          _totalEmployees = result.data?.length ?? 0;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingStats = false);
-      debugPrint('Load employee stats error: $e');
-    }
+    setState(() {
+      _isLoadingStats = false;
+
+      if (result.success && result.data != null) {
+        _totalEmployees = result.data!.length;
+      }
+    });
   }
 
-  Future<void> _loadRecentActivities() async {
-    if (mounted) {
-      setState(() {
-        _isLoadingActivities = true;
-        _activityError = null;
-      });
-    }
-
-    try {
-      final result = await ApiService.getList(
-        '/api/audit-logs/recent?limit=8',
-        bearerToken: AuthState.instance.token,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingActivities = false;
-
-        if (result.success) {
-          _recentActivities = result.data ?? [];
-        } else {
-          _activityError =
-              result.errorMessage ?? 'Không thể tải hoạt động gần đây.';
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingActivities = false;
-        _activityError = 'Không thể tải hoạt động gần đây.';
-      });
-
-      debugPrint('Load audit logs error: $e');
-    }
-  }
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
 
   void _openScreen(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((
+    if (MediaQuery.sizeOf(context).width < 1000) {
+      Navigator.pop(context);
+    }
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((
       _,
     ) {
-      if (!mounted) return;
-      _loadStats();
-      _loadRecentActivities();
+      if (mounted) {
+        _loadStats();
+      }
     });
+  }
+
+  void _goHome() {
+    if (MediaQuery.sizeOf(context).width < 1000) {
+      Navigator.pop(context);
+    }
   }
 
   void _openFaceManagement() {
     final token = AuthState.instance.token;
 
     if (token == null || token.isEmpty) {
-      _showMessage('Phiên đăng nhập không hợp lệ.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phiên đăng nhập không hợp lệ.')),
+      );
       return;
     }
 
-    _openScreen(FaceManagementScreen(token: token));
-  }
+    if (MediaQuery.sizeOf(context).width < 1000) {
+      Navigator.pop(context);
+    }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FaceManagementScreen(token: token)),
     );
   }
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text(
-          'Đăng xuất',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: _red),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Đăng xuất'),
+          title: const Text(
+            'Đăng xuất',
+            style: TextStyle(fontWeight: FontWeight.w800, color: _text),
           ),
-        ],
-      ),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text(
+                'Đăng xuất',
+                style: TextStyle(
+                  color: Color(0xFFE03131),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
 
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true) return;
+
+    if (!mounted) return;
 
     AuthState.instance.clear();
 
@@ -171,31 +187,49 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    final desktop = MediaQuery.sizeOf(context).width >= 1000;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1000;
 
     return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: _bg,
-      drawer: desktop ? null : Drawer(width: 270, child: _buildSidebar()),
+      backgroundColor: _pageBackground,
+
+      drawer: isDesktop
+          ? null
+          : Drawer(
+              width: 270,
+              backgroundColor: _navy,
+              child: SafeArea(child: _buildSidebar()),
+            ),
+
       body: SafeArea(
         child: Row(
           children: [
-            if (desktop) SizedBox(width: 260, child: _buildSidebar()),
+            if (isDesktop) SizedBox(width: 260, child: _buildSidebar()),
+
             Expanded(
               child: Column(
                 children: [
-                  _buildTopBar(desktop),
+                  _buildTopBar(isDesktop),
+
                   Expanded(
                     child: RefreshIndicator(
-                      onRefresh: () async {
-                        await Future.wait([
-                          _loadStats(),
-                          _loadRecentActivities(),
-                        ]);
-                      },
-                      child: _buildDashboard(desktop),
+                      onRefresh: _loadStats,
+                      color: _blue,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          isDesktop ? 28 : 16,
+                          22,
+                          isDesktop ? 28 : 16,
+                          32,
+                        ),
+                        child: _buildDashboardContent(isDesktop),
+                      ),
                     ),
                   ),
                 ],
@@ -207,31 +241,38 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
+  // ============================================================
   // SIDEBAR
+  // ============================================================
 
   Widget _buildSidebar() {
     return Container(
       color: _navy,
       child: Column(
         children: [
+          // ------------------------------------------------------
+          // LOGO
+          // ------------------------------------------------------
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 16, 28),
+            padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
             child: Row(
               children: [
                 Container(
-                  width: 43,
-                  height: 43,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
-                    Icons.verified_user_rounded,
-                    color: Color(0xFF78B9FF),
-                    size: 27,
+                  padding: const EdgeInsets.all(5),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
+
                 const SizedBox(width: 11),
+
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,17 +281,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         'AttendGo',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 21,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
                         ),
                       ),
-                      SizedBox(height: 3),
+
+                      SizedBox(height: 2),
+
                       Text(
-                        'SMART ATTENDANCE',
+                        'Smart Attendance System',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Color(0xFFB8C9E5),
-                          fontSize: 9,
-                          letterSpacing: 1,
+                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -259,70 +304,121 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ],
             ),
           ),
+
+          // ------------------------------------------------------
+          // MENU
+          // ------------------------------------------------------
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
+                // TRANG CHỦ
                 _navItem(
-                  Icons.home_rounded,
-                  'Trang chủ',
-                  selected: true,
+                  icon: Icons.home_rounded,
+                  title: 'Trang chủ',
+                  onTap: _goHome,
+                ),
+
+                const SizedBox(height: 8),
+
+                // NHÂN VIÊN
+                _navSection(
+                  icon: Icons.groups_rounded,
+                  title: 'Nhân viên',
+                  children: [
+                    _navSubItem(
+                      title: 'Danh sách nhân viên',
+                      onTap: () {
+                        _openScreen(const EmployeeListScreen());
+                      },
+                    ),
+
+                    _navSubItem(
+                      title: 'Thêm khuôn mặt chấm công',
+                      onTap: _openFaceManagement,
+                    ),
+                  ],
+                ),
+
+                // CHẤM CÔNG
+                _navSection(
+                  icon: Icons.access_time_rounded,
+                  title: 'Chấm công',
+                  children: [
+                    _navSubItem(
+                      title: 'Cấu hình IP & GPS',
+                      onTap: () {
+                        _openScreen(const IpConfigScreen());
+                      },
+                    ),
+                  ],
+                ),
+
+                // BÁO CÁO
+                _navItem(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'Báo cáo',
                   onTap: () {
-                    if (MediaQuery.sizeOf(context).width < 1000) {
-                      Navigator.pop(context);
-                    }
+                    _openScreen(const AttendanceReportScreen());
                   },
                 ),
+
                 const SizedBox(height: 8),
-                _navSection(Icons.groups_rounded, 'Nhân viên', [
-                  _navChild(
-                    'Danh sách nhân viên',
-                    () => _openScreen(const EmployeeListScreen()),
-                  ),
-                  _navChild('Thêm khuôn mặt chấm công', _openFaceManagement),
-                ]),
-                _navSection(Icons.access_time_rounded, 'Chấm công', [
-                  _navChild(
-                    'Cấu hình IP & GPS',
-                    () => _openScreen(const IpConfigScreen()),
-                  ),
-                  _navChild(
-                    'Báo cáo chấm công',
-                    () => _openScreen(const AttendanceReportScreen()),
-                  ),
-                ]),
-                _navSection(Icons.assignment_rounded, 'Yêu cầu', [
-                  _navChild(
-                    'Đổi ca',
-                    () => _openScreen(const ShiftChangeApprovalScreen()),
-                  ),
-                  _navChild(
-                    'Nghỉ phép',
-                    () => _openScreen(const LeaveApprovalScreen()),
-                  ),
-                  _navChild(
-                    'Công tác',
-                    () => _openScreen(const BusinessTripApprovalScreen()),
-                  ),
-                ]),
+
+                // YÊU CẦU
+                _navSection(
+                  icon: Icons.assignment_rounded,
+                  title: 'Yêu cầu',
+                  initiallyExpanded: true,
+                  children: [
+                    _navSubItem(
+                      title: 'Đổi ca',
+                      onTap: () {
+                        _openScreen(const ShiftChangeApprovalScreen());
+                      },
+                    ),
+
+                    _navSubItem(
+                      title: 'Nghỉ phép',
+                      onTap: () {
+                        _openScreen(const LeaveApprovalScreen());
+                      },
+                    ),
+
+                    _navSubItem(
+                      title: 'Công tác',
+                      onTap: () {
+                        _openScreen(const BusinessTripApprovalScreen());
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
+
+          // ------------------------------------------------------
+          // BOTTOM MENU
+          // ------------------------------------------------------
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
             child: Column(
               children: [
                 const Divider(color: Color(0xFF29436D)),
+
                 _navItem(
-                  Icons.lock_outline_rounded,
-                  'Đổi mật khẩu',
-                  onTap: () => _openScreen(const ChangePasswordScreen()),
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Đổi mật khẩu',
+                  onTap: () {
+                    _openScreen(const ChangePasswordScreen());
+                  },
                 ),
+
                 _navItem(
-                  Icons.logout_rounded,
-                  'Đăng xuất',
-                  onTap: _confirmLogout,
+                  icon: Icons.logout_rounded,
+                  title: 'Đăng xuất',
                   iconColor: const Color(0xFFFFB4B4),
+                  onTap: _confirmLogout,
                 ),
               ],
             ),
@@ -332,16 +428,31 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _navSection(IconData icon, String title, List<Widget> children) {
+  // ============================================================
+  // SIDEBAR SECTION
+  // ============================================================
+
+  Widget _navSection({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
     return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        splashColor: Colors.white.withOpacity(0.05),
+        highlightColor: Colors.white.withOpacity(0.04),
+      ),
       child: ExpansionTile(
-        initiallyExpanded: true,
+        initiallyExpanded: initiallyExpanded,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
-        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
-        iconColor: Colors.white,
+        iconColor: const Color(0xFFBFD5F5),
         collapsedIconColor: const Color(0xFFBFD5F5),
+
+        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+
         title: Text(
           title,
           style: const TextStyle(
@@ -350,23 +461,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+
         children: children,
       ),
     );
   }
 
-  Widget _navItem(
-    IconData icon,
-    String title, {
+  // ============================================================
+  // SIDEBAR ITEM
+  // ============================================================
+
+  Widget _navItem({
+    required IconData icon,
+    required String title,
     required VoidCallback onTap,
-    bool selected = false,
     Color iconColor = const Color(0xFFD6E4FA),
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? _blue : Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
+        color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(9),
           onTap: onTap,
@@ -375,13 +489,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             child: Row(
               children: [
                 Icon(icon, color: iconColor, size: 21),
+
                 const SizedBox(width: 13),
+
                 Expanded(
                   child: Text(
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -394,27 +510,42 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _navChild(String title, VoidCallback onTap) {
+  // ============================================================
+  // SIDEBAR SUB ITEM
+  // ============================================================
+
+  Widget _navSubItem({
+    required String title,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Material(
-        color: Colors.transparent,
+        color: selected ? _blue : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
             child: Row(
               children: [
-                const Icon(Icons.circle, size: 5, color: Color(0xFF7894BD)),
+                Icon(
+                  Icons.circle,
+                  size: selected ? 7 : 5,
+                  color: selected ? Colors.white : const Color(0xFF7894BD),
+                ),
+
                 const SizedBox(width: 11),
+
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFFD0DDF1),
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFD0DDF1),
                       fontSize: 12,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -426,245 +557,386 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
+  // ============================================================
   // TOP BAR
+  // ============================================================
 
-  Widget _buildTopBar(bool desktop) {
+  Widget _buildTopBar(bool isDesktop) {
     return Container(
       height: 72,
-      padding: EdgeInsets.symmetric(horizontal: desktop ? 28 : 12),
+      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 28 : 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _border)),
       ),
       child: Row(
         children: [
-          if (!desktop) ...[
-            IconButton(
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              icon: const Icon(Icons.menu_rounded),
-              color: _navy,
+          if (!isDesktop)
+            Builder(
+              builder: (context) {
+                return IconButton(
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                  icon: const Icon(Icons.menu_rounded, color: _text),
+                );
+              },
             ),
-            const SizedBox(width: 4),
-          ],
-          const Expanded(
-            child: Text(
-              'Tổng quan',
-              style: TextStyle(
-                color: _navy,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Làm mới dữ liệu',
-            onPressed: () {
-              _loadStats();
-              _loadRecentActivities();
-            },
-            icon: const Icon(Icons.refresh_rounded),
-            color: _blue,
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF2FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.admin_panel_settings_rounded, color: _blue),
-          ),
-          if (desktop) ...[
-            const SizedBox(width: 10),
-            const Column(
+
+          if (!isDesktop) const SizedBox(width: 4),
+
+          Expanded(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              children: const [
                 Text(
-                  'Quản trị viên',
+                  'Trang chủ',
                   style: TextStyle(
-                    color: _navy,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: _text,
                   ),
                 ),
-                SizedBox(height: 3),
+
+                SizedBox(height: 2),
+
                 Text(
-                  'AttendGo Admin',
-                  style: TextStyle(color: _muted, fontSize: 11),
+                  'Tổng quan hoạt động hệ thống',
+                  style: TextStyle(fontSize: 11, color: _muted),
                 ),
               ],
             ),
-            const SizedBox(width: 12),
-          ],
+          ),
+
+          // USER
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FD),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4EEFF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 19,
+                    color: _blue,
+                  ),
+                ),
+
+                if (isDesktop) ...[
+                  const SizedBox(width: 9),
+
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Admin',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _text,
+                        ),
+                      ),
+
+                      SizedBox(height: 1),
+
+                      Text(
+                        'Quản trị hệ thống',
+                        style: TextStyle(fontSize: 9.5, color: _muted),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // DASHBOARD
+  // ============================================================
+  // DASHBOARD CONTENT
+  // ============================================================
 
-  Widget _buildDashboard(bool desktop) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.all(desktop ? 28 : 16),
+  Widget _buildDashboardContent(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildWelcomeSection(),
+        // --------------------------------------------------------
+        // WELCOME
+        // --------------------------------------------------------
+        _buildWelcome(),
+
         const SizedBox(height: 22),
-        _buildOverviewCard(),
-        const SizedBox(height: 24),
-        _buildSectionTitle('Quản lý nhân sự', Icons.groups_rounded),
-        const SizedBox(height: 12),
-        _buildFunctionGrid([
-          _FunctionData(
-            icon: Icons.groups_rounded,
-            title: 'Nhân viên',
-            subtitle: 'Danh sách nhân viên',
-            color: const Color(0xFF3182F6),
-            onTap: () => _openScreen(const EmployeeListScreen()),
-          ),
-          _FunctionData(
-            icon: Icons.face_retouching_natural_rounded,
-            title: 'Khuôn mặt',
-            subtitle: 'Thêm khuôn mặt chấm công',
-            color: const Color(0xFF7C4DFF),
-            onTap: _openFaceManagement,
-          ),
-          _FunctionData(
-            icon: Icons.router_rounded,
-            title: 'Cấu hình IP & GPS',
-            subtitle: 'Thiết lập vị trí chấm công',
-            color: const Color(0xFF20A875),
-            onTap: () => _openScreen(const IpConfigScreen()),
-          ),
-        ]),
-        const SizedBox(height: 24),
-        _buildSectionTitle('Chấm công và yêu cầu', Icons.access_time_rounded),
-        const SizedBox(height: 12),
-        _buildFunctionGrid([
-          _FunctionData(
-            icon: Icons.bar_chart_rounded,
-            title: 'Báo cáo',
-            subtitle: 'Thống kê chấm công',
-            color: const Color(0xFF2864E8),
-            onTap: () => _openScreen(const AttendanceReportScreen()),
-          ),
-          _FunctionData(
-            icon: Icons.swap_horiz_rounded,
-            title: 'Đổi ca',
-            subtitle: 'Duyệt yêu cầu đổi ca',
-            color: const Color(0xFFFF922B),
-            onTap: () => _openScreen(const ShiftChangeApprovalScreen()),
-          ),
-          _FunctionData(
-            icon: Icons.calendar_month_rounded,
-            title: 'Nghỉ phép',
-            subtitle: 'Duyệt đơn nghỉ phép',
-            color: const Color(0xFFF5487F),
-            onTap: () => _openScreen(const LeaveApprovalScreen()),
-          ),
-          _FunctionData(
-            icon: Icons.business_center_rounded,
-            title: 'Công tác',
-            subtitle: 'Duyệt đơn công tác',
-            color: const Color(0xFF4A90E2),
-            onTap: () => _openScreen(const BusinessTripApprovalScreen()),
-          ),
-          _FunctionData(
-            icon: Icons.lock_rounded,
-            title: 'Đổi mật khẩu',
-            subtitle: 'Bảo mật tài khoản',
-            color: const Color(0xFF7950F2),
-            onTap: () => _openScreen(const ChangePasswordScreen()),
-          ),
-        ]),
-        const SizedBox(height: 24),
-        _buildRecentActivities(),
-      ],
-    );
-  }
 
-  Widget _buildWelcomeSection() {
-    return Row(
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: _border),
-          ),
-          padding: const EdgeInsets.all(5),
-          child: Image.asset(
-            'assets/images/logo.png',
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) =>
-                const Icon(Icons.verified_user_rounded, color: _blue, size: 32),
-          ),
+        // --------------------------------------------------------
+        // 7 DAYS ATTENDANCE
+        // --------------------------------------------------------
+        _buildSectionTitle(
+          title: 'Tổng quan chấm công',
+          subtitle: 'Tình hình chấm công trong 7 ngày gần đây',
+          icon: Icons.bar_chart_rounded,
         ),
-        const SizedBox(width: 14),
-        const Expanded(
-          child: Column(
+
+        const SizedBox(height: 11),
+
+        _buildWeeklyAttendanceCard(isDesktop),
+
+        const SizedBox(height: 22),
+
+        // --------------------------------------------------------
+        // TODAY + REQUEST TYPES
+        // --------------------------------------------------------
+        if (isDesktop)
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Chào Quản Trị Viên',
-                style: TextStyle(
-                  color: _navy,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(height: 5),
-              Text(
-                'Đây là tổng quan hoạt động của bạn hôm nay.',
-                style: TextStyle(color: _muted, fontSize: 12),
-              ),
+              Expanded(child: _buildTodayAttendanceCard()),
+
+              const SizedBox(width: 18),
+
+              Expanded(child: _buildRequestOverviewCard()),
+            ],
+          )
+        else
+          Column(
+            children: [
+              _buildTodayAttendanceCard(),
+
+              const SizedBox(height: 18),
+
+              _buildRequestOverviewCard(),
             ],
           ),
-        ),
+
+        const SizedBox(height: 22),
+
+        // --------------------------------------------------------
+        // PENDING REQUESTS
+        // --------------------------------------------------------
+        _buildPendingRequestCard(),
+
+        const SizedBox(height: 12),
+
+        // --------------------------------------------------------
+        // SMALL INFO
+        // --------------------------------------------------------
+        _buildDashboardFooter(),
       ],
     );
   }
 
-  Widget _buildOverviewCard() {
+  // ============================================================
+  // WELCOME
+  // ============================================================
+
+  Widget _buildWelcome() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEAF3FF), Color(0xFFF7FAFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEAF2FF), Color(0xFFF8FAFF)],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFDCE9FF)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCE8FB)),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _overviewItem(
-              Icons.groups_rounded,
-              'Tổng nhân viên',
-              _isLoadingStats ? '...' : '$_totalEmployees',
-              const Color(0xFF3182F6),
+          Container(
+            width: 48,
+            height: 48,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFDCE8FB)),
+            ),
+            child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+          ),
+
+          const SizedBox(width: 14),
+
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Xin chào 👋',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                SizedBox(height: 3),
+
+                Text(
+                  'Chào Quản Trị Viên',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF102A67),
+                  ),
+                ),
+
+                SizedBox(height: 3),
+
+                Text(
+                  'Theo dõi nhanh tình hình hoạt động của công ty hôm nay.',
+                  style: TextStyle(fontSize: 11.5, color: _muted),
+                ),
+              ],
             ),
           ),
-          _verticalDivider(),
-          Expanded(
-            child: _overviewItem(
-              Icons.access_time_filled_rounded,
-              'Đang làm việc',
-              '$_currentlyWorking',
-              _green,
+
+          if (_totalEmployees > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDCE8FB)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    _isLoadingStats ? '...' : '$_totalEmployees',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: _blue,
+                    ),
+                  ),
+                  const Text(
+                    'nhân viên',
+                    style: TextStyle(fontSize: 9, color: _muted),
+                  ),
+                ],
+              ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _buildSectionTitle({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F0FF),
+            borderRadius: BorderRadius.circular(10),
           ),
-          _verticalDivider(),
-          Expanded(
-            child: _overviewItem(
-              Icons.event_available_rounded,
-              'Chờ duyệt',
-              '$_pendingLeaveRequests',
-              const Color(0xFFFF922B),
+          child: Icon(icon, size: 19, color: _blue),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _text,
+                ),
+              ),
+
+              const SizedBox(height: 2),
+
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 10.5, color: _muted),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // WEEKLY ATTENDANCE CARD
+  // ============================================================
+
+  Widget _buildWeeklyAttendanceCard(bool isDesktop) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tình hình chấm công',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _text,
+                      ),
+                    ),
+
+                    SizedBox(height: 3),
+
+                    Text(
+                      'Số lượng nhân viên theo từng trạng thái',
+                      style: TextStyle(fontSize: 10.5, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+
+              _buildLegend('Có mặt', const Color(0xFF20B878)),
+
+              const SizedBox(width: 12),
+
+              _buildLegend('Đi trễ', const Color(0xFFFFA94D)),
+
+              const SizedBox(width: 12),
+
+              _buildLegend('Vắng', const Color(0xFFF06565)),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          SizedBox(
+            height: isDesktop ? 230 : 200,
+            child: CustomPaint(
+              painter: _WeeklyBarChartPainter(data: _attendanceWeek),
+              child: const SizedBox.expand(),
             ),
           ),
         ],
@@ -672,350 +944,332 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _overviewItem(IconData icon, String label, String value, Color color) {
-    return Column(
+  // ============================================================
+  // LEGEND
+  // ============================================================
+
+  Widget _buildLegend(String title, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withOpacity(0.13),
-          ),
-          child: Icon(icon, color: color, size: 22),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(height: 9),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: const TextStyle(color: _muted, fontSize: 10.5),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _verticalDivider() {
-    return Container(
-      width: 1,
-      height: 72,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: const Color(0xFFD9E3F4),
-    );
-  }
+        const SizedBox(width: 5),
 
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: _blue, size: 22),
-        const SizedBox(width: 9),
         Text(
           title,
           style: const TextStyle(
-            color: _navy,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
+            fontSize: 9.5,
+            color: _muted,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFunctionGrid(List<_FunctionData> items) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1100
-            ? 4
-            : constraints.maxWidth >= 650
-            ? 3
-            : 2;
+  // ============================================================
+  // TODAY ATTENDANCE
+  // ============================================================
 
-        const gap = 12.0;
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+  Widget _buildTodayAttendanceCard() {
+    const int present = 44;
+    const int late = 4;
+    const int absent = 2;
 
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: items.map((item) {
-            return SizedBox(width: width, child: _functionCard(item));
-          }).toList(),
-        );
-      },
-    );
-  }
+    final int total = present + late + absent;
 
-  Widget _functionCard(_FunctionData item) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: item.onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 132),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 43,
-                height: 43,
-                decoration: BoxDecoration(
-                  color: item.color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(item.icon, color: item.color, size: 24),
-              ),
-              const SizedBox(height: 13),
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _navy,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                item.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 11,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // RECENT AUDIT ACTIVITIES
-
-  Widget _buildRecentActivities() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF2FF),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFEAF9F2),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.history_rounded, color: _blue),
+                child: const Icon(
+                  Icons.access_time_rounded,
+                  size: 19,
+                  color: Color(0xFF20B878),
+                ),
               ),
-              const SizedBox(width: 12),
+
+              const SizedBox(width: 10),
+
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hoạt động gần đây',
+                      'Tình hình hôm nay',
                       style: TextStyle(
-                        color: _navy,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
+                        color: _text,
                       ),
                     ),
-                    SizedBox(height: 4),
+
+                    SizedBox(height: 2),
+
                     Text(
-                      'Lịch sử thao tác trong công ty',
-                      style: TextStyle(color: _muted, fontSize: 11),
+                      'Thống kê chấm công trong ngày',
+                      style: TextStyle(fontSize: 10, color: _muted),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Làm mới',
-                onPressed: _isLoadingActivities ? null : _loadRecentActivities,
-                icon: const Icon(Icons.refresh_rounded),
-                color: _blue,
+
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Hôm nay',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: _blue,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (_isLoadingActivities)
-            const Padding(
-              padding: EdgeInsets.all(28),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_activityError != null)
-            _activityMessage(
-              Icons.cloud_off_rounded,
-              _activityError!,
-              retry: true,
-            )
-          else if (_recentActivities.isEmpty)
-            _activityMessage(
-              Icons.history_toggle_off_rounded,
-              'Chưa có hoạt động nào được ghi nhận.',
-            )
-          else
-            ..._recentActivities.map((item) {
-              final log = Map<String, dynamic>.from(item as Map);
-              return _buildActivityItem(log);
-            }),
+
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              SizedBox(
+                width: 125,
+                height: 125,
+                child: CustomPaint(
+                  painter: _AttendancePiePainter(
+                    present: present,
+                    late: late,
+                    absent: absent,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$total',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: _text,
+                          ),
+                        ),
+                        const Text(
+                          'nhân viên',
+                          style: TextStyle(fontSize: 9, color: _muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 22),
+
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildAttendanceStat(
+                      label: 'Có mặt',
+                      value: '$present',
+                      color: const Color(0xFF20B878),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildAttendanceStat(
+                      label: 'Đi trễ',
+                      value: '$late',
+                      color: const Color(0xFFFFA94D),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildAttendanceStat(
+                      label: 'Vắng',
+                      value: '$absent',
+                      color: const Color(0xFFF06565),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _activityMessage(IconData icon, String message, {bool retry = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(icon, size: 36, color: _muted),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: _muted, fontSize: 12),
-            ),
-            if (retry)
-              TextButton(
-                onPressed: _loadRecentActivities,
-                child: const Text('Thử lại'),
-              ),
-          ],
+  // ============================================================
+  // ATTENDANCE STAT
+  // ============================================================
+
+  Widget _buildAttendanceStat({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-      ),
+
+        const SizedBox(width: 8),
+
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: _muted),
+          ),
+        ),
+
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildActivityItem(Map<String, dynamic> log) {
-    final action = (log['action'] ?? 'Hoạt động').toString();
-    final details = (log['details'] ?? '').toString().trim();
-    final userId = (log['userId'] ?? '').toString();
-    final ip = (log['ipAddress'] ?? '').toString();
+  // ============================================================
+  // REQUEST OVERVIEW
+  // ============================================================
 
-    final rawDate = log['createdAt'] ?? log['CreatedAt'];
-    final date = DateTime.tryParse((rawDate ?? '').toString())?.toLocal();
-
-    final timeText = date == null
-        ? 'Không xác định thời gian'
-        : '${date.day.toString().padLeft(2, '0')}/'
-              '${date.month.toString().padLeft(2, '0')}/'
-              '${date.year} · '
-              '${date.hour.toString().padLeft(2, '0')}:'
-              '${date.minute.toString().padLeft(2, '0')}';
-
-    final normalized = action.toLowerCase();
-
-    IconData icon = Icons.receipt_long_rounded;
-    Color color = _blue;
-    Color background = const Color(0xFFEAF2FF);
-
-    if (normalized.contains('login') || normalized.contains('đăng nhập')) {
-      icon = Icons.login_rounded;
-      color = _green;
-      background = const Color(0xFFE3F7EE);
-    } else if (normalized.contains('attendance') ||
-        normalized.contains('checkin') ||
-        normalized.contains('checkout') ||
-        normalized.contains('chấm công')) {
-      icon = Icons.access_time_rounded;
-      color = const Color(0xFF7C4DFF);
-      background = const Color(0xFFF1ECFF);
-    } else if (normalized.contains('delete') ||
-        normalized.contains('reject') ||
-        normalized.contains('xóa') ||
-        normalized.contains('từ chối')) {
-      icon = Icons.warning_amber_rounded;
-      color = _red;
-      background = const Color(0xFFFFE6E6);
-    } else if (normalized.contains('create') ||
-        normalized.contains('update') ||
-        normalized.contains('approve') ||
-        normalized.contains('tạo') ||
-        normalized.contains('cập nhật') ||
-        normalized.contains('duyệt')) {
-      icon = Icons.edit_note_rounded;
-      color = const Color(0xFF1686C9);
-      background = const Color(0xFFE4F5FF);
-    }
-
+  Widget _buildRequestOverviewCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDF2FA))),
-      ),
-      child: Row(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  action,
-                  style: const TextStyle(
-                    color: _navy,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF2E5),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                if (details.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    details,
-                    style: const TextStyle(
-                      color: Color(0xFF52627A),
-                      fontSize: 12,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 4,
+                child: const Icon(
+                  Icons.assignment_rounded,
+                  size: 19,
+                  color: Color(0xFFFF922B),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (userId.isNotEmpty)
-                      _metadata(Icons.person_outline_rounded, userId),
-                    if (ip.isNotEmpty) _metadata(Icons.lan_outlined, ip),
-                    _metadata(Icons.schedule_rounded, timeText),
+                    Text(
+                      'Tình hình các loại yêu cầu',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _text,
+                      ),
+                    ),
+
+                    SizedBox(height: 2),
+
+                    Text(
+                      'Các yêu cầu đang chờ xử lý',
+                      style: TextStyle(fontSize: 10, color: _muted),
+                    ),
                   ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildRequestTypeItem(
+                  icon: Icons.swap_horiz_rounded,
+                  title: 'Đổi ca',
+                  value: '4',
+                  color: const Color(0xFFFF922B),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: _buildRequestTypeItem(
+                  icon: Icons.calendar_month_rounded,
+                  title: 'Nghỉ phép',
+                  value: '6',
+                  color: const Color(0xFFF5487F),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: _buildRequestTypeItem(
+                  icon: Icons.business_center_rounded,
+                  title: 'Công tác',
+                  value: '2',
+                  color: const Color(0xFF4A90E2),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F9FD),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: _muted),
+
+                SizedBox(width: 7),
+
+                Expanded(
+                  child: Text(
+                    'Các yêu cầu cần được kiểm tra và xử lý.',
+                    style: TextStyle(fontSize: 10, color: _muted),
+                  ),
                 ),
               ],
             ),
@@ -1025,30 +1279,512 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _metadata(IconData icon, String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: _muted),
-        const SizedBox(width: 4),
-        Text(value, style: const TextStyle(color: _muted, fontSize: 10)),
+  // ============================================================
+  // REQUEST TYPE ITEM
+  // ============================================================
+
+  Widget _buildRequestTypeItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.12)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 21, color: color),
+
+          const SizedBox(height: 7),
+
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 9.5,
+              color: _muted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // PENDING REQUEST
+  // ============================================================
+
+  Widget _buildPendingRequestCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.pending_actions_rounded,
+                  size: 19,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Yêu cầu chờ duyệt',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _text,
+                      ),
+                    ),
+
+                    SizedBox(height: 2),
+
+                    Text(
+                      'Các yêu cầu mới nhất cần admin xử lý',
+                      style: TextStyle(fontSize: 10, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+
+              TextButton(
+                onPressed: () {
+                  _openScreen(const LeaveApprovalScreen());
+                },
+                child: const Text(
+                  'Xem tất cả',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: _blue,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          _buildPendingItem(
+            icon: Icons.calendar_month_rounded,
+            title: 'Đơn xin nghỉ phép',
+            subtitle: 'Cần kiểm tra và phê duyệt',
+            count: '6',
+            color: const Color(0xFFF5487F),
+            onTap: () {
+              _openScreen(const LeaveApprovalScreen());
+            },
+          ),
+
+          const SizedBox(height: 9),
+
+          _buildPendingItem(
+            icon: Icons.swap_horiz_rounded,
+            title: 'Yêu cầu đổi ca',
+            subtitle: 'Nhân viên đang chờ phản hồi',
+            count: '4',
+            color: const Color(0xFFFF922B),
+            onTap: () {
+              _openScreen(const ShiftChangeApprovalScreen());
+            },
+          ),
+
+          const SizedBox(height: 9),
+
+          _buildPendingItem(
+            icon: Icons.business_center_rounded,
+            title: 'Đơn công tác',
+            subtitle: 'Yêu cầu công tác mới',
+            count: '2',
+            color: const Color(0xFF4A90E2),
+            onTap: () {
+              _openScreen(const BusinessTripApprovalScreen());
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // PENDING ITEM
+  // ============================================================
+
+  Widget _buildPendingItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String count,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFFF8FAFD),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, size: 20, color: color),
+              ),
+
+              const SizedBox(width: 11),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _text,
+                      ),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 9.5, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+
+              Container(
+                constraints: const BoxConstraints(minWidth: 30),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  count,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 5),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 19,
+                color: Color(0xFFA7B4C8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // FOOTER
+  // ============================================================
+
+  Widget _buildDashboardFooter() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF5FF),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xFFDCE8FB)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.dashboard_customize_rounded, size: 17, color: _blue),
+
+          const SizedBox(width: 8),
+
+          const Expanded(
+            child: Text(
+              'Dashboard tập trung vào các thông tin tổng quan. '
+              'Chi tiết chấm công được xem tại Báo cáo.',
+              style: TextStyle(fontSize: 9.5, color: _muted),
+            ),
+          ),
+
+          TextButton(
+            onPressed: () {
+              _openScreen(const AttendanceReportScreen());
+            },
+            child: const Text(
+              'Báo cáo',
+              style: TextStyle(
+                fontSize: 10,
+                color: _blue,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // CARD DECORATION
+  // ============================================================
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: _border),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.025),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
       ],
     );
   }
 }
 
-class _FunctionData {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
+// ================================================================
+// ATTENDANCE DAY DATA
+// ================================================================
 
-  const _FunctionData({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
+class _AttendanceDayData {
+  final String day;
+  final int present;
+  final int late;
+  final int absent;
+
+  const _AttendanceDayData({
+    required this.day,
+    required this.present,
+    required this.late,
+    required this.absent,
   });
+}
+
+// ================================================================
+// WEEKLY BAR CHART
+// ================================================================
+
+class _WeeklyBarChartPainter extends CustomPainter {
+  final List<_AttendanceDayData> data;
+
+  _WeeklyBarChartPainter({required this.data});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    const double left = 8;
+    const double right = 8;
+    const double top = 10;
+    const double bottom = 28;
+
+    final chartWidth = size.width - left - right;
+
+    final chartHeight = size.height - top - bottom;
+
+    final maxValue = data
+        .map((e) => math.max(e.present, math.max(e.late, e.absent)))
+        .reduce(math.max)
+        .toDouble();
+
+    // GRID
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE9EEF6)
+      ..strokeWidth = 1;
+
+    for (int i = 0; i <= 4; i++) {
+      final y = top + chartHeight - (chartHeight * i / 4);
+
+      canvas.drawLine(
+        Offset(left, y),
+        Offset(size.width - right, y),
+        gridPaint,
+      );
+    }
+
+    final groupWidth = chartWidth / data.length;
+
+    final barWidth = math.min(11.0, groupWidth * 0.15);
+
+    for (int i = 0; i < data.length; i++) {
+      final item = data[i];
+
+      final centerX = left + groupWidth * i + groupWidth / 2;
+
+      final values = [item.present, item.late, item.absent];
+
+      final colors = [
+        const Color(0xFF20B878),
+        const Color(0xFFFFA94D),
+        const Color(0xFFF06565),
+      ];
+
+      final gap = 3.0;
+
+      final totalWidth = barWidth * 3 + gap * 2;
+
+      final startX = centerX - totalWidth / 2;
+
+      for (int j = 0; j < 3; j++) {
+        final value = values[j].toDouble();
+
+        final barHeight = chartHeight * value / maxValue;
+
+        final x = startX + j * (barWidth + gap);
+
+        final y = top + chartHeight - barHeight;
+
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, barHeight),
+          const Radius.circular(4),
+        );
+
+        final paint = Paint()..color = colors[j];
+
+        canvas.drawRRect(rect, paint);
+      }
+
+      // DAY LABEL
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: item.day,
+          style: const TextStyle(
+            fontSize: 9,
+            color: Color(0xFF71819A),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+
+      textPainter.layout();
+
+      textPainter.paint(
+        canvas,
+        Offset(centerX - textPainter.width / 2, size.height - 17),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeeklyBarChartPainter oldDelegate) {
+    return oldDelegate.data != data;
+  }
+}
+
+// ================================================================
+// PIE CHART
+// ================================================================
+
+class _AttendancePiePainter extends CustomPainter {
+  final int present;
+  final int late;
+  final int absent;
+
+  _AttendancePiePainter({
+    required this.present,
+    required this.late,
+    required this.absent,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = present + late + absent;
+
+    if (total <= 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    final radius = math.min(size.width, size.height) / 2;
+
+    final strokeWidth = 15.0;
+
+    final rect = Rect.fromCircle(
+      center: center,
+      radius: radius - strokeWidth / 2,
+    );
+
+    final values = [present, late, absent];
+
+    final colors = [
+      const Color(0xFF20B878),
+      const Color(0xFFFFA94D),
+      const Color(0xFFF06565),
+    ];
+
+    double startAngle = -math.pi / 2;
+
+    for (int i = 0; i < values.length; i++) {
+      final sweepAngle = (values[i] / total) * math.pi * 2;
+
+      final paint = Paint()
+        ..color = colors[i]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt;
+
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AttendancePiePainter oldDelegate) {
+    return oldDelegate.present != present ||
+        oldDelegate.late != late ||
+        oldDelegate.absent != absent;
+  }
 }
