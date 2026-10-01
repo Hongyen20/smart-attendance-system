@@ -609,7 +609,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
             return Row(
               children: [
-                _buildSidebar(),
+                SizedBox(width: 260, child: _buildSidebar()),
 
                 Expanded(child: content),
               ],
@@ -620,119 +620,283 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
-  // SIDEBAR (chỉ hiện trên màn hình rộng)
+  // SIDEBAR
 
   Widget _buildSidebar() {
     return Container(
-      width: 232,
-
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: _border)),
-      ),
-
+      color: const Color(0xFF0D2858),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
+            child: Row(
+              children: [
+                // LOGO ATTENDGO
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
 
-            child: SizedBox(
-              height: 78,
+                const SizedBox(width: 11),
 
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Text(
-                      'AttendGo',
-                      style: TextStyle(
-                        color: _navy,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AttendGo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+
+                      SizedBox(height: 2),
+
+                      Text(
+                        'Smart Attendance System',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFFB8C9E5),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
 
-          const Divider(height: 1, color: _border),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _navItem(
+                  icon: Icons.home_rounded,
+                  title: 'Trang chủ',
+                  onTap: _goHome,
+                ),
 
-          const SizedBox(height: 14),
+                const SizedBox(height: 8),
 
-          _buildSidebarItem(Icons.home_rounded, 'Trang chủ', false, _goHome),
+                _navSection(
+                  icon: Icons.groups_rounded,
+                  title: 'Nhân viên',
+                  children: [
+                    _navSubItem(
+                      title: 'Danh sách nhân viên',
+                      onTap: () => _push(const EmployeeListScreen()),
+                    ),
 
-          _buildSidebarItem(Icons.bar_chart_rounded, 'Báo cáo', true, () {}),
+                    _navSubItem(
+                      title: 'Thêm khuôn mặt chấm công',
+                      onTap: () {
+                        // Giữ nguyên nếu AttendanceReportScreen
+                        // chưa sử dụng FaceManagementScreen.
+                        // Có thể thêm navigation sau nếu cần.
+                      },
+                    ),
+                  ],
+                ),
 
-          _buildSidebarItem(
-            Icons.groups_rounded,
-            'Nhân viên',
-            false,
-            () => _push(const EmployeeListScreen()),
+                _navSection(
+                  icon: Icons.access_time_rounded,
+                  title: 'Chấm công',
+                  children: [
+                    _navSubItem(
+                      title: 'Cấu hình IP & GPS',
+                      onTap: () => _push(const IpConfigScreen()),
+                    ),
+                  ],
+                ),
+
+                _navItem(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'Báo cáo',
+                  selected: true,
+                  onTap: () {},
+                ),
+
+                const SizedBox(height: 8),
+
+                _navSection(
+                  icon: Icons.assignment_rounded,
+                  title: 'Yêu cầu',
+                  children: [
+                    _navSubItem(
+                      title: 'Đổi ca',
+                      onTap: () {
+                        // Navigation giữ nguyên cấu trúc sidebar.
+                      },
+                    ),
+
+                    _navSubItem(
+                      title: 'Nghỉ phép',
+                      onTap: () => _push(const LeaveApprovalScreen()),
+                    ),
+
+                    _navSubItem(
+                      title: 'Công tác',
+                      onTap: () {
+                        // Navigation có thể thêm BusinessTripApprovalScreen
+                        // nếu cần import màn hình này.
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
-          _buildSidebarItem(
-            Icons.access_time_rounded,
-            'Chấm công',
-            false,
-            () => _push(const IpConfigScreen()),
-          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+            child: Column(
+              children: [
+                const Divider(color: Color(0xFF29436D)),
 
-          _buildSidebarItem(
-            Icons.description_outlined,
-            'Yêu cầu',
-            false,
-            () => _push(const LeaveApprovalScreen()),
-          ),
+                _navItem(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Đổi mật khẩu',
+                  onTap: () => _push(const ChangePasswordScreen()),
+                ),
 
-          _buildSidebarItem(
-            Icons.settings_outlined,
-            'Cài đặt',
-            false,
-            () => _push(const ChangePasswordScreen()),
+                _navItem(
+                  icon: Icons.logout_rounded,
+                  title: 'Đăng xuất',
+                  iconColor: const Color(0xFFFFB4B4),
+                  onTap: _confirmLogout,
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSidebarItem(
-    IconData icon,
-    String label,
-    bool selected,
-    VoidCallback onTap,
-  ) {
+  Widget _navSection({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        splashColor: Colors.white.withOpacity(0.05),
+        highlightColor: Colors.white.withOpacity(0.04),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
+        iconColor: const Color(0xFFBFD5F5),
+        collapsedIconColor: const Color(0xFFBFD5F5),
+        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _navItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color iconColor = const Color(0xFFD6E4FA),
+    bool selected = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? const Color(0xFFE8F0FF) : Colors.transparent,
-
-        borderRadius: BorderRadius.circular(12),
-
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-
+          borderRadius: BorderRadius.circular(9),
           onTap: onTap,
-
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, size: 22, color: selected ? _blue : _textBlue),
+                Icon(
+                  icon,
+                  color: selected ? Colors.white : iconColor,
+                  size: 21,
+                ),
 
-                const SizedBox(width: 14),
+                const SizedBox(width: 13),
 
-                Text(
-                  label,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? _blue : _textBlue,
+  Widget _navSubItem({
+    required String title,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Material(
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: selected ? 7 : 5,
+                  color: selected ? Colors.white : const Color(0xFF7894BD),
+                ),
+
+                const SizedBox(width: 11),
+
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFD0DDF1),
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ],
