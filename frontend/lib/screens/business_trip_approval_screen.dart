@@ -291,9 +291,7 @@ class _BusinessTripApprovalScreenState
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _pageBackground,
-
       drawer: isDesktop ? null : Drawer(width: 270, child: _buildSidebar()),
-
       body: SafeArea(
         child: Row(
           children: [
@@ -328,6 +326,7 @@ class _BusinessTripApprovalScreenState
             padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
             child: Row(
               children: [
+                // LOGO ATTENDGO
                 Container(
                   width: 42,
                   height: 42,
@@ -335,10 +334,10 @@ class _BusinessTripApprovalScreenState
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: const Icon(
-                    Icons.verified_user_rounded,
-                    color: Color(0xFF69B7FF),
-                    size: 27,
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
 
@@ -494,16 +493,11 @@ class _BusinessTripApprovalScreenState
       ),
       child: ExpansionTile(
         initiallyExpanded: initiallyExpanded,
-
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
-
         iconColor: const Color(0xFFBFD5F5),
         collapsedIconColor: const Color(0xFFBFD5F5),
-
         leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
-
         title: Text(
           title,
           style: const TextStyle(
@@ -512,7 +506,6 @@ class _BusinessTripApprovalScreenState
             fontWeight: FontWeight.w600,
           ),
         ),
-
         children: children,
       ),
     );
@@ -603,14 +596,11 @@ class _BusinessTripApprovalScreenState
   Widget _buildTopBar(bool isDesktop) {
     return Container(
       height: 72,
-
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 28 : 16),
-
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _border)),
       ),
-
       child: Row(
         children: [
           if (!isDesktop) ...[
@@ -688,9 +678,7 @@ class _BusinessTripApprovalScreenState
   Widget _buildMainContent(bool isDesktop) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-
       padding: EdgeInsets.all(isDesktop ? 28 : 16),
-
       children: [
         _buildPageIntro(isDesktop),
 
@@ -773,30 +761,24 @@ class _BusinessTripApprovalScreenState
   Widget _buildSummaryCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
-
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFFEAF3FF), Color(0xFFF7FAFF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-
         border: Border.all(color: const Color(0xFFDCE8FB)),
-
         borderRadius: BorderRadius.circular(16),
       ),
-
       child: Row(
         children: [
           Container(
             width: 42,
             height: 42,
-
             decoration: BoxDecoration(
               color: const Color(0xFFD7E7FF),
               borderRadius: BorderRadius.circular(12),
             ),
-
             child: const Icon(Icons.pending_actions_rounded, color: _blue),
           ),
 
@@ -841,14 +823,10 @@ class _BusinessTripApprovalScreenState
   Widget _buildDesktopTable() {
     return Container(
       width: double.infinity,
-
       decoration: BoxDecoration(
         color: Colors.white,
-
         border: Border.all(color: _border),
-
         borderRadius: BorderRadius.circular(16),
-
         boxShadow: const [
           BoxShadow(
             color: Color(0x080D2858),
@@ -857,30 +835,22 @@ class _BusinessTripApprovalScreenState
           ),
         ],
       ),
-
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF3F7FD)),
-
             dataRowMinHeight: 76,
             dataRowMaxHeight: 90,
-
             headingTextStyle: const TextStyle(
               color: _muted,
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
-
             dataTextStyle: const TextStyle(color: _text, fontSize: 12),
-
             columnSpacing: 26,
             horizontalMargin: 22,
-
             columns: const [
               DataColumn(label: Text('NHÂN VIÊN')),
               DataColumn(label: Text('THỜI GIAN ĐI')),
@@ -890,7 +860,6 @@ class _BusinessTripApprovalScreenState
               DataColumn(label: Text('TRẠNG THÁI')),
               DataColumn(label: Text('THAO TÁC')),
             ],
-
             rows: _requests.map((item) {
               final request = Map<String, dynamic>.from(item as Map);
 
@@ -969,12 +938,9 @@ class _BusinessTripApprovalScreenState
         children: [
           CircleAvatar(
             radius: 18,
-
             backgroundColor: const Color(0xFFE7EFFF),
-
             child: Text(
               name.isNotEmpty ? name.characters.first.toUpperCase() : 'N',
-
               style: const TextStyle(color: _blue, fontWeight: FontWeight.w800),
             ),
           ),
@@ -1053,18 +1019,13 @@ class _BusinessTripApprovalScreenState
 
     return Container(
       padding: const EdgeInsets.all(17),
-
       decoration: BoxDecoration(
         color: Colors.white,
-
         borderRadius: BorderRadius.circular(16),
-
         border: Border.all(color: _border),
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
           Row(
             children: [
@@ -1168,15 +1129,11 @@ class _BusinessTripApprovalScreenState
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 58),
-
       decoration: BoxDecoration(
         color: Colors.white,
-
         border: Border.all(color: _border),
-
         borderRadius: BorderRadius.circular(16),
       ),
-
       child: const Column(
         children: [
           Icon(Icons.task_alt_rounded, size: 52, color: Color(0xFF91A4C0)),
@@ -1208,15 +1165,11 @@ class _BusinessTripApprovalScreenState
   Widget _buildErrorState() {
     return Container(
       padding: const EdgeInsets.all(22),
-
       decoration: BoxDecoration(
         color: Colors.white,
-
         border: Border.all(color: const Color(0xFFF4CACA)),
-
         borderRadius: BorderRadius.circular(16),
       ),
-
       child: Column(
         children: [
           const Icon(
@@ -1257,12 +1210,10 @@ class _PendingBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-
       decoration: BoxDecoration(
         color: const Color(0xFFFFF3D9),
         borderRadius: BorderRadius.circular(20),
       ),
-
       child: const Text(
         'Chờ duyệt',
         style: TextStyle(
@@ -1297,22 +1248,15 @@ class _ActionButton extends StatelessWidget {
     final button = outlined
         ? OutlinedButton.icon(
             onPressed: onPressed,
-
             icon: Icon(icon, size: 16),
-
             label: Text(label),
-
             style: OutlinedButton.styleFrom(
               foregroundColor: color,
-
               side: BorderSide(color: color.withOpacity(0.55)),
-
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(9),
               ),
-
               textStyle: const TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
@@ -1321,22 +1265,15 @@ class _ActionButton extends StatelessWidget {
           )
         : FilledButton.icon(
             onPressed: onPressed,
-
             icon: Icon(icon, size: 16),
-
             label: Text(label),
-
             style: FilledButton.styleFrom(
               backgroundColor: color,
-
               foregroundColor: Colors.white,
-
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(9),
               ),
-
               textStyle: const TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
