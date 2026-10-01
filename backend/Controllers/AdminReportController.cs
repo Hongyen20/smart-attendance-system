@@ -1,3 +1,4 @@
+using System.Globalization;
 using AttendanceApi.Models;
 using AttendanceApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -5,25 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceApi.Controllers;
 
-// BÁO CÁO CHẤM CÔNG CHO ADMIN
-//
-// GET /api/admin/reports/attendance?year=2026&month=9&page=1&pageSize=10&search=
-//
-// Trả về:
-// - summary / previousSummary : số lượt theo trạng thái của tháng được chọn / tháng trước.
-// - daily   : thống kê từng ngày trong tháng được chọn.
-// - monthly : thống kê 6 tháng gần nhất (kết thúc ở tháng được chọn).
-// - items   : trạng thái HÔM NAY của từng nhân viên (có tìm kiếm + phân trang).
-//
-// Quy ước trạng thái của 1 nhân viên trong 1 ngày làm việc (thứ 2 - thứ 6):
-//   Có bản ghi chấm công  => OnTime / Late / Absent theo Status của bản ghi.
-//   Không có bản ghi:
-//     có đơn nghỉ phép đã duyệt    => Leave
-//     có đơn công tác đã duyệt     => BusinessTrip
-//     là hôm nay (chưa chấm công)  => Other
-//     ngày đã qua                  => Absent
-//
-// Không tính: thứ 7, chủ nhật, ngày tương lai, ngày trước khi nhân viên được tạo.
 
 [ApiController]
 [Route("api/admin/reports")]
@@ -31,6 +13,11 @@ namespace AttendanceApi.Controllers;
 public class AdminReportController : ControllerBase
 {
     private const int MonthsInChart = 6;
+
+    private static readonly string[] ValidStatuses =
+    {
+        "OnTime", "Late", "Absent", "BusinessTrip", "Leave", "Other"
+    };
 
     // Giờ Việt Nam = UTC+7 (dùng để tính số phút đi trễ).
     private static readonly TimeSpan VnOffset = TimeSpan.FromHours(7);
@@ -115,8 +102,11 @@ public class AdminReportController : ControllerBase
 
     [HttpGet("attendance")]
     public async Task<IActionResult> GetAttendanceReport(
-        [FromQuery] int year,
-        [FromQuery] int month,
+        [FromQuery] string mode = "day",
+        [FromQuery] string? date = null,
+        [FromQuery] int year = 0,
+        [FromQuery] int month = 0,
+        [FromQuery] string? status = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null)
@@ -131,22 +121,63 @@ public class AdminReportController : ControllerBase
         // "Hôm nay" tính theo UTC để khớp với cách check-in đang lưu WorkDate.
         var today = DateTime.UtcNow.Date;
 
-        if (year == 0 || month == 0)
-        {
-            year = today.Year;
-            month = today.Month;
-        }
+        var isDayMode =
+            !string.Equals(mode, "month", StringComparison.OrdinalIgnoreCase);
 
-        if (month < 1 || month > 12 || year < 2000 || year > 2100)
+        var selectedDay = today;
+
+        if (isDayMode)
         {
-            return BadRequest(new
+            if (!string.IsNullOrWhiteSpace(date))
             {
-                message = "Tháng hoặc năm không hợp lệ."
-            });
+                if (!DateTime.TryParseExact(
+                        date,
+                        "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var parsedDate))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Ngày không hợp lệ."
+                    });
+                }
+
+                selectedDay = parsedDate.Date;
+            }
+
+            // Không cho xem ngày tương lai.
+            if (selectedDay > today)
+            {
+                selectedDay = today;
+            }
+
+            year = selectedDay.Year;
+            month = selectedDay.Month;
+        }
+        else
+        {
+            if (year == 0 || month == 0)
+            {
+                year = today.Year;
+                month = today.Month;
+            }
+
+            if (month < 1 || month > 12 || year < 2000 || year > 2100)
+            {
+                return BadRequest(new
+                {
+                    message = "Tháng hoặc năm không hợp lệ."
+                });
+            }
         }
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var statusFilter =
+            ValidStatuses.FirstOrDefault(s =>
+                string.Equals(s, status?.Trim(), StringComparison.OrdinalIgnoreCase));
 
         var selectedStart = new DateTime(year, month, 1);
 
@@ -154,8 +185,11 @@ public class AdminReportController : ControllerBase
 
         var chartStart = selectedStart.AddMonths(-(MonthsInChart - 1));
 
-        // Khoảng dữ liệu cần lấy: phủ cả 6 tháng biểu đồ và ngày hôm nay.
-        var fetchFrom = chartStart < today ? chartStart : today;
+        // Khoảng dữ liệu cần lấy: phủ 6 tháng biểu đồ, hôm nay,
+        // và vài ngày trước ngày được chọn (để so sánh với ngày làm việc trước đó).
+        var fetchFrom =
+            new[] { chartStart, today, selectedDay.AddDays(-4) }.Min();
+
         var fetchTo = selectedEnd > today ? selectedEnd : today;
 
         // 1. NHÂN VIÊN (chỉ Employee đang hoạt động, không tính Admin)
@@ -255,6 +289,23 @@ public class AdminReportController : ControllerBase
             return day == today ? "Other" : "Absent";
         }
 
+        Counts CountDay(DateTime day)
+        {
+            var counts = new Counts();
+
+            foreach (var employee in employees)
+            {
+                var s = ResolveStatus(employee, day);
+
+                if (s is not null)
+                {
+                    counts.Add(s);
+                }
+            }
+
+            return counts;
+        }
+
         // 3. THỐNG KÊ THEO THÁNG + THEO NGÀY
 
         var monthly = new List<(DateTime Month, Counts Counts)>();
@@ -279,19 +330,7 @@ public class AdminReportController : ControllerBase
                     break;
                 }
 
-                var dayCounts = new Counts();
-
-                foreach (var employee in employees)
-                {
-                    var status = ResolveStatus(employee, day);
-
-                    if (status is null)
-                    {
-                        continue;
-                    }
-
-                    dayCounts.Add(status);
-                }
+                var dayCounts = CountDay(day);
 
                 monthCounts.Merge(dayCounts);
 
@@ -304,15 +343,37 @@ public class AdminReportController : ControllerBase
             monthly.Add((monthStart, monthCounts));
         }
 
-        var summary = monthly[^1].Counts;
+        // 4. SỐ LIỆU CỦA PHẠM VI ĐƯỢC CHỌN (NGÀY HOẶC THÁNG)
 
-        var previousSummary = monthly[^2].Counts;
+        Counts summary;
+        Counts previousSummary;
 
-        // 4. DANH SÁCH CHI TIẾT (TRẠNG THÁI HÔM NAY)
+        if (isDayMode)
+        {
+            summary = CountDay(selectedDay);
+
+            // Ngày làm việc trước đó (bỏ qua thứ 7, chủ nhật).
+            var previousDay = selectedDay.AddDays(-1);
+
+            while (previousDay.DayOfWeek == DayOfWeek.Saturday ||
+                   previousDay.DayOfWeek == DayOfWeek.Sunday)
+            {
+                previousDay = previousDay.AddDays(-1);
+            }
+
+            previousSummary = CountDay(previousDay);
+        }
+        else
+        {
+            summary = monthly[^1].Counts;
+            previousSummary = monthly[^2].Counts;
+        }
+
+        // 5. DANH SÁCH CHI TIẾT (NHÂN VIÊN x NGÀY)
 
         var keyword = (search ?? string.Empty).Trim().ToLowerInvariant();
 
-        var rows =
+        var filteredEmployees =
             employees
                 .Where(u =>
                     keyword.Length == 0 ||
@@ -321,9 +382,49 @@ public class AdminReportController : ControllerBase
                 .OrderBy(u => u.FullName)
                 .ToList();
 
+        var days = new List<DateTime>();
+
+        if (isDayMode)
+        {
+            days.Add(selectedDay);
+        }
+        else
+        {
+            var lastDay = selectedEnd < today ? selectedEnd : today;
+
+            // Ngày mới nhất lên đầu.
+            for (var d = lastDay; d >= selectedStart; d = d.AddDays(-1))
+            {
+                days.Add(d);
+            }
+        }
+
+        var rows = new List<(User User, DateTime Day, string Status)>();
+
+        foreach (var day in days)
+        {
+            foreach (var employee in filteredEmployees)
+            {
+                var s = ResolveStatus(employee, day);
+
+                if (s is null)
+                {
+                    continue;
+                }
+
+                if (statusFilter is not null && s != statusFilter)
+                {
+                    continue;
+                }
+
+                rows.Add((employee, day, s));
+            }
+        }
+
         var totalItems = rows.Count;
 
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
+        var totalPages =
+            Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
 
         if (page > totalPages)
         {
@@ -334,24 +435,24 @@ public class AdminReportController : ControllerBase
             rows
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(u => BuildItem(
-                    u,
-                    today,
-                    ResolveStatus(u, today),
-                    recordMap.GetValueOrDefault((u.Id, today)),
-                    FindLeave(u.Id, today),
-                    FindTrip(u.Id, today)))
+                .Select(row => BuildItem(
+                    row.User,
+                    row.Day,
+                    row.Status,
+                    recordMap.GetValueOrDefault((row.User.Id, row.Day)),
+                    FindLeave(row.User.Id, row.Day),
+                    FindTrip(row.User.Id, row.Day)))
                 .ToList();
 
-        // 5. RESPONSE
+        // 6. RESPONSE
 
         return Ok(new
         {
+            mode = isDayMode ? "day" : "month",
+            date = isDayMode ? selectedDay.ToString("yyyy-MM-dd") : null,
+
             year,
             month,
-
-            fromDate = selectedStart.ToString("yyyy-MM-dd"),
-            toDate = selectedEnd.ToString("yyyy-MM-dd"),
 
             totalEmployees = employees.Count,
 
@@ -379,14 +480,12 @@ public class AdminReportController : ControllerBase
 
     private static object BuildItem(
         User user,
-        DateTime today,
-        string? resolvedStatus,
+        DateTime day,
+        string status,
         AttendanceRecord? record,
         LeaveRequest? leave,
         BusinessTripRequest? trip)
     {
-        var status = resolvedStatus ?? "Other";
-
         string note = status switch
         {
             "Leave" => leave?.IsPaid == false
@@ -399,9 +498,7 @@ public class AdminReportController : ControllerBase
 
             "Absent" => "Không đi làm",
 
-            "Other" => resolvedStatus is null
-                ? "Ngày nghỉ cuối tuần"
-                : "Chưa chấm công",
+            "Other" => "Chưa chấm công",
 
             "Late" => LateNote(user, record),
 
@@ -410,10 +507,11 @@ public class AdminReportController : ControllerBase
 
         return new
         {
-            // Phòng ban để trống do chưa set
+            date = day.ToString("yyyy-MM-dd"),
+
+            // Model User chưa có mã nhân viên: tạm dùng Username làm mã.
             employeeCode = user.Username,
             fullName = user.FullName,
-            department = string.Empty,
 
             status,
 

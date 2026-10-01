@@ -156,18 +156,18 @@ class _ChartPoint {
 }
 
 class _DetailItem {
+  final String date;
   final String employeeCode;
   final String fullName;
-  final String department;
   final String status;
   final String? checkInTime;
   final String? checkOutTime;
   final String note;
 
   const _DetailItem({
+    required this.date,
     required this.employeeCode,
     required this.fullName,
-    required this.department,
     required this.status,
     required this.checkInTime,
     required this.checkOutTime,
@@ -176,9 +176,9 @@ class _DetailItem {
 
   factory _DetailItem.fromJson(Map j) {
     return _DetailItem(
+      date: '${j['date'] ?? ''}',
       employeeCode: '${j['employeeCode'] ?? ''}',
       fullName: '${j['fullName'] ?? ''}',
-      department: '${j['department'] ?? ''}',
       status: '${j['status'] ?? 'Other'}',
       checkInTime: j['checkInTime']?.toString(),
       checkOutTime: j['checkOutTime']?.toString(),
@@ -296,6 +296,15 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   late int _year;
   late int _month;
 
+  // 'day' = xem 1 ngày | 'month' = xem cả tháng
+  String _mode = 'day';
+
+  late DateTime _selectedDate;
+
+  // '' = tất cả trạng thái
+  // hoặc: OnTime | Late | Absent | BusinessTrip | Leave | Other
+  String _statusFilter = '';
+
   int _page = 1;
 
   String _search = '';
@@ -332,6 +341,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     _year = now.year;
     _month = now.month;
 
+    _selectedDate = DateTime(now.year, now.month, now.day);
+
     _load();
   }
 
@@ -358,8 +369,13 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       _error = null;
     });
 
+    final scope = _mode == 'day'
+        ? 'mode=day&date=${_selectedDate.year}-${_p2(_selectedDate.month)}-${_p2(_selectedDate.day)}'
+        : 'mode=month&year=$_year&month=$_month';
+
     final query =
-        'year=$_year&month=$_month&page=$_page&pageSize=$_pageSize'
+        '$scope&page=$_page&pageSize=$_pageSize'
+        '&status=${Uri.encodeQueryComponent(_statusFilter)}'
         '&search=${Uri.encodeQueryComponent(_search.trim())}';
 
     try {
@@ -417,6 +433,42 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   void _changeMonth(DateTime value) {
     _year = value.year;
     _month = value.month;
+    _page = 1;
+
+    _load();
+  }
+
+  void _changeMode(String mode) {
+    if (_mode == mode) return;
+
+    _mode = mode;
+    _page = 1;
+
+    _load();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(now.year - 2, 1, 1),
+      lastDate: DateTime(now.year, now.month, now.day),
+    );
+
+    if (picked == null || !mounted) return;
+
+    _selectedDate = DateTime(picked.year, picked.month, picked.day);
+    _page = 1;
+
+    _load();
+  }
+
+  void _changeStatus(String status) {
+    if (_statusFilter == status) return;
+
+    _statusFilter = status;
     _page = 1;
 
     _load();
@@ -528,11 +580,16 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return '${_p2(local.hour)}:${_p2(local.minute)}';
   }
 
-  String get _rangeLabel {
-    final lastDay = DateTime(_year, _month + 1, 0).day;
+  String _fmtDate(String iso) {
+    final parts = iso.split('T').first.split('-');
 
-    return '01/${_p2(_month)}/$_year - ${_p2(lastDay)}/${_p2(_month)}/$_year';
+    if (parts.length < 3) return iso;
+
+    return '${parts[2]}/${parts[1]}/${parts[0]}';
   }
+
+  String get _prevLabel =>
+      _mode == 'day' ? 'so với hôm trước' : 'so với tháng trước';
 
   // BUILD
 
@@ -713,7 +770,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                 const SizedBox(height: 16),
 
-                _buildFilterBar(wide),
+                _buildFilterBar(contentWidth),
 
                 const SizedBox(height: 16),
 
@@ -870,14 +927,273 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   }
 
   // FILTER BAR
+  //
+  // [Ngày | Tháng] [📅 ngày / tháng] [Trạng thái ▼] [🔍 Nhân viên] [Xuất báo cáo]
 
-  Widget _buildFilterBar(bool wide) {
+  Widget _buildFilterBar(double contentWidth) {
+    final inline = contentWidth >= 1000;
+
+    final exportButton = ElevatedButton.icon(
+      onPressed: () {
+        ScaffoldMessenger.of(context)
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Chức năng xuất báo cáo sẽ được bổ sung sau.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      },
+
+      icon: const Icon(Icons.download_rounded, size: 20),
+
+      label: const Text(
+        'Xuất báo cáo',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _blue,
+
+        foregroundColor: Colors.white,
+
+        elevation: 0,
+
+        minimumSize: const Size(0, 46),
+
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    final searchBox = SizedBox(
+      height: 46,
+
+      child: TextField(
+        controller: _searchController,
+
+        onChanged: _onSearchChanged,
+
+        style: const TextStyle(color: _textBlue, fontSize: 13.5),
+
+        decoration: InputDecoration(
+          hintText: 'Tìm nhân viên (tên hoặc mã NV)...',
+
+          hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
+
+          prefixIcon: const Icon(Icons.search, color: _textGrey, size: 20),
+
+          filled: true,
+
+          fillColor: const Color(0xFFF8FAFF),
+
+          contentPadding: EdgeInsets.zero,
+
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFD3DEFA)),
+          ),
+
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFD3DEFA)),
+          ),
+
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _blue, width: 1.4),
+          ),
+        ),
+      ),
+    );
+
+    final modeToggle = _buildModeToggle();
+
+    final dateField = _mode == 'day' ? _buildDateField() : _buildMonthField();
+
+    final statusDropdown = _buildStatusDropdown();
+
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(14),
+
+      decoration: _cardDecoration(),
+
+      child: inline
+          ? Row(
+              children: [
+                modeToggle,
+
+                const SizedBox(width: 12),
+
+                dateField,
+
+                const SizedBox(width: 12),
+
+                statusDropdown,
+
+                const SizedBox(width: 12),
+
+                Expanded(child: searchBox),
+
+                const SizedBox(width: 12),
+
+                exportButton,
+              ],
+            )
+          : Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+
+              children: [
+                modeToggle,
+
+                dateField,
+
+                statusDropdown,
+
+                SizedBox(
+                  width: math.max(0, contentWidth - 28),
+                  child: searchBox,
+                ),
+
+                exportButton,
+              ],
+            ),
+    );
+  }
+
+  // NGÀY | THÁNG
+
+  Widget _buildModeToggle() {
+    Widget option(String mode, String label, IconData icon) {
+      final selected = _mode == mode;
+
+      return GestureDetector(
+        onTap: () => _changeMode(mode),
+
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+
+          alignment: Alignment.center,
+
+          decoration: BoxDecoration(
+            color: selected ? _blue : Colors.transparent,
+
+            borderRadius: BorderRadius.circular(9),
+          ),
+
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Icon(icon, size: 17, color: selected ? Colors.white : _textBlue),
+
+              const SizedBox(width: 7),
+
+              Text(
+                label,
+
+                style: TextStyle(
+                  color: selected ? Colors.white : _textBlue,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 46,
+
+      padding: const EdgeInsets.all(3),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(12),
+
+        border: Border.all(color: const Color(0xFFCFDDF5)),
+      ),
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+          option('day', 'Ngày', Icons.calendar_today_rounded),
+
+          option('month', 'Tháng', Icons.calendar_month_rounded),
+        ],
+      ),
+    );
+  }
+
+  // Ô CHỌN NGÀY (chế độ Ngày)
+
+  Widget _buildDateField() {
+    final label =
+        '${_p2(_selectedDate.day)}/${_p2(_selectedDate.month)}/${_selectedDate.year}';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+
+      onTap: _pickDate,
+
+      child: Container(
+        height: 46,
+
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF3FF),
+
+          borderRadius: BorderRadius.circular(12),
+
+          border: Border.all(color: const Color(0xFFCFDDF5)),
+        ),
+
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+            const Icon(Icons.calendar_month_rounded, size: 20, color: _blue),
+
+            const SizedBox(width: 10),
+
+            Text(
+              label,
+
+              style: const TextStyle(
+                color: _navy,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            const Icon(Icons.keyboard_arrow_down, color: _navy),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Ô CHỌN THÁNG (chế độ Tháng)
+
+  Widget _buildMonthField() {
     final selected = _monthOptions.firstWhere(
       (d) => d.year == _year && d.month == _month,
       orElse: () => _monthOptions.first,
     );
 
-    final monthDropdown = Container(
+    return Container(
       height: 46,
 
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -936,8 +1252,18 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         ),
       ),
     );
+  }
 
-    final rangeBox = Container(
+  // Ô LỌC TRẠNG THÁI
+
+  Widget _buildStatusDropdown() {
+    const itemStyle = TextStyle(
+      color: _navy,
+      fontSize: 13.5,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Container(
       height: 46,
 
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -950,85 +1276,35 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         border: Border.all(color: const Color(0xFFCFDDF5)),
       ),
 
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _statusFilter,
 
-        children: [
-          const Icon(Icons.date_range_outlined, size: 19, color: _textGrey),
+          icon: const Icon(Icons.keyboard_arrow_down, color: _navy),
 
-          const SizedBox(width: 10),
+          borderRadius: BorderRadius.circular(12),
 
-          Text(
-            _rangeLabel,
-
-            style: const TextStyle(color: _textBlue, fontSize: 13.5),
-          ),
-        ],
-      ),
-    );
-
-    final exportButton = ElevatedButton.icon(
-      onPressed: () {
-        ScaffoldMessenger.of(context)
-          ..removeCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Chức năng xuất báo cáo sẽ được bổ sung sau.'),
-              behavior: SnackBarBehavior.floating,
+          items: [
+            const DropdownMenuItem<String>(
+              value: '',
+              child: Text('Tất cả trạng thái', style: itemStyle),
             ),
-          );
-      },
 
-      icon: const Icon(Icons.download_rounded, size: 20),
+            ..._statusList.map((m) {
+              return DropdownMenuItem<String>(
+                value: m.key,
+                child: Text(m.label, style: itemStyle),
+              );
+            }),
+          ],
 
-      label: const Text(
-        'Xuất báo cáo',
-        style: TextStyle(fontWeight: FontWeight.w700),
+          onChanged: (value) {
+            if (value == null) return;
+
+            _changeStatus(value);
+          },
+        ),
       ),
-
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _blue,
-
-        foregroundColor: Colors.white,
-
-        elevation: 0,
-
-        minimumSize: const Size(0, 46),
-
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-
-    return Container(
-      width: double.infinity,
-
-      padding: const EdgeInsets.all(14),
-
-      decoration: _cardDecoration(),
-
-      child: wide
-          ? Row(
-              children: [
-                monthDropdown,
-
-                const SizedBox(width: 12),
-
-                rangeBox,
-
-                const Spacer(),
-
-                exportButton,
-              ],
-            )
-          : Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-
-              children: [monthDropdown, rangeBox, exportButton],
-            ),
     );
   }
 
@@ -1166,9 +1442,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
     if (previous == 0) {
       if (current == 0) {
-        text = '= 0% so với tháng trước';
+        text = '= 0% $_prevLabel';
       } else {
-        text = 'Mới so với tháng trước';
+        text = 'Mới $_prevLabel';
 
         icon = Icons.arrow_upward_rounded;
       }
@@ -1176,13 +1452,13 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       final pct = ((current - previous) / previous * 100).round();
 
       if (pct == 0) {
-        text = '= 0% so với tháng trước';
+        text = '= 0% $_prevLabel';
       } else {
         final up = pct > 0;
 
         icon = up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
 
-        text = '${pct.abs()}% so với tháng trước';
+        text = '${pct.abs()}% $_prevLabel';
 
         if (positiveIsGood != null) {
           color = (up == positiveIsGood) ? _green : _red;
@@ -1229,6 +1505,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           values: counts.values.map((v) => v.toDouble()).toList(),
           colors: _statusList.map((m) => m.color).toList(),
           total: total,
+          centerLabel: _mode == 'day' ? 'Tổng nhân viên' : 'Tổng lượt',
         ),
       ),
     );
@@ -1496,56 +1773,29 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   }
 
   // DETAIL CARD
+  //
+  // Chi tiết danh sách chấm công:
+  // [Tất cả (n)] [Đúng giờ (n)] [Đi trễ (n)] ... + bảng chi tiết.
 
   Widget _buildDetailCard(_ReportData data, double contentWidth) {
     final wideTable = contentWidth >= 760;
 
-    final searchBox = SizedBox(
-      width: wideTable ? 300 : double.infinity,
-      height: 42,
+    final summary = data.summary;
 
-      child: TextField(
-        controller: _searchController,
+    final chips = Wrap(
+      spacing: 8,
+      runSpacing: 8,
 
-        onChanged: _onSearchChanged,
+      children: [
+        _buildFilterChip('', 'Tất cả (${summary.total})'),
 
-        style: const TextStyle(color: _textBlue, fontSize: 13.5),
-
-        decoration: InputDecoration(
-          hintText: 'Tìm kiếm nhân viên...',
-
-          hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
-
-          prefixIcon: const Icon(Icons.search, color: _textGrey, size: 20),
-
-          filled: true,
-
-          fillColor: const Color(0xFFF8FAFF),
-
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD3DEFA)),
-          ),
-
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD3DEFA)),
-          ),
-
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: _blue, width: 1.4),
-          ),
-        ),
-      ),
-    );
-
-    const title = Text(
-      'Danh sách chi tiết',
-
-      style: TextStyle(color: _navy, fontSize: 17, fontWeight: FontWeight.w800),
+        ...List.generate(_statusList.length, (i) {
+          return _buildFilterChip(
+            _statusList[i].key,
+            '${_statusList[i].shortLabel} (${summary.values[i]})',
+          );
+        }),
+      ],
     );
 
     return Container(
@@ -1559,20 +1809,19 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          if (wideTable)
-            Row(
-              children: [
-                const Expanded(child: title),
-                searchBox,
-              ],
-            )
-          else ...[
-            title,
+          const Text(
+            'Chi tiết danh sách chấm công',
 
-            const SizedBox(height: 12),
+            style: TextStyle(
+              color: _navy,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
 
-            searchBox,
-          ],
+          const SizedBox(height: 14),
+
+          chips,
 
           const SizedBox(height: 14),
 
@@ -1589,7 +1838,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
               child: Center(
                 child: Text(
-                  'Không có nhân viên phù hợp.',
+                  'Không có dữ liệu chấm công phù hợp.',
                   style: TextStyle(color: _textGrey, fontSize: 13),
                 ),
               ),
@@ -1607,19 +1856,51 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
-  // TABLE (màn hình rộng)
+  Widget _buildFilterChip(String key, String label) {
+    final selected = _statusFilter == key;
 
-  static const List<int> _flex = [1, 2, 4, 3, 3, 2, 2, 3];
+    return GestureDetector(
+      onTap: () => _changeStatus(key),
+
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+
+        decoration: BoxDecoration(
+          color: selected ? _blue : Colors.white,
+
+          borderRadius: BorderRadius.circular(18),
+
+          border: Border.all(color: selected ? _blue : const Color(0xFFCFDDF5)),
+        ),
+
+        child: Text(
+          label,
+
+          style: TextStyle(
+            color: selected ? Colors.white : _textBlue,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // TABLE (màn hình rộng)
+  //
+  // STT | Mã NV | Họ và tên | Ngày | Giờ vào | Giờ ra | Trạng thái | Ghi chú
+
+  static const List<int> _flex = [1, 2, 4, 2, 2, 2, 3, 4];
 
   Widget _buildTable(_ReportData data) {
     const headers = [
       'STT',
       'Mã NV',
       'Họ và tên',
-      'Phòng ban',
-      'Trạng thái hôm nay',
+      'Ngày',
       'Giờ vào',
       'Giờ ra',
+      'Trạng thái',
       'Ghi chú',
     ];
 
@@ -1696,19 +1977,19 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                 cell(2, text(item.fullName, bold: true)),
 
-                cell(3, text(item.department.isEmpty ? '-' : item.department)),
+                cell(3, text(_fmtDate(item.date))),
+
+                cell(4, text(_fmtTime(item.checkInTime))),
+
+                cell(5, text(_fmtTime(item.checkOutTime))),
 
                 cell(
-                  4,
+                  6,
                   Align(
                     alignment: Alignment.centerLeft,
                     child: _buildStatusChip(item.status),
                   ),
                 ),
-
-                cell(5, text(_fmtTime(item.checkInTime))),
-
-                cell(6, text(_fmtTime(item.checkOutTime))),
 
                 cell(7, text(item.note.isEmpty ? '-' : item.note)),
               ],
@@ -1774,10 +2055,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               const SizedBox(height: 4),
 
               Text(
-                [
-                  item.employeeCode,
-                  item.department,
-                ].where((s) => s.isNotEmpty).join(' • '),
+                '${item.employeeCode}  •  ${_fmtDate(item.date)}',
 
                 style: const TextStyle(color: _textGrey, fontSize: 12),
               ),
@@ -1844,7 +2122,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   Widget _buildPagination(_ReportData data, bool wide) {
     final info = Text(
-      'Hiển thị ${data.items.length} trong tổng số ${data.totalItems} nhân viên',
+      'Hiển thị ${data.items.length} trong tổng số ${data.totalItems} ${_mode == 'day' ? 'nhân viên' : 'bản ghi'}',
 
       style: const TextStyle(color: _textGrey, fontSize: 12.5),
     );
@@ -2062,11 +2340,13 @@ class _DonutPainter extends CustomPainter {
   final List<double> values;
   final List<Color> colors;
   final int total;
+  final String centerLabel;
 
   _DonutPainter({
     required this.values,
     required this.colors,
     required this.total,
+    required this.centerLabel,
   });
 
   @override
@@ -2136,7 +2416,7 @@ class _DonutPainter extends CustomPainter {
     // Chữ ở giữa.
     _drawText(
       canvas,
-      'Tổng lượt',
+      centerLabel,
       const TextStyle(color: _textGrey, fontSize: 12),
       Offset(center.dx, center.dy - 12),
     );
