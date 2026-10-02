@@ -798,8 +798,6 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
     return SafeArea(
       child: Column(
         children: [
-          _buildTopBar(),
-
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: _blue))
@@ -830,60 +828,6 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
     );
   }
 
-  Widget _buildTopBar() {
-    return Container(
-      height: 76,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _border)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.face_retouching_natural, color: _textBlue, size: 27),
-          const SizedBox(width: 12),
-          const Text(
-            'Quản lý khuôn mặt',
-            style: TextStyle(
-              color: _textBlue,
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF9F2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: _green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 7),
-                const Text(
-                  'Hệ thống hoạt động',
-                  style: TextStyle(
-                    color: _green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // PAGE HEADER
 
