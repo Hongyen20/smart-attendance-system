@@ -303,10 +303,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildCardHeader(isDesktop: isDesktop),
-
-          SizedBox(height: isDesktop ? 26 : 22),
-
           const Divider(height: 1, color: Color(0xFFE7ECF5)),
 
           SizedBox(height: isDesktop ? 26 : 22),
@@ -366,68 +362,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           const SizedBox(height: 14),
 
           _buildSecurityNote(isDesktop: isDesktop),
-        ],
-      ),
-    );
-  }
-
-  // CARD HEADER
-
-  Widget _buildCardHeader({required bool isDesktop}) {
-    return Container(
-      padding: EdgeInsets.all(isDesktop ? 18 : 15),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFFF0F6FF), Color(0xFFE7F0FF)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: isDesktop ? 58 : 50,
-            height: isDesktop ? 58 : 50,
-            decoration: const BoxDecoration(
-              color: Color(0xFFD9E7FF),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.lock_reset_rounded,
-              color: AppColors.primaryBlue,
-              size: isDesktop ? 29 : 25,
-            ),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Đổi mật khẩu',
-                  style: TextStyle(
-                    fontSize: isDesktop ? 20 : 17,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF244397),
-                  ),
-                ),
-
-                const SizedBox(height: 5),
-
-                Text(
-                  'Cập nhật mật khẩu để bảo vệ tài khoản của bạn.',
-                  style: TextStyle(
-                    fontSize: isDesktop ? 13 : 12,
-                    height: 1.4,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
