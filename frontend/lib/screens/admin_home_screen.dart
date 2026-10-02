@@ -15,6 +15,7 @@ import 'face_management_screen.dart';
 import 'business_trip_approval_screen.dart';
 import 'attendance_report_screen.dart';
 import 'login_screen.dart';
+import 'face_management_screen.dart';
 
 // COLORS
 
@@ -448,7 +449,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  onTap: _goHome,
+                  selected: true,
+                  onTap: () {},
                 ),
 
                 const SizedBox(height: 8),
@@ -464,11 +466,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
-                      onTap: () {
-                        // Giữ nguyên nếu AttendanceReportScreen
-                        // chưa sử dụng FaceManagementScreen.
-                        // Có thể thêm navigation sau nếu cần.
-                      },
+                      onTap: () => _push(const FaceManagementScreen()),
                     ),
                   ],
                 ),
@@ -487,8 +485,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  selected: true,
-                  onTap: () {},
+                  onTap: () => _push(const AttendanceReportScreen()),
                 ),
 
                 const SizedBox(height: 8),
@@ -499,9 +496,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
-                      onTap: () {
-                        // Navigation giữ nguyên cấu trúc sidebar.
-                      },
+                      onTap: () => _push(const ShiftChangeApprovalScreen()),
                     ),
 
                     _navSubItem(
@@ -511,10 +506,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     _navSubItem(
                       title: 'Công tác',
-                      onTap: () {
-                        // Navigation có thể thêm BusinessTripApprovalScreen
-                        // nếu cần import màn hình này.
-                      },
+                      onTap: () => _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
                 ),
