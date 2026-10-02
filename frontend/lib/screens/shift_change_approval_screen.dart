@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/admin_home_screen.dart';
 
-import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 
@@ -21,25 +21,21 @@ class ShiftChangeApprovalScreen extends StatefulWidget {
       _ShiftChangeApprovalScreenState();
 }
 
+const Color _navy = Color(0xFF0D2858);
+const Color _blue = Color(0xFF246BDE);
+const Color _bg = Color(0xFFF3F8FF);
+const Color _border = Color(0xFFE2EAF7);
+const Color _text = Color(0xFF183153);
+const Color _muted = Color(0xFF71819A);
+const Color _green = Color(0xFF15966A);
+const Color _brightBlue = Color(0xFF2864E8);
+const Color _red = Color(0xFFD94343);
+const Color _redBg = Color(0xFFFFF0F0);
+const Color _orange = Color(0xFFE88922);
+const Color _orangeBg = Color(0xFFFFF6E9);
+const Color _textBlue = Color(0xFF31589D);
+
 class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
-  // COLORS - đồng bộ với BusinessTripApprovalScreen
-
-  static const Color _navy = Color(0xFF0D2858);
-  static const Color _blue = Color(0xFF246BDE);
-  static const Color _pageBackground = Color(0xFFF4F7FC);
-  static const Color _border = Color(0xFFE3EAF4);
-  static const Color _text = Color(0xFF183153);
-  static const Color _muted = Color(0xFF71819A);
-
-  static const Color _green = Color(0xFF15966A);
-  static const Color _greenBg = Color(0xFFEAF8F2);
-
-  static const Color _red = Color(0xFFD94343);
-  static const Color _redBg = Color(0xFFFFF0F0);
-
-  static const Color _orange = Color(0xFFE88922);
-  static const Color _orangeBg = Color(0xFFFFF6E9);
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   bool _isLoading = true;
@@ -190,23 +186,9 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
     );
   }
 
-  void _openScreen(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
 
-  void _goHome() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-
-  void _openFaceManagement() {
-    final token = AuthState.instance.token;
-
-    if (token == null || token.isEmpty) {
-      _showMessage('Phiên đăng nhập không hợp lệ.');
-      return;
-    }
-
-    _openScreen(FaceManagementScreen(token: token));
+  void _push(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Future<void> _confirmLogout() async {
@@ -248,15 +230,22 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
     );
 
     if (confirmed != true || !mounted) return;
+    if (!mounted) return;
 
+    _logout();
+  }
+
+  void _logout() {
+    // Xóa token và thông tin đăng nhập.
     AuthState.instance.clear();
 
+    // Quay về màn hình đăng nhập và xóa toàn bộ lịch sử màn hình cũ,
+    // để bấm Back không quay lại trang admin được.
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
   }
-
   // BUILD
 
   @override
@@ -265,7 +254,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: _pageBackground,
+      backgroundColor: _bg,
 
       drawer: isDesktop ? null : Drawer(width: 270, child: _buildSidebar()),
 
@@ -277,7 +266,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildTopBar(isDesktop),
+                  _buildUserMenu(isDesktop),
 
                   Expanded(
                     child: RefreshIndicator(
@@ -362,7 +351,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  onTap: _goHome,
+                  onTap: () => _push(const AdminHomeScreen()),
                 ),
 
                 const SizedBox(height: 8),
@@ -374,12 +363,12 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                   children: [
                     _navSubItem(
                       title: 'Danh sách nhân viên',
-                      onTap: () => _openScreen(const EmployeeListScreen()),
+                      onTap: () => _push(const EmployeeListScreen()),
                     ),
 
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
-                      onTap: _openFaceManagement,
+                      onTap: () => _push(const FaceManagementScreen()),
                     ),
                   ],
                 ),
@@ -391,7 +380,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                   children: [
                     _navSubItem(
                       title: 'Cấu hình IP & GPS',
-                      onTap: () => _openScreen(const IpConfigScreen()),
+                      onTap: () => _push(const IpConfigScreen()),
                     ),
                   ],
                 ),
@@ -400,7 +389,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  onTap: () => _openScreen(const AttendanceReportScreen()),
+                  onTap: () => _push(const AttendanceReportScreen()),
                 ),
 
                 const SizedBox(height: 8),
@@ -424,13 +413,13 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
                     _navSubItem(
                       title: 'Nghỉ phép',
-                      onTap: () => _openScreen(const LeaveApprovalScreen()),
+                      onTap: () => _push(const LeaveApprovalScreen()),
                     ),
 
                     _navSubItem(
                       title: 'Công tác',
                       onTap: () =>
-                          _openScreen(const BusinessTripApprovalScreen()),
+                          _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
                 ),
@@ -448,7 +437,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                 _navItem(
                   icon: Icons.lock_outline_rounded,
                   title: 'Đổi mật khẩu',
-                  onTap: () => _openScreen(const ChangePasswordScreen()),
+                  onTap: () => _push(const ChangePasswordScreen()),
                 ),
 
                 _navItem(
@@ -593,84 +582,201 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
     );
   }
 
-  // TOP BAR
+  // HEADER
 
-  Widget _buildTopBar(bool isDesktop) {
-    return Container(
-      height: 72,
-      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 28 : 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _border)),
-      ),
-      child: Row(
-        children: [
-          if (!isDesktop) ...[
-            IconButton(
-              onPressed: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
-              icon: const Icon(Icons.menu_rounded, color: _navy),
-              tooltip: 'Mở menu',
-            ),
-            const SizedBox(width: 6),
-          ],
+  Widget _buildHeader(bool wide) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
 
-          const Expanded(
-            child: Text(
-              'Duyệt yêu cầu đổi ca',
-              style: TextStyle(
-                color: _text,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-
+      children: [
+        if (!wide) ...[
           IconButton(
-            onPressed: _isLoading ? null : _loadPending,
-            icon: const Icon(Icons.refresh_rounded),
-            color: _blue,
-            tooltip: 'Làm mới',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+
+            icon: const Icon(Icons.menu_rounded, color: _navy, size: 28),
+
+            padding: EdgeInsets.zero,
+
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
 
           const SizedBox(width: 8),
+        ],
 
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF2FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.swap_horiz_rounded, color: _blue, size: 20),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Xin chào',
+
+                    style: TextStyle(
+                      color: _navy,
+                      fontSize: wide ? 26 : 21,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  Text('👋', style: TextStyle(fontSize: wide ? 24 : 20)),
+                ],
+              ),
+
+              const SizedBox(height: 3),
+
+              Text(
+                'Chúc bạn có một ngày làm việc hiệu quả!',
+
+                maxLines: 2,
+
+                overflow: TextOverflow.ellipsis,
+
+                style: TextStyle(color: _textBlue, fontSize: wide ? 14 : 12),
+              ),
+            ],
           ),
+        ),
 
-          if (isDesktop) ...[
+        const SizedBox(width: 10),
+
+        _buildUserMenu(wide),
+      ],
+    );
+  }
+
+  Widget _buildUserMenu(bool showName) {
+    final name = (AuthState.instance.fullName ?? '').trim();
+
+    final avatarUrl = (AuthState.instance.avatarUrl ?? '').trim();
+
+    // Chữ cái đầu của tên đầu và tên cuối. Ví dụ "Nguyễn Văn A" -> "NA".
+    String initials() {
+      final parts = name
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      if (parts.isEmpty) return 'AD';
+
+      if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+
+      return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+          .toUpperCase();
+    }
+
+    Widget initialAvatar() {
+      return Center(
+        child: Text(
+          initials(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    final avatar = Container(
+      width: 42,
+      height: 42,
+
+      decoration: const BoxDecoration(
+        color: _brightBlue,
+        shape: BoxShape.circle,
+      ),
+
+      child: avatarUrl.isNotEmpty
+          ? ClipOval(
+              child: Image.network(
+                avatarUrl,
+                width: 42,
+                height: 42,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => initialAvatar(),
+              ),
+            )
+          : initialAvatar(),
+    );
+
+    return PopupMenuButton<String>(
+      tooltip: '',
+
+      offset: const Offset(0, 50),
+
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+
+      onSelected: (value) {
+        if (value == 'password') {
+          _push(const ChangePasswordScreen());
+        } else if (value == 'logout') {
+          _confirmLogout();
+        }
+      },
+
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'password',
+
+          child: Row(
+            children: [
+              Icon(Icons.lock_rounded, size: 20, color: _textBlue),
+
+              SizedBox(width: 10),
+
+              Text('Đổi mật khẩu'),
+            ],
+          ),
+        ),
+
+        PopupMenuItem<String>(
+          value: 'logout',
+
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: Color(0xFFE03131)),
+
+              SizedBox(width: 10),
+
+              Text('Đăng xuất', style: TextStyle(color: Color(0xFFE03131))),
+            ],
+          ),
+        ),
+      ],
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+          avatar,
+
+          if (showName) ...[
             const SizedBox(width: 10),
 
-            const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Quản trị viên',
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'AttendGo Admin',
-                  style: TextStyle(color: _muted, fontSize: 11),
-                ),
-              ],
-            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
 
-            const SizedBox(width: 18),
+              child: Text(
+                name.isEmpty ? 'Admin' : name,
+
+                maxLines: 1,
+
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  color: _navy,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ],
+
+          const Icon(Icons.keyboard_arrow_down, color: _navy),
         ],
       ),
     );

@@ -15,13 +15,12 @@ import 'face_management_screen.dart';
 import 'business_trip_approval_screen.dart';
 import 'attendance_report_screen.dart';
 import 'login_screen.dart';
-import 'face_management_screen.dart';
 
 // COLORS
 
 const Color _brightBlue = Color(0xFF2864E8);
 const Color _bg = Color(0xFFF3F8FF);
-const Color _navy = Color(0xFF12348F);
+const Color _navy = Color(0xFF0D2858);
 const Color _textBlue = Color(0xFF31589D);
 const Color _textGrey = Color(0xFF7185A8);
 const Color _border = Color(0xFFE2EAF7);
@@ -30,7 +29,8 @@ const Color _red = Color(0xFFEF4444);
 const Color _orange = Color(0xFFF59E0B);
 const Color _purple = Color(0xFF8B5CF6);
 const Color _lightBlue = Color(0xFF3B82F6);
-
+const Color _text = Color(0xFF183153);
+const Color _muted = Color(0xFF71819A);
 int _toInt(dynamic v) {
   if (v is num) return v.toInt();
 
@@ -130,12 +130,12 @@ class _Overview {
   }
 }
 
-class _MenuChild {
-  final String label;
-  final VoidCallback onTap;
+// class _MenuChild {
+//   final String label;
+//   final VoidCallback onTap;
 
-  _MenuChild(this.label, this.onTap);
-}
+//   _MenuChild(this.label, this.onTap);
+// }
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -159,7 +159,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _days = 7;
 
   // Các nhóm menu đang mở.
-  final Set<String> _expanded = {'employees', 'attendance', 'requests'};
+  //final Set<String> _expanded = {'employees', 'attendance', 'requests'};
 
   DateTime _now = DateTime.now();
 
@@ -252,83 +252,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _load();
   }
 
-  // NAVIGATION
-
-  void _go(Widget Function() builder, bool inDrawer) {
-    if (inDrawer) {
-      Navigator.of(context).pop();
-    }
-
-    Navigator.push(context, MaterialPageRoute(builder: (_) => builder())).then((
-      _,
-    ) {
-      if (mounted) {
-        _load();
-      }
-    });
-  }
-
-  void _openFaceManagement(bool inDrawer) {
-    final token = AuthState.instance.token;
-
-    if (token == null || token.isEmpty) {
-      if (inDrawer) {
-        Navigator.of(context).pop();
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phiên đăng nhập không hợp lệ.')),
-      );
-
-      return;
-    }
-
-    _go(() => FaceManagementScreen(token: token), inDrawer);
-  }
-
-  void _openShiftRequests() =>
-      _go(() => const ShiftChangeApprovalScreen(), false);
-
-  void _openLeaveRequests() => _go(() => const LeaveApprovalScreen(), false);
-
-  void _openTripRequests() =>
-      _go(() => const BusinessTripApprovalScreen(), false);
-
-  void _openReport() => _go(() => const AttendanceReportScreen(), false);
-
   // LOGOUT
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-
       builder: (dialogContext) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-
           title: const Text(
             'Đăng xuất',
-            style: TextStyle(fontWeight: FontWeight.w800),
+            style: TextStyle(color: _text, fontWeight: FontWeight.w800),
           ),
-
-          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
-
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất không?',
+            style: TextStyle(color: _muted),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
               child: const Text('Hủy'),
             ),
-
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
               child: const Text(
                 'Đăng xuất',
-                style: TextStyle(
-                  color: Color(0xFFE03131),
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: _red, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -336,8 +292,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       },
     );
 
-    if (confirmed != true) return;
-
+    if (confirmed != true || !mounted) return;
     if (!mounted) return;
 
     _logout();
@@ -359,26 +314,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1000;
+
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: _bg,
 
+      drawer: isDesktop ? null : Drawer(width: 270, child: _buildSidebar()),
+
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 900;
+        child: Row(
+          children: [
+            if (isDesktop) SizedBox(width: 260, child: _buildSidebar()),
 
-            final content = _buildContent(wide);
+            Expanded(
+              child: Column(
+                children: [
+                  _buildUserMenu(isDesktop),
 
-            if (!wide) return content;
-
-            return Row(
-              children: [
-                SizedBox(width: 260, child: _buildSidebar()),
-
-                Expanded(child: content),
-              ],
-            );
-          },
+                  Expanded(child: _buildMainContent(isDesktop)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -557,14 +515,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
         iconColor: const Color(0xFFBFD5F5),
-        collapsedIconColor: const Color(0xFFBFD5F5),
-        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+        collapsedIconColor: const Color(0xFF7894BD),
+        leading: Icon(icon, size: 19, color: const Color(0xFFBFD5F5)),
         title: Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
+            color: Color(0xFFD0DDF1),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
         children: children,
@@ -602,10 +560,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 Expanded(
                   child: Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? Colors.white : const Color(0xFFBFD0E8),
+                      fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -662,21 +622,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // NAVIGATION
 
-  void _goHome() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-      (route) => false,
-    );
-  }
-
   void _push(Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   // CONTENT
 
-  Widget _buildContent(bool wide) {
-    final padding = wide ? 24.0 : 16.0;
+  Widget _buildMainContent(bool isDesktop) {
+    final padding = isDesktop ? 24.0 : 16.0;
 
     return RefreshIndicator(
       color: _brightBlue,
@@ -696,7 +649,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                _buildHeader(wide),
+                _buildHeader(isDesktop),
 
                 const SizedBox(height: 16),
 
@@ -725,12 +678,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // HEADER
 
-  Widget _buildHeader(bool wide) {
+  Widget _buildHeader(bool isDesktop) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
 
       children: [
-        if (!wide) ...[
+        if (!isDesktop) ...[
           IconButton(
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
 
@@ -756,14 +709,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                     style: TextStyle(
                       color: _navy,
-                      fontSize: wide ? 26 : 21,
+                      fontSize: isDesktop ? 26 : 21,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
 
                   const SizedBox(width: 8),
 
-                  Text('👋', style: TextStyle(fontSize: wide ? 24 : 20)),
+                  Text('👋', style: TextStyle(fontSize: isDesktop ? 24 : 20)),
                 ],
               ),
 
@@ -776,7 +729,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                 overflow: TextOverflow.ellipsis,
 
-                style: TextStyle(color: _textBlue, fontSize: wide ? 14 : 12),
+                style: TextStyle(
+                  color: _textBlue,
+                  fontSize: isDesktop ? 14 : 12,
+                ),
               ),
             ],
           ),
@@ -788,7 +744,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
         const SizedBox(width: 10),
 
-        _buildUserMenu(wide),
+        _buildUserMenu(isDesktop),
       ],
     );
   }
@@ -813,11 +769,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
       onSelected: (value) {
         if (value == 'shift') {
-          _openShiftRequests();
+          _push(const ShiftChangeApprovalScreen());
         } else if (value == 'leave') {
-          _openLeaveRequests();
+          _push(const LeaveApprovalScreen());
         } else if (value == 'trip') {
-          _openTripRequests();
+          _push(const BusinessTripApprovalScreen());
         }
       },
 
@@ -952,7 +908,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
       onSelected: (value) {
         if (value == 'password') {
-          _go(() => const ChangePasswordScreen(), false);
+         _push(const ChangePasswordScreen()) ;
         } else if (value == 'logout') {
           _confirmLogout();
         }
@@ -1670,7 +1626,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
 
-              onTap: _openReport,
+              onTap: () => _push(const AttendanceReportScreen()),
 
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -2011,7 +1967,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             color: _orange,
             label: 'Đổi ca làm việc',
             value: o?.pendingShift,
-            onTap: _openShiftRequests,
+            onTap: () => _push(const ShiftChangeApprovalScreen()),
           ),
 
           item(
@@ -2019,7 +1975,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             color: _purple,
             label: 'Nghỉ phép',
             value: o?.pendingLeave,
-            onTap: _openLeaveRequests,
+            onTap: () => _push(const LeaveApprovalScreen()),
           ),
 
           item(
@@ -2027,7 +1983,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             color: _lightBlue,
             label: 'Công tác',
             value: o?.pendingTrip,
-            onTap: _openTripRequests,
+            onTap: () => _push(const BusinessTripApprovalScreen()),
           ),
         ],
       ),
@@ -2091,7 +2047,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               const SizedBox(height: 16),
 
               ElevatedButton.icon(
-                onPressed: _openReport,
+                onPressed: () => _push(const AttendanceReportScreen()),
 
                 icon: const Icon(Icons.arrow_forward_rounded, size: 18),
 
