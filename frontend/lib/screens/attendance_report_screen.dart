@@ -12,7 +12,9 @@ import 'ip_config_screen.dart';
 import 'leave_approval_screen.dart';
 import 'change_password_screen.dart';
 import 'login_screen.dart';
-
+import 'shift_change_approval_screen.dart';
+import 'face_management_screen.dart';
+import 'business_trip_approval_screen.dart';
 // COLORS
 
 const Color _navy = Color(0xFF12348F);
@@ -23,10 +25,13 @@ const Color _textGrey = Color(0xFF7185A8);
 const Color _border = Color(0xFFE2EAF7);
 const Color _green = Color(0xFF1FA971);
 const Color _red = Color(0xFFEF4444);
+const Color _brightBlue = Color(0xFF2864E8);
+const Color _orange = Color(0xFFF59E0B);
+const Color _purple = Color(0xFF8B5CF6);
+const Color _lightBlue = Color(0xFF3B82F6);
+const Color _text = Color(0xFF183153);
+const Color _muted = Color(0xFF71819A);
 
-// STATUS META
-//
-// Thứ tự cố định (khớp với _Counts.values):
 // 0 OnTime, 1 Late, 2 Absent, 3 BusinessTrip, 4 Leave, 5 Other
 
 class _StatusMeta {
@@ -290,6 +295,7 @@ class AttendanceReportScreen extends StatefulWidget {
 
 class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   static const int _pageSize = 10;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late final List<DateTime> _monthOptions;
 
@@ -601,11 +607,11 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 900;
+            final isDesktop = constraints.maxWidth >= 900;
 
-            final content = _buildContent(wide);
+            final content = _buildContent(isDesktop);
 
-            if (!wide) return content;
+            if (!isDesktop) return content;
 
             return Row(
               children: [
@@ -619,8 +625,6 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       ),
     );
   }
-
-  // SIDEBAR
 
   Widget _buildSidebar() {
     return Container(
@@ -687,7 +691,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  onTap: _goHome,
+                  selected: true,
+                  onTap: () {},
                 ),
 
                 const SizedBox(height: 8),
@@ -703,8 +708,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
-                      onTap: () {
-                      },
+                      onTap: () => _push(const FaceManagementScreen()),
                     ),
                   ],
                 ),
@@ -714,7 +718,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   title: 'Chấm công',
                   children: [
                     _navSubItem(
-                      title: 'Cấu hình IP & GPS',
+                      title: 'Cấu hình WiFi & GPS',
                       onTap: () => _push(const IpConfigScreen()),
                     ),
                   ],
@@ -723,8 +727,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  selected: true,
-                  onTap: () {},
+                  onTap: () => _push(const AttendanceReportScreen()),
                 ),
 
                 const SizedBox(height: 8),
@@ -735,9 +738,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
-                      onTap: () {
-                        // Navigation giữ nguyên cấu trúc sidebar.
-                      },
+                      onTap: () => _push(const ShiftChangeApprovalScreen()),
                     ),
 
                     _navSubItem(
@@ -747,10 +748,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                     _navSubItem(
                       title: 'Công tác',
-                      onTap: () {
-                        // Navigation có thể thêm BusinessTripApprovalScreen
-                        // nếu cần import màn hình này.
-                      },
+                      onTap: () => _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
                 ),
@@ -801,14 +799,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
         iconColor: const Color(0xFFBFD5F5),
-        collapsedIconColor: const Color(0xFFBFD5F5),
-        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+        collapsedIconColor: const Color(0xFF7894BD),
+        leading: Icon(icon, size: 19, color: const Color(0xFFBFD5F5)),
         title: Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
+            color: Color(0xFFD0DDF1),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
         children: children,
@@ -846,10 +844,12 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 Expanded(
                   child: Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? Colors.white : const Color(0xFFBFD0E8),
+                      fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -904,10 +904,144 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
+  Widget _buildUserMenu(bool showName) {
+    final name = (AuthState.instance.fullName ?? '').trim();
+
+    final avatarUrl = (AuthState.instance.avatarUrl ?? '').trim();
+
+    // Chữ cái đầu của tên đầu và tên cuối. Ví dụ "Nguyễn Văn A" -> "NA".
+    String initials() {
+      final parts = name
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      if (parts.isEmpty) return 'AD';
+
+      if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+
+      return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+          .toUpperCase();
+    }
+
+    Widget initialAvatar() {
+      return Center(
+        child: Text(
+          initials(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    final avatar = Container(
+      width: 42,
+      height: 42,
+
+      decoration: const BoxDecoration(
+        color: _brightBlue,
+        shape: BoxShape.circle,
+      ),
+
+      child: avatarUrl.isNotEmpty
+          ? ClipOval(
+              child: Image.network(
+                avatarUrl,
+                width: 42,
+                height: 42,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => initialAvatar(),
+              ),
+            )
+          : initialAvatar(),
+    );
+
+    return PopupMenuButton<String>(
+      tooltip: '',
+
+      offset: const Offset(0, 50),
+
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+
+      onSelected: (value) {
+        if (value == 'password') {
+          _push(const ChangePasswordScreen());
+        } else if (value == 'logout') {
+          _confirmLogout();
+        }
+      },
+
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'password',
+
+          child: Row(
+            children: [
+              Icon(Icons.lock_rounded, size: 20, color: _textBlue),
+
+              SizedBox(width: 10),
+
+              Text('Đổi mật khẩu'),
+            ],
+          ),
+        ),
+
+        PopupMenuItem<String>(
+          value: 'logout',
+
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: Color(0xFFE03131)),
+
+              SizedBox(width: 10),
+
+              Text('Đăng xuất', style: TextStyle(color: Color(0xFFE03131))),
+            ],
+          ),
+        ),
+      ],
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+          avatar,
+
+          if (showName) ...[
+            const SizedBox(width: 10),
+
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+
+              child: Text(
+                name.isEmpty ? 'Admin' : name,
+
+                maxLines: 1,
+
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  color: _navy,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+
+          const Icon(Icons.keyboard_arrow_down, color: _navy),
+        ],
+      ),
+    );
+  }
+
   // CONTENT
 
-  Widget _buildContent(bool wide) {
-    final padding = wide ? 24.0 : 16.0;
+  Widget _buildContent(bool isDesktop) {
+    final padding = isDesktop ? 24.0 : 16.0;
 
     return RefreshIndicator(
       color: _blue,
@@ -927,7 +1061,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                _buildHeader(wide),
+                _buildHeader(isDesktop),
 
                 const SizedBox(height: 16),
 
@@ -1002,14 +1136,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   // HEADER
 
-  Widget _buildHeader(bool wide) {
+  Widget _buildHeader(bool isDesktop) {
     final canPop = Navigator.of(context).canPop();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
 
       children: [
-        if (!wide && canPop) ...[
+        if (!isDesktop && canPop) ...[
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
 
@@ -1037,7 +1171,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                 style: TextStyle(
                   color: _navy,
-                  fontSize: wide ? 30 : 22,
+                  fontSize: isDesktop ? 30 : 22,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1051,7 +1185,10 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
                 overflow: TextOverflow.ellipsis,
 
-                style: TextStyle(color: _textBlue, fontSize: wide ? 15 : 12.5),
+                style: TextStyle(
+                  color: _textBlue,
+                  fontSize: isDesktop ? 15 : 12.5,
+                ),
               ),
             ],
           ),
@@ -1059,30 +1196,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
         const SizedBox(width: 12),
 
-        OutlinedButton.icon(
-          onPressed: _confirmLogout,
+        const SizedBox(width: 10),
 
-          icon: const Icon(Icons.logout_rounded, size: 20),
-
-          label: Text(wide ? 'Đăng xuất' : ''),
-
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _navy,
-
-            backgroundColor: Colors.white,
-
-            side: const BorderSide(color: Color(0xFFCFDDF5)),
-
-            padding: EdgeInsets.symmetric(
-              horizontal: wide ? 20 : 12,
-              vertical: 14,
-            ),
-
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
+        _buildUserMenu(isDesktop),
       ],
     );
   }
@@ -1939,7 +2055,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   // [Tất cả (n)] [Đúng giờ (n)] [Đi trễ (n)] ... + bảng chi tiết.
 
   Widget _buildDetailCard(_ReportData data, double contentWidth) {
-    final wideTable = contentWidth >= 760;
+    final isDesktopTable = contentWidth >= 760;
 
     final summary = data.summary;
 
@@ -2004,14 +2120,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 ),
               ),
             )
-          else if (wideTable)
+          else if (isDesktopTable)
             _buildTable(data)
           else
             _buildCardList(data),
 
           const SizedBox(height: 14),
 
-          _buildPagination(data, wideTable),
+          _buildPagination(data, isDesktopTable),
         ],
       ),
     );
@@ -2281,7 +2397,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   // PAGINATION
 
-  Widget _buildPagination(_ReportData data, bool wide) {
+  Widget _buildPagination(_ReportData data, bool isDesktop) {
     final info = Text(
       'Hiển thị ${data.items.length} trong tổng số ${data.totalItems} ${_mode == 'day' ? 'nhân viên' : 'bản ghi'}',
 
@@ -2290,7 +2406,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
     final pager = _buildPager(data);
 
-    if (wide) {
+    if (isDesktop) {
       return Row(
         children: [
           Expanded(child: info),
