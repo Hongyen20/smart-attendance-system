@@ -130,13 +130,6 @@ class _Overview {
   }
 }
 
-// class _MenuChild {
-//   final String label;
-//   final VoidCallback onTap;
-
-//   _MenuChild(this.label, this.onTap);
-// }
-
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
 
@@ -330,7 +323,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildUserMenu(isDesktop),
+                  // _buildUserMenu(isDesktop),
 
                   Expanded(child: _buildMainContent(isDesktop)),
                 ],

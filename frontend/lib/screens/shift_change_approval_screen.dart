@@ -266,7 +266,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
             Expanded(
               child: Column(
                 children: [
-                  _buildUserMenu(isDesktop),
+                  // _buildUserMenu(isDesktop),
 
                   Expanded(
                     child: RefreshIndicator(
@@ -584,12 +584,12 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
   // HEADER
 
-  Widget _buildHeader(bool wide) {
+  Widget _buildHeader(bool isDesktop) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
 
       children: [
-        if (!wide) ...[
+        if (!isDesktop) ...[
           IconButton(
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
 
@@ -615,14 +615,14 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
                     style: TextStyle(
                       color: _navy,
-                      fontSize: wide ? 26 : 21,
+                      fontSize: isDesktop ? 26 : 21,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
 
                   const SizedBox(width: 8),
 
-                  Text('👋', style: TextStyle(fontSize: wide ? 24 : 20)),
+                  Text('👋', style: TextStyle(fontSize: isDesktop ? 24 : 20)),
                 ],
               ),
 
@@ -635,7 +635,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
                 overflow: TextOverflow.ellipsis,
 
-                style: TextStyle(color: _textBlue, fontSize: wide ? 14 : 12),
+                style: TextStyle(color: _textBlue, fontSize: isDesktop ? 14 : 12),
               ),
             ],
           ),
@@ -643,7 +643,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
         const SizedBox(width: 10),
 
-        _buildUserMenu(wide),
+        _buildUserMenu(isDesktop),
       ],
     );
   }
