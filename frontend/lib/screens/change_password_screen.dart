@@ -24,24 +24,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   String? _errorMessage;
 
+  // DISPOSE
+
   @override
   void dispose() {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+
     super.dispose();
   }
 
-  // SUBMIT
+  // CHANGE PASSWORD
 
   Future<void> _handleSubmit() async {
-    final current = _currentPasswordController.text;
-    final newPass = _newPasswordController.text;
-    final confirm = _confirmPasswordController.text;
+    final current = _currentPasswordController.text.trim();
+    final newPass = _newPasswordController.text.trim();
+    final confirm = _confirmPasswordController.text.trim();
 
     if (current.isEmpty || newPass.isEmpty || confirm.isEmpty) {
       setState(() {
-        _errorMessage = 'Vui lòng điền đầy đủ các trường.';
+        _errorMessage = 'Vui lòng điền đầy đủ thông tin.';
       });
       return;
     }
@@ -60,19 +63,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       return;
     }
 
+    if (current == newPass) {
+      setState(() {
+        _errorMessage = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
+      });
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
     });
 
-    final result = await ApiService.put(
-      '/api/users/me/password',
-      {
-        'currentPassword': current,
-        'newPassword': newPass,
-      },
-      bearerToken: AuthState.instance.token,
-    );
+    final result = await ApiService.put('/api/users/me/password', {
+      'currentPassword': current,
+      'newPassword': newPass,
+    }, bearerToken: AuthState.instance.token);
 
     if (!mounted) return;
 
@@ -81,28 +87,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
 
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(
-                Icons.check_circle_outline_rounded,
-                color: Colors.white,
-                size: 21,
-              ),
-              SizedBox(width: 10),
-              Text('Đổi mật khẩu thành công.'),
-            ],
-          ),
-          backgroundColor: const Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      _showSuccessMessage();
 
-      Navigator.pop(context);
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (!mounted) return;
+        Navigator.pop(context);
+      });
     } else {
       setState(() {
         _errorMessage = result.errorMessage;
@@ -110,159 +104,101 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     }
   }
 
+  // SUCCESS MESSAGE
+
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF16A34A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Đổi mật khẩu thành công.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // BUILD
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F9FF),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 700;
-
-            if (isMobile) {
-              return _buildMobileLayout();
+            if (constraints.maxWidth >= 900) {
+              return _buildDesktopLayout();
             }
 
-            return _buildDesktopLayout();
+            return _buildMobileLayout();
           },
         ),
       ),
     );
   }
 
-  // DESKTOP
+  // DESKTOP LAYOUT
 
   Widget _buildDesktopLayout() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 32,
-          vertical: 40,
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 650,
-          ),
-          child: Column(
-            children: [
-              _buildDesktopHeader(),
-
-              const SizedBox(height: 28),
-
-              _buildPasswordCard(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
       children: [
-        _buildHeaderIcon(),
-
-        const SizedBox(width: 18),
+        _buildDesktopHeader(),
 
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Đổi mật khẩu',
-                style: TextStyle(
-                  color: Color(0xFF12348F),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 34),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: _buildPasswordCard(isDesktop: true),
               ),
-              const SizedBox(height: 5),
-              const Text(
-                'Bảo mật tài khoản của bạn',
-                style: TextStyle(
-                  color: Color(0xFF7185A8),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  // MOBILE
+  // DESKTOP HEADER
 
-  Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        10,
-        16,
-        28,
+  Widget _buildDesktopHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2EAF7), width: 1)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildMobileAppBar(),
-
-          const SizedBox(height: 28),
-
-          _buildMobileHeader(),
-
-          const SizedBox(height: 24),
-
-          _buildPasswordCard(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileAppBar() {
-    return SizedBox(
-      height: 46,
       child: Row(
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFFE2EAF7),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: Color(0xFF31589D),
-                  size: 22,
-                ),
+          _buildBackButton(),
+
+          const SizedBox(width: 18),
+
+          const Expanded(
+            child: Text(
+              'Đổi mật khẩu',
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF244397),
+                letterSpacing: -0.4,
               ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          const Text(
-            'Đổi mật khẩu',
-            style: TextStyle(
-              color: Color(0xFF12348F),
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -270,84 +206,92 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  Widget _buildMobileHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+  // MOBILE LAYOUT
+
+  Widget _buildMobileLayout() {
+    return Column(
       children: [
-        _buildHeaderIcon(
-          size: 62,
-          iconSize: 31,
-        ),
+        _buildMobileHeader(),
 
-        const SizedBox(width: 16),
-
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Đổi mật khẩu',
-                style: TextStyle(
-                  color: Color(0xFF12348F),
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Bảo mật tài khoản của bạn',
-                style: TextStyle(
-                  color: Color(0xFF7185A8),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+            child: _buildPasswordCard(isDesktop: false),
           ),
         ),
       ],
     );
   }
 
-  // HEADER ICON
+  // MOBILE HEADER
 
-  Widget _buildHeaderIcon({
-    double size = 78,
-    double iconSize = 38,
-  }) {
+  Widget _buildMobileHeader() {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE7F0FF),
-        borderRadius: BorderRadius.circular(24),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 18, 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2EAF7), width: 1)),
       ),
-      child: Icon(
-        Icons.lock_outline_rounded,
-        color: AppColors.primaryBlue,
-        size: iconSize,
+      child: Row(
+        children: [
+          _buildBackButton(),
+
+          const SizedBox(width: 14),
+
+          const Expanded(
+            child: Text(
+              'Đổi mật khẩu',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF244397),
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // BACK BUTTON
+
+  Widget _buildBackButton() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(30),
+      onTap: () {
+        Navigator.pop(context);
+      },
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: Color(0xFFEAF0FF),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: Color(0xFF244397),
+          size: 25,
+        ),
       ),
     );
   }
 
   // PASSWORD CARD
 
-  Widget _buildPasswordCard() {
+  Widget _buildPasswordCard({required bool isDesktop}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        28,
-        28,
-        28,
-        30,
-      ),
+      padding: EdgeInsets.all(isDesktop ? 28 : 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFE2EAF7),
-        ),
+        borderRadius: BorderRadius.circular(isDesktop ? 20 : 18),
+        border: Border.all(color: const Color(0xFFE0E7F3)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF31589D).withValues(alpha: 0.07),
@@ -357,8 +301,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildCardHeader(isDesktop: isDesktop),
+
+          SizedBox(height: isDesktop ? 26 : 22),
+
+          const Divider(height: 1, color: Color(0xFFE7ECF5)),
+
+          SizedBox(height: isDesktop ? 26 : 22),
+
           _buildPasswordField(
             controller: _currentPasswordController,
             label: 'Mật khẩu hiện tại',
@@ -369,6 +321,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 _obscureCurrent = !_obscureCurrent;
               });
             },
+            isDesktop: isDesktop,
           ),
 
           const SizedBox(height: 20),
@@ -383,11 +336,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 _obscureNew = !_obscureNew;
               });
             },
+            isDesktop: isDesktop,
           ),
-
-          const SizedBox(height: 8),
-
-          _buildPasswordHint(),
 
           const SizedBox(height: 20),
 
@@ -401,20 +351,83 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 _obscureConfirm = !_obscureConfirm;
               });
             },
+            isDesktop: isDesktop,
           ),
 
-          const SizedBox(height: 18),
-
           if (_errorMessage != null) ...[
-            _buildErrorMessage(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+            _buildErrorBox(_errorMessage!),
           ],
 
-          _buildSecurityHint(),
+          const SizedBox(height: 24),
 
-          const SizedBox(height: 22),
+          _buildSubmitButton(isDesktop: isDesktop),
 
-          _buildSubmitButton(),
+          const SizedBox(height: 14),
+
+          _buildSecurityNote(isDesktop: isDesktop),
+        ],
+      ),
+    );
+  }
+
+  // CARD HEADER
+
+  Widget _buildCardHeader({required bool isDesktop}) {
+    return Container(
+      padding: EdgeInsets.all(isDesktop ? 18 : 15),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFFF0F6FF), Color(0xFFE7F0FF)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: isDesktop ? 58 : 50,
+            height: isDesktop ? 58 : 50,
+            decoration: const BoxDecoration(
+              color: Color(0xFFD9E7FF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.lock_reset_rounded,
+              color: AppColors.primaryBlue,
+              size: isDesktop ? 29 : 25,
+            ),
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Đổi mật khẩu',
+                  style: TextStyle(
+                    fontSize: isDesktop ? 20 : 17,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF244397),
+                  ),
+                ),
+
+                const SizedBox(height: 5),
+
+                Text(
+                  'Cập nhật mật khẩu để bảo vệ tài khoản của bạn.',
+                  style: TextStyle(
+                    fontSize: isDesktop ? 13 : 12,
+                    height: 1.4,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -428,212 +441,140 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required String hint,
     required bool obscure,
     required VoidCallback onToggle,
+    required bool isDesktop,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: isDesktop ? 14 : 13,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF294477),
+            color: const Color(0xFF263A62),
           ),
         ),
 
-        const SizedBox(height: 9),
+        const SizedBox(height: 8),
 
         TextField(
           controller: controller,
           obscureText: obscure,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF294477),
+          style: TextStyle(
+            fontSize: isDesktop ? 15 : 14,
+            color: const Color(0xFF202A3D),
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              color: Color(0xFF8EA2C2),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-
-            prefixIcon: const Icon(
-              Icons.lock_outline_rounded,
-              color: Color(0xFF5475AA),
-              size: 21,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF0FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: Color(0xFF2864E8),
+                  size: 20,
+                ),
+              ),
             ),
 
             suffixIcon: IconButton(
-              tooltip: obscure
-                  ? 'Hiện mật khẩu'
-                  : 'Ẩn mật khẩu',
+              tooltip: obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
               onPressed: onToggle,
               icon: Icon(
                 obscure
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: const Color(0xFF5475AA),
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: AppColors.textSecondary,
                 size: 21,
               ),
             ),
 
-            filled: true,
-            fillColor: const Color(0xFFF8FAFF),
+            hintText: hint,
 
-            contentPadding: const EdgeInsets.symmetric(
+            hintStyle: TextStyle(
+              color: const Color(0xFF9AA8BE),
+              fontSize: isDesktop ? 15 : 14,
+              fontWeight: FontWeight.w400,
+            ),
+
+            filled: true,
+            fillColor: const Color(0xFFFAFCFF),
+
+            contentPadding: EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 16,
+              vertical: isDesktop ? 17 : 15,
             ),
 
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFE2EAF7),
-              ),
+              borderSide: const BorderSide(color: Color(0xFFDDE6F5)),
             ),
 
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFE2EAF7),
-              ),
+              borderSide: const BorderSide(color: Color(0xFFDDE6F5)),
             ),
 
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(
-                color: Color(0xFF1464E8),
+                color: Color(0xFF2864E8),
                 width: 1.5,
               ),
             ),
-
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFEF4444),
-              ),
-            ),
           ),
         ),
       ],
     );
   }
 
-  // PASSWORD HINT
+  // ERROR BOX
 
-  Widget _buildPasswordHint() {
-    final hasEnoughCharacters =
-        _newPasswordController.text.length >= 8;
-
-    return Row(
-      children: [
-        Icon(
-          hasEnoughCharacters
-              ? Icons.check_circle_outline_rounded
-              : Icons.info_outline_rounded,
-          size: 16,
-          color: hasEnoughCharacters
-              ? const Color(0xFF16A34A)
-              : const Color(0xFF7185A8),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            hasEnoughCharacters
-                ? 'Mật khẩu đạt yêu cầu tối thiểu 8 ký tự.'
-                : 'Mật khẩu phải có ít nhất 8 ký tự.',
-            style: TextStyle(
-              fontSize: 12,
-              color: hasEnoughCharacters
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFF7185A8),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // SECURITY HINT
-
-  Widget _buildSecurityHint() {
+  Widget _buildErrorBox(String message) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 15,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF2FF),
+        color: AppColors.dangerRedBg,
         borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFFFFD4D4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.shield_outlined,
-            color: Color(0xFF1464E8),
-            size: 20,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFDDDD),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.dangerRed,
+              size: 19,
+            ),
           ),
 
           const SizedBox(width: 10),
 
           Expanded(
-            child: Text(
-              'Hãy sử dụng mật khẩu riêng và không chia sẻ '
-              'mật khẩu với người khác.',
-              style: const TextStyle(
-                color: Color(0xFF31589D),
-                fontSize: 12,
-                height: 1.45,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ERROR
-
-  Widget _buildErrorMessage() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFFD5D9),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: Color(0xFFEF4444),
-            size: 20,
-          ),
-
-          const SizedBox(width: 9),
-
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style: const TextStyle(
-                color: Color(0xFFD92D3A),
-                fontSize: 13,
-                height: 1.4,
-                fontWeight: FontWeight.w500,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: AppColors.dangerRed,
+                ),
               ),
             ),
           ),
@@ -644,68 +585,86 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   // SUBMIT BUTTON
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton({required bool isDesktop}) {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: isDesktop ? 56 : 54,
       child: ElevatedButton(
-        onPressed: _isSubmitting
-            ? null
-            : _handleSubmit,
+        onPressed: _isSubmitting ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1464E8),
-          disabledBackgroundColor: const Color(0xFF9BB8E8),
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.primaryBlue,
+          disabledBackgroundColor: const Color(0xFF8EA8DE),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: _isSubmitting
-              ? const Row(
-                  key: ValueKey('loading'),
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2.3,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Đang cập nhật...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                )
-              : const Row(
-                  key: ValueKey('normal'),
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.lock_outline_rounded,
-                      size: 20,
-                    ),
-                    SizedBox(width: 9),
-                    Text(
-                      'Đổi mật khẩu',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.4,
                 ),
-        ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.lock_reset_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Text(
+                    'Đổi mật khẩu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isDesktop ? 15 : 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // SECURITY NOTE
+
+  Widget _buildSecurityNote({required bool isDesktop}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7FC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFF6E86AF),
+            size: 19,
+          ),
+
+          const SizedBox(width: 9),
+
+          Expanded(
+            child: Text(
+              'Mật khẩu mới nên có ít nhất 8 ký tự và không nên trùng với mật khẩu hiện tại.',
+              style: TextStyle(
+                fontSize: isDesktop ? 12 : 11.5,
+                height: 1.45,
+                color: const Color(0xFF71809A),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
