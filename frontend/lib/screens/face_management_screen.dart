@@ -72,13 +72,41 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
     });
 
     try {
+      final token = widget.token ?? AuthState.instance.token;
+
+      debugPrint('========== FACE MANAGEMENT ==========');
+      debugPrint('BASE URL: $_baseUrl');
+      debugPrint('TOKEN EXISTS: ${token != null && token.isNotEmpty}');
+      debugPrint('TOKEN LENGTH: ${token?.length ?? 0}');
+      debugPrint('=====================================');
+
+      if (token == null || token.isEmpty) {
+        _showError('Không tìm thấy phiên đăng nhập.');
+        return;
+      }
+
       final response = await http.get(
         Uri.parse('$_baseUrl/api/employees'),
-        headers: _headers,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
       );
 
+      debugPrint('========== EMPLOYEE API ==========');
+      debugPrint('STATUS: ${response.statusCode}');
+      debugPrint('BODY: ${response.body}');
+      debugPrint('==================================');
+
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as List<dynamic>;
+        final decoded = jsonDecode(response.body);
+
+        debugPrint('DECODED TYPE: ${decoded.runtimeType}');
+
+        if (decoded is! List) {
+          _showError('API trả về dữ liệu không đúng định dạng.');
+          return;
+        }
 
         final employees = decoded
             .map((item) => Map<String, dynamic>.from(item as Map))
@@ -91,9 +119,17 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
           _employees = employees;
         });
       } else {
-        _showError('Không thể tải danh sách nhân viên.');
+        _showError(
+          'Không thể tải danh sách nhân viên. '
+          'HTTP ${response.statusCode}',
+        );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('========== EMPLOYEE API ERROR ==========');
+      debugPrint('ERROR: $e');
+      debugPrint('STACK: $stackTrace');
+      debugPrint('========================================');
+
       _showError('Không thể kết nối đến máy chủ.');
     } finally {
       if (mounted) {
@@ -484,7 +520,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
                     _navSubItem(
                       title: 'Công tác',
                       selected: true,
-                      onTap: () => _push(const BusinessTripApprovalScreen())
+                      onTap: () => _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
                 ),
