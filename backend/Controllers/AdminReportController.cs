@@ -6,13 +6,27 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceApi.Controllers;
 
-
+// BÁO CÁO CHẤM CÔNG CHO ADMIN
+//     ?mode=day&date=2026-10-01            (xem 1 ngày)
+//     ?mode=month&year=2026&month=10       (xem cả tháng)
+//     &status=Late                         (lọc trạng thái, bỏ trống = tất cả)
+//     &search=an                           (tìm theo tên hoặc mã NV)
+//     &page=1&pageSize=10
 [ApiController]
 [Route("api/admin/reports")]
 [Authorize(Roles = "Admin")]
 public class AdminReportController : ControllerBase
 {
     private const int MonthsInChart = 6;
+
+    // Các hành động chấm công được hiển thị ở "Hoạt động gần đây".
+    private static readonly HashSet<string> ActivityActions = new()
+    {
+        "CHECK_IN_SUCCESS",
+        "CHECK_IN_FAILED",
+        "CHECK_OUT_SUCCESS",
+        "CHECK_OUT_FAILED"
+    };
 
     private static readonly string[] ValidStatuses =
     {
@@ -26,17 +40,20 @@ public class AdminReportController : ControllerBase
     private readonly AttendanceRecordService _attendanceService;
     private readonly LeaveRequestService _leaveRequestService;
     private readonly BusinessTripRequestService _businessTripRequestService;
+    private readonly AuditLogService _auditLogService;
 
     public AdminReportController(
         UserService userService,
         AttendanceRecordService attendanceService,
         LeaveRequestService leaveRequestService,
-        BusinessTripRequestService businessTripRequestService)
+        BusinessTripRequestService businessTripRequestService,
+        AuditLogService auditLogService)
     {
         _userService = userService;
         _attendanceService = attendanceService;
         _leaveRequestService = leaveRequestService;
         _businessTripRequestService = businessTripRequestService;
+        _auditLogService = auditLogService;
     }
 
     // COUNTS
@@ -474,6 +491,303 @@ public class AdminReportController : ControllerBase
             totalItems,
             totalPages
         });
+    }
+
+    // TỔNG QUAN CHO TRANG CHỦ ADMIN
+
+
+    [HttpGet("overview")]
+    public async Task<IActionResult> GetOverview([FromQuery] int days = 7)
+    {
+        var companyId = User.FindFirst("companyId")?.Value;
+
+        if (string.IsNullOrEmpty(companyId))
+        {
+            return Forbid();
+        }
+
+        days = Math.Clamp(days, 1, 60);
+
+        var today = DateTime.UtcNow.Date;
+
+        var from = today.AddDays(-(days - 1));
+
+        var employees =
+            (await _userService.GetAllByCompanyAsync(companyId))
+                .Where(u => u.Role == "Employee" && u.Status == "Active")
+                .ToList();
+
+        var records =
+            await _attendanceService.GetByCompanyAndDateRangeAsync(
+                companyId, from, today);
+
+        var leaves =
+            await _leaveRequestService.GetApprovedInRangeByCompanyAsync(
+                companyId, from, today);
+
+        var trips =
+            await _businessTripRequestService.GetApprovedInRangeByCompanyAsync(
+                companyId, from, today);
+
+        var resolver = new StatusResolver(today, records, leaves, trips);
+
+        Counts CountDay(DateTime day)
+        {
+            var counts = new Counts();
+
+            foreach (var employee in employees)
+            {
+                var status = resolver.Resolve(employee, day);
+
+                if (status is not null)
+                {
+                    counts.Add(status);
+                }
+            }
+
+            return counts;
+        }
+
+        // Xu hướng: chỉ lấy những ngày có dữ liệu (ngày làm việc).
+        var trend = new List<object>();
+
+        for (var d = from; d <= today; d = d.AddDays(1))
+        {
+            var c = CountDay(d);
+
+            if (c.Total == 0)
+            {
+                continue;
+            }
+
+            trend.Add(new
+            {
+                date = d.ToString("yyyy-MM-dd"),
+                checkedIn = c.OnTime + c.Late,
+                onTime = c.OnTime,
+                late = c.Late,
+                absent = c.Absent
+            });
+        }
+
+        var todayCounts = CountDay(today);
+
+        var todayDto = todayCounts.ToDto("date", today.ToString("yyyy-MM-dd"));
+
+        todayDto["total"] = todayCounts.Total;
+
+        var pendingLeaves =
+            await _leaveRequestService.GetPendingByCompanyAsync(companyId);
+
+        var pendingTrips =
+            await _businessTripRequestService.GetPendingByCompanyAsync(companyId);
+
+        return Ok(new
+        {
+            totalEmployees = employees.Count,
+
+            today = todayDto,
+
+            trend,
+
+            pending = new
+            {
+                leave = pendingLeaves.Count,
+                businessTrip = pendingTrips.Count,
+                shiftChange = (int?)null
+            }
+        });
+    }
+
+    // Xác định trạng thái của nhân viên trong 1 ngày
+
+    private sealed class StatusResolver
+    {
+        private readonly DateTime _today;
+
+        private readonly Dictionary<(string UserId, DateTime Day), AttendanceRecord> _records = new();
+
+        private readonly Dictionary<string, List<LeaveRequest>> _leaves;
+
+        private readonly Dictionary<string, List<BusinessTripRequest>> _trips;
+
+        public StatusResolver(
+            DateTime today,
+            IEnumerable<AttendanceRecord> records,
+            IEnumerable<LeaveRequest> leaves,
+            IEnumerable<BusinessTripRequest> trips)
+        {
+            _today = today;
+
+            foreach (var r in records)
+            {
+                _records.TryAdd((r.UserId, r.WorkDate.Date), r);
+            }
+
+            _leaves = leaves
+                .GroupBy(l => l.UserId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            _trips = trips
+                .GroupBy(t => t.UserId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+
+        public string? Resolve(User user, DateTime day)
+        {
+            if (day > _today)
+            {
+                return null;
+            }
+
+            if (_records.TryGetValue((user.Id, day), out var record))
+            {
+                return record.Status switch
+                {
+                    "Late" => "Late",
+                    "Absent" => "Absent",
+                    _ => "OnTime"
+                };
+            }
+
+            if (day.DayOfWeek == DayOfWeek.Saturday ||
+                day.DayOfWeek == DayOfWeek.Sunday)
+            {
+                return null;
+            }
+
+            if (day < user.CreatedAt.Date)
+            {
+                return null;
+            }
+
+            if (_leaves.TryGetValue(user.Id, out var leaveList) &&
+                leaveList.Any(l => l.StartDate.Date <= day && l.EndDate.Date >= day))
+            {
+                return "Leave";
+            }
+
+            if (_trips.TryGetValue(user.Id, out var tripList) &&
+                tripList.Any(t => t.StartDate.Date <= day && t.EndDate.Date >= day))
+            {
+                return "BusinessTrip";
+            }
+
+            return day == _today ? "Other" : "Absent";
+        }
+    }
+
+    // HOẠT ĐỘNG GẦN ĐÂY
+    // Lấy từ nhật ký (audit_logs): check-in / check-out thành công hoặc thất bại.
+
+    [HttpGet("recent-activities")]
+    public async Task<IActionResult> GetRecentActivities([FromQuery] int limit = 5)
+    {
+        var companyId = User.FindFirst("companyId")?.Value;
+
+        if (string.IsNullOrEmpty(companyId))
+        {
+            return Forbid();
+        }
+
+        limit = Math.Clamp(limit, 1, 20);
+
+        var logs = await _auditLogService.GetByCompanyAsync(companyId, 200);
+
+        var users = await _userService.GetAllByCompanyAsync(companyId);
+
+        var nameById = users
+            .GroupBy(u => u.Id)
+            .ToDictionary(g => g.Key, g => g.First().FullName);
+
+        var items =
+            logs
+                .Where(l => ActivityActions.Contains(l.Action))
+                .Take(limit)
+                .Select(l => BuildActivity(l, nameById))
+                .ToList();
+
+        return Ok(new { items });
+    }
+
+    private static object BuildActivity(
+        AuditLog log,
+        Dictionary<string, string> nameById)
+    {
+        var name = nameById.TryGetValue(log.UserId, out var fullName) &&
+                   !string.IsNullOrWhiteSpace(fullName)
+            ? fullName
+            : "Nhân viên";
+
+        var details = log.Details ?? string.Empty;
+
+        var isTrip = details.StartsWith("Business trip", StringComparison.OrdinalIgnoreCase);
+
+        string title;
+        string tag;
+        string tone;
+        var note = string.Empty;
+
+        switch (log.Action)
+        {
+            case "CHECK_IN_SUCCESS":
+                title = isTrip ? $"{name} check-in công tác" : $"{name} đã check-in";
+                tag = isTrip ? "Công tác" : "Check-in";
+                tone = isTrip ? "info" : "success";
+                break;
+
+            case "CHECK_OUT_SUCCESS":
+                title = isTrip ? $"{name} check-out công tác" : $"{name} đã check-out";
+                tag = isTrip ? "Công tác" : "Check-out";
+                tone = "info";
+                break;
+
+            case "CHECK_IN_FAILED":
+                title = $"{name} check-in thất bại";
+                tag = "Thất bại";
+                tone = "danger";
+                note = FailureReason(details);
+                break;
+
+            default: // CHECK_OUT_FAILED
+                title = $"{name} check-out thất bại";
+                tag = "Thất bại";
+                tone = "danger";
+                note = FailureReason(details);
+                break;
+        }
+
+        return new
+        {
+            userId = log.UserId,
+            action = log.Action,
+            title,
+            tag,
+            tone,
+            note,
+            createdAt = ToUtcIso(log.CreatedAt)
+        };
+    }
+
+    // Rút gọn lý do thất bại thành câu dễ hiểu (không lộ IP / tọa độ).
+    private static string FailureReason(string details)
+    {
+        if (details.Contains("chưa đăng ký khuôn mặt", StringComparison.OrdinalIgnoreCase))
+            return "Chưa đăng ký khuôn mặt";
+
+        if (details.Contains("GPS không hợp lệ", StringComparison.OrdinalIgnoreCase))
+            return "Ngoài phạm vi chấm công";
+
+        if (details.Contains("IPv4 không khớp", StringComparison.OrdinalIgnoreCase))
+            return "Sai Wi-Fi công ty";
+
+        if (details.Contains("Xác thực khuôn mặt thất bại", StringComparison.OrdinalIgnoreCase))
+            return "Sai khuôn mặt";
+
+        if (details.Contains("IPv4", StringComparison.OrdinalIgnoreCase))
+            return "Không xác định được mạng";
+
+        return string.Empty;
     }
 
     // DETAIL ITEM
