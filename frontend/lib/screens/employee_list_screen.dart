@@ -1156,7 +1156,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 employee['code'] ??
                 '')
             .toString();
-
+    final department =
+        (employee['department'] ??
+                employee['departmentName'] ??
+                'Chưa cập nhật')
+            .toString();
     final status = (employee['status'] ?? 'Active').toString();
 
     final avatarUrl =
@@ -1245,6 +1249,17 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 flex: 2,
                 child: Text(
                   username.isEmpty ? '—' : '@$username',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _textBlue, fontSize: 12),
+                ),
+              ),
+
+              // DEPARTMENT
+              Expanded(
+                flex: 2,
+                child: Text(
+                  department,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: _textBlue, fontSize: 12),

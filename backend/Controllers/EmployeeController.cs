@@ -246,6 +246,53 @@ public async Task<IActionResult> Update(
     return Ok(ToSummary(employee));
 }
 
+// Đổi trạng thái của nhân viên
+public class ChangeEmployeeStatusRequest
+{
+    public string Status { get; set; } = "";
+}
+
+[HttpPut("{id}/status")]
+public async Task<IActionResult> ChangeStatus(
+    string id,
+    [FromBody] ChangeEmployeeStatusRequest request)
+{
+    var companyId = GetCompanyId();
+
+    if (string.IsNullOrEmpty(companyId))
+    {
+        return Forbid();
+    }
+
+    var employee = await _userService.GetByIdAsync(
+        companyId,
+        id);
+
+    if (employee is null ||
+        employee.Role != "Employee")
+    {
+        return NotFound(new
+        {
+            message = "Không tìm thấy nhân viên."
+        });
+    }
+
+    if (request.Status != "Active" &&
+        request.Status != "Inactive")
+    {
+        return BadRequest(new
+        {
+            message = "Trạng thái nhân viên không hợp lệ."
+        });
+    }
+
+    employee.Status = request.Status;
+
+    await _userService.UpdateAsync(employee);
+
+    return Ok(ToSummary(employee));
+}
+
 // Cấp lại mật khẩu mới cho nhân viên.
 [HttpPost("{id}/reset-password")]
 public async Task<IActionResult> ResetPassword(
@@ -327,3 +374,4 @@ public async Task<IActionResult> ResetPassword(
         });
 }
 }
+
