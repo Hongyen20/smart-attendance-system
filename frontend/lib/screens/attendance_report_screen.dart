@@ -1204,7 +1204,6 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   }
 
   // FILTER BAR
-  //
   // [Ngày | Tháng] [📅 ngày / tháng] [Trạng thái ▼] [🔍 Nhân viên] [Xuất báo cáo]
 
   Widget _buildFilterBar(double contentWidth) {
