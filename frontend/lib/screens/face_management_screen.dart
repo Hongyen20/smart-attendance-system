@@ -65,72 +65,93 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
   }
 
   Future<void> _loadEmployees() async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final token = widget.token ?? AuthState.instance.token;
-
-      debugPrint('========== FACE MANAGEMENT ==========');
-      debugPrint('BASE URL: $_baseUrl');
-      debugPrint('TOKEN EXISTS: ${token != null && token.isNotEmpty}');
-      debugPrint('TOKEN LENGTH: ${token?.length ?? 0}');
-      debugPrint('=====================================');
-
-      if (token == null || token.isEmpty) {
-        _showError('Không tìm thấy phiên đăng nhập.');
-        return;
-      }
-
       final response = await http.get(
         Uri.parse('$_baseUrl/api/employees'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
+        headers: _headers,
       );
 
       debugPrint('========== EMPLOYEE API ==========');
+      debugPrint('URL: $_baseUrl/api/employees');
       debugPrint('STATUS: ${response.statusCode}');
       debugPrint('BODY: ${response.body}');
       debugPrint('==================================');
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        debugPrint('EMPLOYEE API ERROR: ${response.statusCode}');
 
-        debugPrint('DECODED TYPE: ${decoded.runtimeType}');
-
-        if (decoded is! List) {
-          _showError('API trả về dữ liệu không đúng định dạng.');
-          return;
-        }
-
-        final employees = decoded
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .where((employee) => employee['role'] == 'Employee')
-            .toList();
-
-        if (!mounted) return;
-
-        setState(() {
-          _employees = employees;
-        });
-      } else {
         _showError(
           'Không thể tải danh sách nhân viên. '
-          'HTTP ${response.statusCode}',
+          'Mã lỗi: ${response.statusCode}',
         );
+        return;
       }
-    } catch (e, stackTrace) {
-      debugPrint('========== EMPLOYEE API ERROR ==========');
-      debugPrint('ERROR: $e');
-      debugPrint('STACK: $stackTrace');
-      debugPrint('========================================');
 
-      _showError('Không thể kết nối đến máy chủ.');
+      final dynamic decoded = jsonDecode(response.body);
+
+      debugPrint('DECODED TYPE: ${decoded.runtimeType}');
+
+      if (decoded is! List) {
+        debugPrint('INVALID RESPONSE: API không trả về List');
+
+        _showError('Dữ liệu danh sách nhân viên không hợp lệ.');
+        return;
+      }
+
+      final List<Map<String, dynamic>> employees = [];
+
+      for (final item in decoded) {
+        if (item is! Map) {
+          debugPrint('SKIP INVALID ITEM: ${item.runtimeType}');
+          continue;
+        }
+
+        final employee = <String, dynamic>{};
+
+        item.forEach((key, value) {
+          employee[key.toString()] = value;
+        });
+
+        debugPrint(
+          'EMPLOYEE: '
+          '${employee['username']} | '
+          '${employee['fullName']} | '
+          'role=${employee['role']} | '
+          'hasFace=${employee['hasFace']}',
+        );
+
+        if (employee['role']?.toString() == 'Employee') {
+          employees.add(employee);
+        }
+      }
+
+      debugPrint('FILTERED EMPLOYEES: ${employees.length}');
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _employees = employees;
+      });
+
+      debugPrint('STATE UPDATED: ${_employees.length} employees');
+    } catch (e, stackTrace) {
+      debugPrint('========== EMPLOYEE API EXCEPTION ==========');
+      debugPrint('ERROR: $e');
+      debugPrint('TYPE: ${e.runtimeType}');
+      debugPrint('STACKTRACE: $stackTrace');
+      debugPrint('============================================');
+
+      _showError('Không thể xử lý dữ liệu danh sách nhân viên.');
     } finally {
       if (mounted) {
         setState(() {
