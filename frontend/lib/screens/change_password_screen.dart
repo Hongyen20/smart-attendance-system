@@ -303,8 +303,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Divider(height: 1, color: Color(0xFFE7ECF5)),
-
           SizedBox(height: isDesktop ? 26 : 22),
 
           _buildPasswordField(

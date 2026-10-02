@@ -59,8 +59,16 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
 
   String get _baseUrl => ApiConfig.baseUrl;
 
+  // Ưu tiên token được truyền vào, nếu không có thì lấy từ AuthState
+  // (sidebar gọi const FaceManagementScreen() không truyền token).
+  String? get _token {
+    final passed = widget.token;
+    if (passed != null && passed.isNotEmpty) return passed;
+    return AuthState.instance.token;
+  }
+
   Map<String, String> get _headers => {
-    'Authorization': 'Bearer ${widget.token ?? ''}',
+    'Authorization': 'Bearer ${_token ?? ''}',
   };
 
   bool _hasFace(Map<String, dynamic> employee) {

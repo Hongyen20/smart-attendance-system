@@ -195,19 +195,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
-  // void _openFaceManagement() {
-  //   final token = AuthState.instance.token;
-
-  //   if (token == null || token.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Phiên đăng nhập không hợp lệ.')),
-  //     );
-  //     return;
-  //   }
-
-  //   _push(FaceManagementScreen(token: token));
-  // }
-
   // BUILD
   @override
   Widget build(BuildContext context) {
@@ -655,6 +642,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       ),
     );
   }
+
   // CONTENT
 
   Widget _buildContent(bool isDesktop) {
@@ -1300,15 +1288,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                                 EmployeeDetailScreen(employeeId: id.toString()),
                           ),
                         );
-                      } else if (value == 'face') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FaceManagementScreen(
-                              token: AuthState.instance.token!,
-                            ),
-                          ),
-                        );
                       }
                     },
                     itemBuilder: (context) => const [
@@ -1319,16 +1298,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                             Icon(Icons.person_outline_rounded, size: 18),
                             SizedBox(width: 10),
                             Text('Xem chi tiết'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'face',
-                        child: Row(
-                          children: [
-                            Icon(Icons.face_retouching_natural, size: 18),
-                            SizedBox(width: 10),
-                            Text('Thêm khuôn mặt chấm công'),
                           ],
                         ),
                       ),
