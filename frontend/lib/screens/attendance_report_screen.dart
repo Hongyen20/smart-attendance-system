@@ -691,8 +691,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  selected: true,
-                  onTap: () {},
+                  onTap: () => _push(const AdminHomeScreen()),
                 ),
 
                 const SizedBox(height: 8),
@@ -727,7 +726,13 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  onTap: () => _push(const AttendanceReportScreen()),
+                  selected: true,
+                  onTap: () {
+                    // Đang ở màn này.
+                    if (MediaQuery.sizeOf(context).width < 1000) {
+                      Navigator.pop(context);
+                    }
+                  },
                 ),
 
                 const SizedBox(height: 8),
