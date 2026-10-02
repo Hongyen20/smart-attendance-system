@@ -26,7 +26,6 @@ const Color _textBlue = Color(0xFF31589D);
 const Color _green = Color(0xFF1FA971);
 const Color _orange = Color(0xFFF59E0B);
 
-
 class LeaveApprovalScreen extends StatefulWidget {
   const LeaveApprovalScreen({super.key});
 
@@ -92,16 +91,13 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
       final isPaid = result.data?['isPaid'] == true;
       final message = approve
           ? (isPaid
-              ? 'Đã duyệt đơn - Nghỉ phép có lương'
-              : 'Đã duyệt đơn - Nhân viên này đã hết phép năm')
+                ? 'Đã duyệt đơn - Nghỉ phép có lương'
+                : 'Đã duyệt đơn - Nhân viên này đã hết phép năm')
           : 'Đã từ chối đơn.';
       final backgroundColor = approve ? (isPaid ? _green : _orange) : _red;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: backgroundColor,
-        ),
+        SnackBar(content: Text(message), backgroundColor: backgroundColor),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,25 +202,24 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
   }
 
   // SIDEBAR
-
   Widget _buildSidebar() {
     return Container(
-      color: _navy,
+      color: const Color(0xFF0D2858),
       child: Column(
         children: [
-          // LOGO
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
             child: Row(
               children: [
+                // LOGO ATTENDGO
                 Container(
                   width: 42,
                   height: 42,
-                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: _bg.withOpacity(0.12),
+                    color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
+                  padding: const EdgeInsets.all(6),
                   child: Image.asset(
                     'assets/images/logo.png',
                     fit: BoxFit.contain,
@@ -240,7 +235,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                       Text(
                         'AttendGo',
                         style: TextStyle(
-                          color: _bg,
+                          color: Colors.white,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.2,
@@ -254,7 +249,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: _border,
+                          color: Color(0xFFB8C9E5),
                           fontSize: 10,
                         ),
                       ),
@@ -265,7 +260,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
             ),
           ),
 
-          // NAVIGATION
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -273,12 +267,12 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  onTap: () => _push(const AdminHomeScreen()),
+                  selected: true,
+                  onTap: () {},
                 ),
 
                 const SizedBox(height: 8),
 
-                // NHÂN VIÊN
                 _navSection(
                   icon: Icons.groups_rounded,
                   title: 'Nhân viên',
@@ -295,7 +289,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                   ],
                 ),
 
-                // CHẤM CÔNG
                 _navSection(
                   icon: Icons.access_time_rounded,
                   title: 'Chấm công',
@@ -307,7 +300,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                   ],
                 ),
 
-                // BÁO CÁO
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
@@ -316,11 +308,9 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
 
                 const SizedBox(height: 8),
 
-                // YÊU CẦU
                 _navSection(
                   icon: Icons.assignment_rounded,
                   title: 'Yêu cầu',
-                  initiallyExpanded: true,
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
@@ -329,13 +319,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
 
                     _navSubItem(
                       title: 'Nghỉ phép',
-                      selected: true,
-                      onTap: () {
-                        // Đang ở màn này.
-                        if (MediaQuery.sizeOf(context).width < 1000) {
-                          Navigator.pop(context);
-                        }
-                      },
+                      onTap: () => _push(const LeaveApprovalScreen()),
                     ),
 
                     _navSubItem(
@@ -348,7 +332,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
             ),
           ),
 
-          // ACCOUNT
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
             child: Column(
@@ -375,47 +358,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
     );
   }
 
-  // SIDEBAR NAV ITEM
-
-  Widget _navItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? iconColor,
-  }) {
-    return Material(
-      color: _bg,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(11),
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(icon, size: 19, color: iconColor ??  _border),
-
-              const SizedBox(width: 11),
-
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: _border,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // SIDEBAR SECTION
-
   Widget _navSection({
     required IconData icon,
     required String title,
@@ -424,21 +366,21 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
   }) {
     return Theme(
       data: Theme.of(context).copyWith(
-        dividerColor: _bg,
-        splashColor: _bg.withOpacity(0.05),
-        highlightColor: _bg.withOpacity(0.04),
+        dividerColor: Colors.transparent,
+        splashColor: Colors.white.withOpacity(0.05),
+        highlightColor: Colors.white.withOpacity(0.04),
       ),
       child: ExpansionTile(
         initiallyExpanded: initiallyExpanded,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
-        iconColor: _border,
+        iconColor: const Color(0xFFBFD5F5),
         collapsedIconColor: const Color(0xFF7894BD),
-        leading: Icon(icon, size: 19, color: _border),
+        leading: Icon(icon, size: 19, color: const Color(0xFFBFD5F5)),
         title: Text(
           title,
           style: const TextStyle(
-            color: _border,
+            color: Color(0xFFD0DDF1),
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -448,40 +390,32 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
     );
   }
 
-  // SIDEBAR SUB ITEM
-
-  Widget _navSubItem({
+  Widget _navItem({
+    required IconData icon,
     required String title,
     required VoidCallback onTap,
+    Color iconColor = const Color(0xFFD6E4FA),
     bool selected = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(right: 4, bottom: 3),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: _bg,
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
           borderRadius: BorderRadius.circular(9),
           onTap: onTap,
-          child: Container(
-            height: 38,
-            padding: const EdgeInsets.only(left: 34, right: 10),
-            decoration: BoxDecoration(
-              color: selected ? _brightBlue : _bg,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? _bg : const Color(0xFF7894BD),
-                  ),
+                Icon(
+                  icon,
+                  color: selected ? Colors.white : iconColor,
+                  size: 21,
                 ),
 
-                const SizedBox(width: 9),
+                const SizedBox(width: 13),
 
                 Expanded(
                   child: Text(
@@ -489,8 +423,51 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? _bg : const Color(0xFFBFD0E8),
+                      color: selected ? Colors.white : const Color(0xFFBFD0E8),
                       fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navSubItem({
+    required String title,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Material(
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: selected ? 7 : 5,
+                  color: selected ? Colors.white : const Color(0xFF7894BD),
+                ),
+
+                const SizedBox(width: 11),
+
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFD0DDF1),
+                      fontSize: 12,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
@@ -528,7 +505,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
         child: Text(
           initials(),
           style: const TextStyle(
-            color: _bg,
+            color: Colors.white,
             fontSize: 15,
             fontWeight: FontWeight.w800,
           ),
@@ -834,19 +811,12 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.error_outline_rounded,
-                color: _red,
-                size: 44,
-              ),
+              const Icon(Icons.error_outline_rounded, color: _red, size: 44),
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _red,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: _red, fontSize: 13),
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
@@ -1008,9 +978,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: isLast ? _bg : AppColors.borderColor,
-          ),
+          bottom: BorderSide(color: isLast ? _bg : AppColors.borderColor),
         ),
       ),
       child: Row(
@@ -1063,10 +1031,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                         employeeCode.toString(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _muted,
-                          fontSize: 11.5,
-                        ),
+                        style: const TextStyle(color: _muted, fontSize: 11.5),
                       ),
                     ],
                   ),
@@ -1121,9 +1086,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: reason.toString().isEmpty
-                      ? _muted
-                      : _text,
+                  color: reason.toString().isEmpty ? _muted : _text,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w400,
                   height: 1.4,
@@ -1174,7 +1137,7 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                             height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: _bg 
+                              color: _bg,
                             ),
                           )
                         : const Icon(Icons.check_rounded, size: 16),
