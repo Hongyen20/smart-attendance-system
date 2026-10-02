@@ -440,8 +440,7 @@ class _BusinessTripApprovalScreenState
                   initiallyExpanded: true,
                   children: [
                     _navSubItem(
-                      title: 'Đổi ca',
-                      selected: true,
+                      title: 'Đổi ca', 
                       onTap: () => _push(const ShiftChangeApprovalScreen()),
                     ),
 
