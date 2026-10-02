@@ -18,7 +18,6 @@ import 'login_screen.dart';
 
 // COLORS
 
-const Color _sidebarBg = Color(0xFF13307F);
 const Color _brightBlue = Color(0xFF2864E8);
 const Color _bg = Color(0xFFF3F8FF);
 const Color _navy = Color(0xFF12348F);
@@ -259,10 +258,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       Navigator.of(context).pop();
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => builder()),
-    ).then((_) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => builder())).then((
+      _,
+    ) {
       if (mounted) {
         _load();
       }
@@ -361,15 +359,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-
       backgroundColor: _bg,
-
-      drawer: Drawer(
-        width: 280,
-        backgroundColor: _sidebarBg,
-        child: _buildMenu(inDrawer: true),
-      ),
 
       body: SafeArea(
         child: LayoutBuilder(
@@ -382,7 +372,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
             return Row(
               children: [
-                SizedBox(width: 250, child: _buildMenu(inDrawer: false)),
+                SizedBox(width: 260, child: _buildSidebar()),
 
                 Expanded(child: content),
               ],
@@ -393,224 +383,240 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // SIDEBAR / DRAWER
-
-  Widget _buildMenu({required bool inDrawer}) {
+  Widget _buildSidebar() {
     return Container(
-      color: _sidebarBg,
-
-      child: SafeArea(
-        child: Column(
-          children: [
-            // LOGO
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-
-              child: Container(
-                height: 66,
-
-                width: double.infinity,
-
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+      color: const Color(0xFF0D2858),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
+            child: Row(
+              children: [
+                // LOGO ATTENDGO
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
 
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                const SizedBox(width: 11),
 
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Text(
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         'AttendGo',
                         style: TextStyle(
-                          color: _navy,
-                          fontSize: 20,
+                          color: Colors.white,
+                          fontSize: 21,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
                         ),
                       ),
-                    );
-                  },
+
+                      SizedBox(height: 2),
+
+                      Text(
+                        'Smart Attendance System',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFFB8C9E5),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 6),
-
-            // MENU
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _navItem(
+                  icon: Icons.home_rounded,
+                  title: 'Trang chủ',
+                  onTap: _goHome,
                 ),
 
-                children: [
-                  _menuTile(
-                    icon: Icons.home_rounded,
-                    label: 'Trang chủ',
-                    selected: true,
-                    onTap: () {
-                      if (inDrawer) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
+                const SizedBox(height: 8),
 
-                  _menuGroup(
-                    id: 'employees',
-                    icon: Icons.groups_rounded,
-                    label: 'Nhân viên',
-                    children: [
-                      _MenuChild(
-                        'Danh sách nhân viên',
-                        () => _go(() => const EmployeeListScreen(), inDrawer),
-                      ),
+                _navSection(
+                  icon: Icons.groups_rounded,
+                  title: 'Nhân viên',
+                  children: [
+                    _navSubItem(
+                      title: 'Danh sách nhân viên',
+                      onTap: () => _push(const EmployeeListScreen()),
+                    ),
 
-                      _MenuChild(
-                        'Thêm khuôn mặt',
-                        () => _openFaceManagement(inDrawer),
-                      ),
-                    ],
-                  ),
+                    _navSubItem(
+                      title: 'Thêm khuôn mặt chấm công',
+                      onTap: () {
+                        // Giữ nguyên nếu AttendanceReportScreen
+                        // chưa sử dụng FaceManagementScreen.
+                        // Có thể thêm navigation sau nếu cần.
+                      },
+                    ),
+                  ],
+                ),
 
-                  _menuGroup(
-                    id: 'attendance',
-                    icon: Icons.access_time_rounded,
-                    label: 'Chấm công',
-                    children: [
-                      _MenuChild(
-                        'Cấu hình IP & GPS',
-                        () => _go(() => const IpConfigScreen(), inDrawer),
-                      ),
-                    ],
-                  ),
+                _navSection(
+                  icon: Icons.access_time_rounded,
+                  title: 'Chấm công',
+                  children: [
+                    _navSubItem(
+                      title: 'Cấu hình IP & GPS',
+                      onTap: () => _push(const IpConfigScreen()),
+                    ),
+                  ],
+                ),
 
-                  _menuTile(
-                    icon: Icons.bar_chart_rounded,
-                    label: 'Báo cáo',
-                    onTap: () =>
-                        _go(() => const AttendanceReportScreen(), inDrawer),
-                  ),
+                _navItem(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'Báo cáo',
+                  selected: true,
+                  onTap: () {},
+                ),
 
-                  _menuGroup(
-                    id: 'requests',
-                    icon: Icons.description_rounded,
-                    label: 'Yêu cầu',
-                    children: [
-                      _MenuChild(
-                        'Đổi ca',
-                        () => _go(
-                          () => const ShiftChangeApprovalScreen(),
-                          inDrawer,
-                        ),
-                      ),
+                const SizedBox(height: 8),
 
-                      _MenuChild(
-                        'Nghỉ phép',
-                        () => _go(() => const LeaveApprovalScreen(), inDrawer),
-                      ),
+                _navSection(
+                  icon: Icons.assignment_rounded,
+                  title: 'Yêu cầu',
+                  children: [
+                    _navSubItem(
+                      title: 'Đổi ca',
+                      onTap: () {
+                        // Navigation giữ nguyên cấu trúc sidebar.
+                      },
+                    ),
 
-                      _MenuChild(
-                        'Công tác',
-                        () => _go(
-                          () => const BusinessTripApprovalScreen(),
-                          inDrawer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    _navSubItem(
+                      title: 'Nghỉ phép',
+                      onTap: () => _push(const LeaveApprovalScreen()),
+                    ),
+
+                    _navSubItem(
+                      title: 'Công tác',
+                      onTap: () {
+                        // Navigation có thể thêm BusinessTripApprovalScreen
+                        // nếu cần import màn hình này.
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 18),
-              child: Divider(color: Color(0xFF2F57C8), height: 1, thickness: 1.2),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+            child: Column(
+              children: [
+                const Divider(color: Color(0xFF29436D)),
+
+                _navItem(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Đổi mật khẩu',
+                  onTap: () => _push(const ChangePasswordScreen()),
+                ),
+
+                _navItem(
+                  icon: Icons.logout_rounded,
+                  title: 'Đăng xuất',
+                  iconColor: const Color(0xFFFFB4B4),
+                  onTap: _confirmLogout,
+                ),
+              ],
             ),
-
-            // TÀI KHOẢN
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-
-              child: Column(
-                children: [
-                  _menuTile(
-                    icon: Icons.lock_rounded,
-                    label: 'Đổi mật khẩu',
-                    onTap: () =>
-                        _go(() => const ChangePasswordScreen(), inDrawer),
-                  ),
-
-                  _menuTile(
-                    icon: Icons.logout_rounded,
-                    label: 'Đăng xuất',
-                    color: const Color(0xFFFF5A5F),
-                    onTap: () {
-                      if (inDrawer) {
-                        Navigator.of(context).pop();
-                      }
-
-                      _confirmLogout();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _menuTile({
+  Widget _navSection({
     required IconData icon,
-    required String label,
+    required String title,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        splashColor: Colors.white.withOpacity(0.05),
+        highlightColor: Colors.white.withOpacity(0.04),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
+        iconColor: const Color(0xFFBFD5F5),
+        collapsedIconColor: const Color(0xFFBFD5F5),
+        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _navItem({
+    required IconData icon,
+    required String title,
     required VoidCallback onTap,
+    Color iconColor = const Color(0xFFD6E4FA),
     bool selected = false,
-    Color color = Colors.white,
-    Widget? trailing,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? _brightBlue : Colors.transparent,
-
-        borderRadius: BorderRadius.circular(12),
-
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-
+          borderRadius: BorderRadius.circular(9),
           onTap: onTap,
-
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, size: 22, color: color),
+                Icon(
+                  icon,
+                  color: selected ? Colors.white : iconColor,
+                  size: 21,
+                ),
 
-                const SizedBox(width: 14),
+                const SizedBox(width: 13),
 
                 Expanded(
                   child: Text(
-                    label,
-
+                    title,
                     style: TextStyle(
-                      color: color,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                 ),
-
-                if (trailing != null) trailing,
               ],
             ),
           ),
@@ -619,76 +625,60 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _menuGroup({
-    required String id,
-    required IconData icon,
-    required String label,
-    required List<_MenuChild> children,
+  Widget _navSubItem({
+    required String title,
+    required VoidCallback onTap,
+    bool selected = false,
   }) {
-    final expanded = _expanded.contains(id);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Material(
+        color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: selected ? 7 : 5,
+                  color: selected ? Colors.white : const Color(0xFF7894BD),
+                ),
 
-    return Column(
-      children: [
-        _menuTile(
-          icon: icon,
-          label: label,
+                const SizedBox(width: 11),
 
-          trailing: Icon(
-            expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-            color: Colors.white70,
-            size: 22,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFD0DDF1),
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-
-          onTap: () {
-            setState(() {
-              if (expanded) {
-                _expanded.remove(id);
-              } else {
-                _expanded.add(id);
-              }
-            });
-          },
-        ),
-
-        if (expanded) ...children.map(_menuChildTile),
-      ],
-    );
-  }
-
-  Widget _menuChildTile(_MenuChild child) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-
-      onTap: child.onTap,
-
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(26, 11, 12, 11),
-
-        child: Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-
-              decoration: const BoxDecoration(
-                color: Colors.white54,
-                shape: BoxShape.circle,
-              ),
-            ),
-
-            const SizedBox(width: 16),
-
-            Expanded(
-              child: Text(
-                child.label,
-
-                style: const TextStyle(color: Colors.white70, fontSize: 13.5),
-              ),
-            ),
-          ],
         ),
       ),
     );
+  }
+
+  // NAVIGATION
+
+  void _goHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+      (route) => false,
+    );
+  }
+
+  void _push(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   // CONTENT
@@ -879,7 +869,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 18),
 
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
 
                   decoration: BoxDecoration(
                     color: _red,
@@ -910,7 +903,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     // Chữ cái đầu của tên đầu và tên cuối. Ví dụ "Nguyễn Văn A" -> "NA".
     String initials() {
-      final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+      final parts = name
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .toList();
 
       if (parts.isEmpty) return 'AD';
 
@@ -1354,7 +1350,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: SizedBox(
           width: 26,
           height: 26,
-          child: CircularProgressIndicator(strokeWidth: 2.6, color: _brightBlue),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.6,
+            color: _brightBlue,
+          ),
         ),
       );
     } else if (points.isEmpty) {
@@ -1411,10 +1410,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ],
 
-          style: const TextStyle(
-            color: _navy,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: _navy, fontWeight: FontWeight.w600),
 
           onChanged: (value) {
             if (value == null) return;
@@ -1463,7 +1459,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
           const SizedBox(height: 14),
 
-          if (fixed) Expanded(child: chart) else SizedBox(height: 240, child: chart),
+          if (fixed)
+            Expanded(child: chart)
+          else
+            SizedBox(height: 240, child: chart),
         ],
       ),
     );
@@ -1521,7 +1520,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   width: 24,
                   height: 24,
 
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
 
                   child: Icon(icon, color: Colors.white, size: 15),
                 ),
@@ -2218,7 +2220,11 @@ class _LineChartPainter extends CustomPainter {
     for (var i = 0; i <= 4; i++) {
       final y = top + h - h * i / 4;
 
-      canvas.drawLine(Offset(left, y), Offset(size.width - right, y), gridPaint);
+      canvas.drawLine(
+        Offset(left, y),
+        Offset(size.width - right, y),
+        gridPaint,
+      );
 
       _drawText(
         canvas,

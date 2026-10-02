@@ -704,9 +704,6 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
                       onTap: () {
-                        // Giữ nguyên nếu AttendanceReportScreen
-                        // chưa sử dụng FaceManagementScreen.
-                        // Có thể thêm navigation sau nếu cần.
                       },
                     ),
                   ],
