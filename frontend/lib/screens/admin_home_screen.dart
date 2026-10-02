@@ -427,7 +427,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   title: 'Chấm công',
                   children: [
                     _navSubItem(
-                      title: 'Cấu hình IP & GPS',
+                      title: 'Cấu hình WiFi & GPS',
                       onTap: () => _push(const IpConfigScreen()),
                     ),
                   ],

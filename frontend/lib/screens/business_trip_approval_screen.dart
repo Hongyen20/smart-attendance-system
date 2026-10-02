@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 
@@ -12,6 +11,7 @@ import 'shift_change_approval_screen.dart';
 import 'face_management_screen.dart';
 import 'login_screen.dart';
 import 'attendance_report_screen.dart';
+import 'admin_home_screen.dart';
 
 class BusinessTripApprovalScreen extends StatefulWidget {
   const BusinessTripApprovalScreen({super.key});
@@ -21,15 +21,18 @@ class BusinessTripApprovalScreen extends StatefulWidget {
       _BusinessTripApprovalScreenState();
 }
 
+const Color _navy = Color(0xFF0D2858);
+const Color _blue = Color(0xFF246BDE);
+const Color _bg = Color(0xFFF3F8FF);
+const Color _border = Color(0xFFE2EAF7);
+const Color _text = Color(0xFF183153);
+const Color _muted = Color(0xFF71819A);
+const Color _brightBlue = Color(0xFF2864E8);
+const Color _red = Color(0xFFD94343);
+const Color _textBlue = Color(0xFF31589D);
+
 class _BusinessTripApprovalScreenState
     extends State<BusinessTripApprovalScreen> {
-  static const Color _navy = Color(0xFF0D2858);
-  static const Color _blue = Color(0xFF246BDE);
-  static const Color _pageBackground = Color(0xFFF4F7FC);
-  static const Color _border = Color(0xFFE3EAF4);
-  static const Color _text = Color(0xFF183153);
-  static const Color _muted = Color(0xFF71819A);
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   bool _isLoading = true;
@@ -166,7 +169,7 @@ class _BusinessTripApprovalScreenState
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: _bg,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -228,23 +231,8 @@ class _BusinessTripApprovalScreenState
     return 'nhân viên này';
   }
 
-  void _openScreen(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  void _goHome() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-
-  void _openFaceManagement() {
-    final token = AuthState.instance.token;
-
-    if (token == null || token.isEmpty) {
-      _showMessage('Phiên đăng nhập không hợp lệ.');
-      return;
-    }
-
-    _openScreen(FaceManagementScreen(token: token));
+  void _push(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Future<void> _confirmLogout() async {
@@ -252,21 +240,32 @@ class _BusinessTripApprovalScreenState
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'Đăng xuất',
+            style: TextStyle(color: _text, fontWeight: FontWeight.w800),
+          ),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất không?',
+            style: TextStyle(color: _muted),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
               child: const Text('Hủy'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
               child: const Text(
                 'Đăng xuất',
-                style: TextStyle(
-                  color: Color(0xFFD94343),
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: _red, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -275,9 +274,17 @@ class _BusinessTripApprovalScreenState
     );
 
     if (confirmed != true || !mounted) return;
+    if (!mounted) return;
 
+    _logout();
+  }
+
+  void _logout() {
+    // Xóa token và thông tin đăng nhập.
     AuthState.instance.clear();
 
+    // Quay về màn hình đăng nhập và xóa toàn bộ lịch sử màn hình cũ,
+    // để bấm Back không quay lại trang admin được.
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
@@ -290,7 +297,7 @@ class _BusinessTripApprovalScreenState
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: _pageBackground,
+      backgroundColor: _bg,
       drawer: isDesktop ? null : Drawer(width: 270, child: _buildSidebar()),
       body: SafeArea(
         child: Row(
@@ -300,8 +307,6 @@ class _BusinessTripApprovalScreenState
             Expanded(
               child: Column(
                 children: [
-                  _buildTopBar(isDesktop),
-
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: _loadRequests,
@@ -317,24 +322,26 @@ class _BusinessTripApprovalScreenState
     );
   }
 
+  // SIDEBAR
+
   Widget _buildSidebar() {
     return Container(
       color: _navy,
       child: Column(
         children: [
+          // LOGO
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
             child: Row(
               children: [
-                // LOGO ATTENDGO
                 Container(
                   width: 42,
                   height: 42,
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  padding: const EdgeInsets.all(6),
                   child: Image.asset(
                     'assets/images/logo.png',
                     fit: BoxFit.contain,
@@ -375,6 +382,7 @@ class _BusinessTripApprovalScreenState
             ),
           ),
 
+          // NAVIGATION
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -382,46 +390,50 @@ class _BusinessTripApprovalScreenState
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  onTap: _goHome,
+                  onTap: () => _push(const AdminHomeScreen()),
                 ),
 
                 const SizedBox(height: 8),
 
+                // NHÂN VIÊN
                 _navSection(
                   icon: Icons.groups_rounded,
                   title: 'Nhân viên',
                   children: [
                     _navSubItem(
                       title: 'Danh sách nhân viên',
-                      onTap: () => _openScreen(const EmployeeListScreen()),
+                      onTap: () => _push(const EmployeeListScreen()),
                     ),
 
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
-                      onTap: _openFaceManagement,
+                      onTap: () => _push(const FaceManagementScreen()),
                     ),
                   ],
                 ),
 
+                // CHẤM CÔNG
                 _navSection(
                   icon: Icons.access_time_rounded,
                   title: 'Chấm công',
                   children: [
                     _navSubItem(
-                      title: 'Cấu hình IP & GPS',
-                      onTap: () => _openScreen(const IpConfigScreen()),
+                      title: 'Cấu hình WiFi & GPS',
+                      onTap: () => _push(const IpConfigScreen()),
                     ),
                   ],
                 ),
 
+                // BÁO CÁO
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  onTap: () => _openScreen(const AttendanceReportScreen()),
+                  onTap: () => _push(const AttendanceReportScreen()),
                 ),
 
                 const SizedBox(height: 8),
 
+                // YÊU CẦU
                 _navSection(
                   icon: Icons.assignment_rounded,
                   title: 'Yêu cầu',
@@ -429,19 +441,20 @@ class _BusinessTripApprovalScreenState
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
-                      onTap: () =>
-                          _openScreen(const ShiftChangeApprovalScreen()),
+                      selected: true,
+                      onTap: () => _push(const ShiftChangeApprovalScreen()),
                     ),
 
                     _navSubItem(
                       title: 'Nghỉ phép',
-                      onTap: () => _openScreen(const LeaveApprovalScreen()),
+                      onTap: () => _push(const LeaveApprovalScreen()),
                     ),
 
                     _navSubItem(
                       title: 'Công tác',
                       selected: true,
                       onTap: () {
+                        // Đang ở màn này.
                         if (MediaQuery.sizeOf(context).width < 1000) {
                           Navigator.pop(context);
                         }
@@ -453,6 +466,7 @@ class _BusinessTripApprovalScreenState
             ),
           ),
 
+          // ACCOUNT
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
             child: Column(
@@ -462,7 +476,7 @@ class _BusinessTripApprovalScreenState
                 _navItem(
                   icon: Icons.lock_outline_rounded,
                   title: 'Đổi mật khẩu',
-                  onTap: () => _openScreen(const ChangePasswordScreen()),
+                  onTap: () => _push(const ChangePasswordScreen()),
                 ),
 
                 _navItem(
@@ -478,6 +492,47 @@ class _BusinessTripApprovalScreenState
       ),
     );
   }
+
+  // SIDEBAR NAV ITEM
+
+  Widget _navItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 19, color: iconColor ?? const Color(0xFFBFD5F5)),
+
+              const SizedBox(width: 11),
+
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: const Color(0xFFD0DDF1),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // SIDEBAR SECTION
 
   Widget _navSection({
     required IconData icon,
@@ -496,14 +551,14 @@ class _BusinessTripApprovalScreenState
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
         iconColor: const Color(0xFFBFD5F5),
-        collapsedIconColor: const Color(0xFFBFD5F5),
-        leading: Icon(icon, color: const Color(0xFFD6E4FA), size: 21),
+        collapsedIconColor: const Color(0xFF7894BD),
+        leading: Icon(icon, size: 19, color: const Color(0xFFBFD5F5)),
         title: Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
+            color: Color(0xFFD0DDF1),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
         children: children,
@@ -511,44 +566,7 @@ class _BusinessTripApprovalScreenState
     );
   }
 
-  Widget _navItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color iconColor = const Color(0xFFD6E4FA),
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(9),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor, size: 21),
-
-                const SizedBox(width: 13),
-
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // SIDEBAR SUB ITEM
 
   Widget _navSubItem({
     required String title,
@@ -556,31 +574,41 @@ class _BusinessTripApprovalScreenState
     bool selected = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.only(right: 4, bottom: 3),
       child: Material(
-        color: selected ? _blue : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.only(left: 34, right: 10),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            alignment: Alignment.centerLeft,
             child: Row(
               children: [
-                Icon(
-                  Icons.circle,
-                  size: selected ? 7 : 5,
-                  color: selected ? Colors.white : const Color(0xFF7894BD),
+                Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? Colors.white : const Color(0xFF7894BD),
+                  ),
                 ),
 
-                const SizedBox(width: 11),
+                const SizedBox(width: 9),
 
                 Expanded(
                   child: Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFD0DDF1),
-                      fontSize: 12,
+                      color: selected ? Colors.white : const Color(0xFFBFD0E8),
+                      fontSize: 11.5,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
@@ -593,88 +621,141 @@ class _BusinessTripApprovalScreenState
     );
   }
 
-  Widget _buildTopBar(bool isDesktop) {
-    return Container(
-      height: 72,
-      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 28 : 16),
+  Widget _buildUserMenu(bool showName) {
+    final name = (AuthState.instance.fullName ?? '').trim();
+
+    final avatarUrl = (AuthState.instance.avatarUrl ?? '').trim();
+
+    // Chữ cái đầu của tên đầu và tên cuối. Ví dụ "Nguyễn Văn A" -> "NA".
+    String initials() {
+      final parts = name
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      if (parts.isEmpty) return 'AD';
+
+      if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+
+      return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+          .toUpperCase();
+    }
+
+    Widget initialAvatar() {
+      return Center(
+        child: Text(
+          initials(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    final avatar = Container(
+      width: 42,
+      height: 42,
+
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _border)),
+        color: _brightBlue,
+        shape: BoxShape.circle,
       ),
-      child: Row(
-        children: [
-          if (!isDesktop) ...[
-            IconButton(
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              icon: const Icon(Icons.menu_rounded, color: _navy),
-              tooltip: 'Mở menu',
-            ),
 
-            const SizedBox(width: 6),
-          ],
-
-          const Expanded(
-            child: Text(
-              'Yêu cầu công tác',
-              style: TextStyle(
-                color: _text,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+      child: avatarUrl.isNotEmpty
+          ? ClipOval(
+              child: Image.network(
+                avatarUrl,
+                width: 42,
+                height: 42,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => initialAvatar(),
               ),
-            ),
+            )
+          : initialAvatar(),
+    );
+
+    return PopupMenuButton<String>(
+      tooltip: '',
+
+      offset: const Offset(0, 50),
+
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+
+      onSelected: (value) {
+        if (value == 'password') {
+          _push(const ChangePasswordScreen());
+        } else if (value == 'logout') {
+          _confirmLogout();
+        }
+      },
+
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'password',
+
+          child: Row(
+            children: [
+              Icon(Icons.lock_rounded, size: 20, color: _textBlue),
+
+              SizedBox(width: 10),
+
+              Text('Đổi mật khẩu'),
+            ],
           ),
+        ),
 
-          IconButton(
-            onPressed: _isLoading ? null : _loadRequests,
-            icon: const Icon(Icons.refresh_rounded),
-            color: _blue,
-            tooltip: 'Làm mới',
+        PopupMenuItem<String>(
+          value: 'logout',
+
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: Color(0xFFE03131)),
+
+              SizedBox(width: 10),
+
+              Text('Đăng xuất', style: TextStyle(color: Color(0xFFE03131))),
+            ],
           ),
+        ),
+      ],
 
-          const SizedBox(width: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
 
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF2FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.business_rounded, color: _blue, size: 20),
-          ),
+        children: [
+          avatar,
 
-          if (isDesktop) ...[
+          if (showName) ...[
             const SizedBox(width: 10),
 
-            const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Quản trị viên',
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
 
-                SizedBox(height: 2),
+              child: Text(
+                name.isEmpty ? 'Admin' : name,
 
-                Text(
-                  'AttendGo Admin',
-                  style: TextStyle(color: _muted, fontSize: 11),
+                maxLines: 1,
+
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  color: _navy,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
+              ),
             ),
-
-            const SizedBox(width: 18),
           ],
+
+          const Icon(Icons.keyboard_arrow_down, color: _navy),
         ],
       ),
     );
   }
 
+  //Main content
   Widget _buildMainContent(bool isDesktop) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -737,7 +818,7 @@ class _BusinessTripApprovalScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Danh sách yêu cầu đi công tác',
+                'Yêu cầu đi công tác',
                 style: TextStyle(
                   color: _text,
                   fontSize: 18,
@@ -754,6 +835,8 @@ class _BusinessTripApprovalScreenState
             ],
           ),
         ),
+        const SizedBox(width: 10),
+        _buildUserMenu(isDesktop),
       ],
     );
   }

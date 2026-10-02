@@ -377,7 +377,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
                   title: 'Chấm công',
                   children: [
                     _navSubItem(
-                      title: 'Cấu hình IP & GPS',
+                      title: 'Cấu hình WiFi & GPS',
                       onTap: () => _push(const IpConfigScreen()),
                     ),
                   ],
@@ -579,75 +579,6 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
     );
   }
 
-  // HEADER
-
-  Widget _buildHeader(bool isDesktop) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-
-      children: [
-        if (!isDesktop) ...[
-          IconButton(
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-
-            icon: const Icon(Icons.menu_rounded, color: _navy, size: 28),
-
-            padding: EdgeInsets.zero,
-
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          ),
-
-          const SizedBox(width: 8),
-        ],
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Xin chào',
-
-                    style: TextStyle(
-                      color: _navy,
-                      fontSize: isDesktop ? 26 : 21,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  Text('👋', style: TextStyle(fontSize: isDesktop ? 24 : 20)),
-                ],
-              ),
-
-              const SizedBox(height: 3),
-
-              Text(
-                'Chúc bạn có một ngày làm việc hiệu quả!',
-
-                maxLines: 2,
-
-                overflow: TextOverflow.ellipsis,
-
-                style: TextStyle(
-                  color: _textBlue,
-                  fontSize: isDesktop ? 14 : 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        _buildUserMenu(isDesktop),
-      ],
-    );
-  }
-
   Widget _buildUserMenu(bool showName) {
     final name = (AuthState.instance.fullName ?? '').trim();
 
@@ -828,8 +759,8 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 52,
-          height: 52,
+          width: isDesktop ? 54 : 46,
+          height: isDesktop ? 54 : 46,
           decoration: BoxDecoration(
             color: const Color(0xFFEAF2FF),
             borderRadius: BorderRadius.circular(15),
