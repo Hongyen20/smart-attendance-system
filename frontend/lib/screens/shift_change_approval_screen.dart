@@ -186,7 +186,6 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
     );
   }
 
-
   void _push(Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
@@ -267,7 +266,6 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
               child: Column(
                 children: [
                   // _buildUserMenu(isDesktop),
-
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: _loadPending,
@@ -418,8 +416,7 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
                     _navSubItem(
                       title: 'Công tác',
-                      onTap: () =>
-                          _push(const BusinessTripApprovalScreen()),
+                      onTap: () => _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
                 ),
@@ -635,7 +632,10 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
 
                 overflow: TextOverflow.ellipsis,
 
-                style: TextStyle(color: _textBlue, fontSize: isDesktop ? 14 : 12),
+                style: TextStyle(
+                  color: _textBlue,
+                  fontSize: isDesktop ? 14 : 12,
+                ),
               ),
             ],
           ),
@@ -861,6 +861,8 @@ class _ShiftChangeApprovalScreenState extends State<ShiftChangeApprovalScreen> {
             ],
           ),
         ),
+        const SizedBox(width: 10),
+        _buildUserMenu(isDesktop),
       ],
     );
   }
