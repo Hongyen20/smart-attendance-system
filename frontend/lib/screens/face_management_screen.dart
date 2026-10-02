@@ -28,6 +28,9 @@ const Color _green = Color(0xFF16A34A);
 const Color _orange = Color(0xFFF59E0B);
 const Color _brightBlue = Color(0xFF2864E8);
 
+// Chiều rộng cố định của sidebar (bắt buộc, vì sidebar nằm trong Row).
+const double _sidebarWidth = 270;
+
 class FaceManagementScreen extends StatefulWidget {
   final String? token;
 
@@ -65,9 +68,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
   }
 
   Future<void> _loadEmployees() async {
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -79,79 +80,24 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
         headers: _headers,
       );
 
-      debugPrint('========== EMPLOYEE API ==========');
-      debugPrint('URL: $_baseUrl/api/employees');
-      debugPrint('STATUS: ${response.statusCode}');
-      debugPrint('BODY: ${response.body}');
-      debugPrint('==================================');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as List<dynamic>;
 
-      if (response.statusCode != 200) {
-        debugPrint('EMPLOYEE API ERROR: ${response.statusCode}');
+        final employees = decoded
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .where((employee) => employee['role'] == 'Employee')
+            .toList();
 
-        _showError(
-          'Không thể tải danh sách nhân viên. '
-          'Mã lỗi: ${response.statusCode}',
-        );
-        return;
-      }
+        if (!mounted) return;
 
-      final dynamic decoded = jsonDecode(response.body);
-
-      debugPrint('DECODED TYPE: ${decoded.runtimeType}');
-
-      if (decoded is! List) {
-        debugPrint('INVALID RESPONSE: API không trả về List');
-
-        _showError('Dữ liệu danh sách nhân viên không hợp lệ.');
-        return;
-      }
-
-      final List<Map<String, dynamic>> employees = [];
-
-      for (final item in decoded) {
-        if (item is! Map) {
-          debugPrint('SKIP INVALID ITEM: ${item.runtimeType}');
-          continue;
-        }
-
-        final employee = <String, dynamic>{};
-
-        item.forEach((key, value) {
-          employee[key.toString()] = value;
+        setState(() {
+          _employees = employees;
         });
-
-        debugPrint(
-          'EMPLOYEE: '
-          '${employee['username']} | '
-          '${employee['fullName']} | '
-          'role=${employee['role']} | '
-          'hasFace=${employee['hasFace']}',
-        );
-
-        if (employee['role']?.toString() == 'Employee') {
-          employees.add(employee);
-        }
+      } else {
+        _showError('Không thể tải danh sách nhân viên.');
       }
-
-      debugPrint('FILTERED EMPLOYEES: ${employees.length}');
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _employees = employees;
-      });
-
-      debugPrint('STATE UPDATED: ${_employees.length} employees');
-    } catch (e, stackTrace) {
-      debugPrint('========== EMPLOYEE API EXCEPTION ==========');
-      debugPrint('ERROR: $e');
-      debugPrint('TYPE: ${e.runtimeType}');
-      debugPrint('STACKTRACE: $stackTrace');
-      debugPrint('============================================');
-
-      _showError('Không thể xử lý dữ liệu danh sách nhân viên.');
+    } catch (e) {
+      _showError('Không thể kết nối đến máy chủ.');
     } finally {
       if (mounted) {
         setState(() {
@@ -409,6 +355,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
 
   Widget _buildSidebar() {
     return Container(
+      width: _sidebarWidth,
       color: _navy,
       child: Column(
         children: [
@@ -482,6 +429,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
                 _navSection(
                   icon: Icons.groups_rounded,
                   title: 'Nhân viên',
+                  initiallyExpanded: true,
                   children: [
                     _navSubItem(
                       title: 'Danh sách nhân viên',
@@ -526,7 +474,6 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
                 _navSection(
                   icon: Icons.assignment_rounded,
                   title: 'Yêu cầu',
-                  initiallyExpanded: true,
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
@@ -540,7 +487,6 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
 
                     _navSubItem(
                       title: 'Công tác',
-                      selected: true,
                       onTap: () => _push(const BusinessTripApprovalScreen()),
                     ),
                   ],
@@ -601,8 +547,8 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    color: const Color(0xFFD0DDF1),
+                  style: const TextStyle(
+                    color: Color(0xFFD0DDF1),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
@@ -953,8 +899,8 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
           Container(
             width: 66,
             height: 66,
-            decoration: BoxDecoration(
-              color: const Color(0xFFBCD8FF),
+            decoration: const BoxDecoration(
+              color: Color(0xFFBCD8FF),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -964,11 +910,11 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
             ),
           ),
           const SizedBox(width: 18),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Thêm khuôn mặt chấm công',
                   style: TextStyle(
                     color: _textBlue,
@@ -977,7 +923,7 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   'Đăng ký hoặc cập nhật khuôn mặt dùng để xác thực chấm công cho nhân viên.',
                   style: TextStyle(color: _textGrey, fontSize: 14, height: 1.4),
@@ -1224,8 +1170,8 @@ class _FaceManagementScreenState extends State<FaceManagementScreen> {
                 Container(
                   width: 50,
                   height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF0FF),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEAF0FF),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
