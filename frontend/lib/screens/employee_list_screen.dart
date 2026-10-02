@@ -1142,6 +1142,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   Widget _buildTableRow(Map<String, dynamic> employee) {
     final index = _filteredEmployees.indexOf(employee);
 
+    final id =
+        employee['id'] ?? employee['employeeId'] ?? employee['employee_id'];
+
     final fullName = (employee['fullName'] ?? employee['name'] ?? '')
         .toString();
 
@@ -1152,12 +1155,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 employee['employee_code'] ??
                 employee['code'] ??
                 '')
-            .toString();
-
-    final department =
-        (employee['department'] ??
-                employee['departmentName'] ??
-                'Chưa cập nhật')
             .toString();
 
     final status = (employee['status'] ?? 'Active').toString();
@@ -1254,17 +1251,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 ),
               ),
 
-              // DEPARTMENT
-              Expanded(
-                flex: 2,
-                child: Text(
-                  department,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _textBlue, fontSize: 12),
-                ),
-              ),
-
               // STATUS
               Expanded(
                 flex: 2,
@@ -1319,31 +1305,49 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       size: 21,
                     ),
                     onSelected: (value) {
-                      if (value == 'face') {
-                        _openFaceManagement();
+                      if (value == 'detail') {
+                        if (id == null) return;
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                EmployeeDetailScreen(employeeId: id.toString()),
+                          ),
+                        );
+                      } else if (value == 'face') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FaceManagementScreen(
+                              token: AuthState.instance.token!,
+                            ),
+                          ),
+                        );
                       }
                     },
-                    itemBuilder: (context) {
-                      return const [
-                        PopupMenuItem<String>(
-                          value: 'face',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.face_retouching_natural_outlined,
-                                color: _textBlue,
-                                size: 19,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Thêm khuôn mặt chấm công',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'detail',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Xem chi tiết'),
+                          ],
                         ),
-                      ];
-                    },
+                      ),
+                      PopupMenuItem(
+                        value: 'face',
+                        child: Row(
+                          children: [
+                            Icon(Icons.face_retouching_natural, size: 18),
+                            SizedBox(width: 10),
+                            Text('Thêm khuôn mặt chấm công'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
