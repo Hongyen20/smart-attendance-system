@@ -903,12 +903,6 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCardHeader(
-            icon: Icons.admin_panel_settings_outlined,
-            title: 'Quản lý tài khoản',
-            subtitle: 'Các thao tác quản lý tài khoản nhân viên',
-          ),
-
           const SizedBox(height: 25),
 
           _buildAccountAction(

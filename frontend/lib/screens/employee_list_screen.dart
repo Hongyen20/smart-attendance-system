@@ -127,14 +127,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 .toString()
                 .toLowerCase();
 
-        final department = (e['department'] ?? e['departmentName'] ?? '')
-            .toString()
-            .toLowerCase();
-
         return fullName.contains(query) ||
             username.contains(query) ||
-            employeeCode.contains(query) ||
-            department.contains(query);
+            employeeCode.contains(query);
       });
     }
 
@@ -200,18 +195,18 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
-  void _openFaceManagement() {
-    final token = AuthState.instance.token;
+  // void _openFaceManagement() {
+  //   final token = AuthState.instance.token;
 
-    if (token == null || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phiên đăng nhập không hợp lệ.')),
-      );
-      return;
-    }
+  //   if (token == null || token.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Phiên đăng nhập không hợp lệ.')),
+  //     );
+  //     return;
+  //   }
 
-    _push(FaceManagementScreen(token: token));
-  }
+  //   _push(FaceManagementScreen(token: token));
+  // }
 
   // BUILD
   @override
@@ -714,27 +709,29 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           ),
 
           const SizedBox(width: 18),
-
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Danh sách nhân viên',
-                style: TextStyle(
-                  color: _textBlue,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Danh sách nhân viên',
+                  style: TextStyle(
+                    color: _textBlue,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
 
-              SizedBox(height: 5),
+                SizedBox(height: 5),
 
-              Text(
-                'Quản lý và theo dõi thông tin nhân viên',
-                style: TextStyle(color: _textBlue, fontSize: 12.5),
-              ),
-            ],
+                Text(
+                  'Quản lý và theo dõi thông tin nhân viên',
+                  style: TextStyle(color: _textBlue, fontSize: 12.5),
+                ),
+              ],
+            ),
           ),
+
           const SizedBox(width: 10),
           _buildUserMenu(isDesktop),
         ],
@@ -1098,18 +1095,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             const Expanded(
               flex: 2,
               child: Text(
-                'PHÒNG BAN',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-
-            const Expanded(
-              flex: 2,
-              child: Text(
                 'TRẠNG THÁI',
                 style: TextStyle(
                   color: _muted,
@@ -1156,11 +1141,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 employee['code'] ??
                 '')
             .toString();
-    final department =
-        (employee['department'] ??
-                employee['departmentName'] ??
-                'Chưa cập nhật')
-            .toString();
+
     final status = (employee['status'] ?? 'Active').toString();
 
     final avatarUrl =
@@ -1249,17 +1230,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 flex: 2,
                 child: Text(
                   username.isEmpty ? '—' : '@$username',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _textBlue, fontSize: 12),
-                ),
-              ),
-
-              // DEPARTMENT
-              Expanded(
-                flex: 2,
-                child: Text(
-                  department,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: _textBlue, fontSize: 12),
