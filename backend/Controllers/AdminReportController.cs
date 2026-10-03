@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AttendanceApi.Controllers;
 
 // BÁO CÁO CHẤM CÔNG CHO ADMIN
+
 //     ?mode=day&date=2026-10-01            (xem 1 ngày)
 //     ?mode=month&year=2026&month=10       (xem cả tháng)
 //     &status=Late                         (lọc trạng thái, bỏ trống = tất cả)
@@ -494,7 +495,15 @@ public class AdminReportController : ControllerBase
     }
 
     // TỔNG QUAN CHO TRANG CHỦ ADMIN
-
+    //
+    // GET /api/admin/reports/overview?days=7
+    //
+    // Trả về:
+    // - today   : số lượt theo trạng thái của HÔM NAY (+ total).
+    // - trend   : số lượt chấm công (đúng giờ + đi trễ) của từng ngày làm việc
+    //             trong `days` ngày gần nhất.
+    // - pending : số đơn đang chờ duyệt.
+    //             shiftChange = null vì chưa kết nối ShiftChangeRequestService.
 
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverview([FromQuery] int days = 7)
@@ -600,6 +609,7 @@ public class AdminReportController : ControllerBase
     }
 
     // Xác định trạng thái của nhân viên trong 1 ngày
+    // (cùng quy ước với endpoint báo cáo ở trên).
 
     private sealed class StatusResolver
     {
@@ -678,7 +688,11 @@ public class AdminReportController : ControllerBase
     }
 
     // HOẠT ĐỘNG GẦN ĐÂY
+    //
+    // GET /api/admin/reports/recent-activities?limit=5
+    //
     // Lấy từ nhật ký (audit_logs): check-in / check-out thành công hoặc thất bại.
+    // Không trả địa chỉ IP hay tọa độ ra ngoài.
 
     [HttpGet("recent-activities")]
     public async Task<IActionResult> GetRecentActivities([FromQuery] int limit = 5)
@@ -814,9 +828,9 @@ public class AdminReportController : ControllerBase
 
             "Other" => "Chưa chấm công",
 
-            "Late" => LateNote(user, record),
+            "Late" => JoinNotes(LateNote(user, record), EarlyLeaveNote(user, record)),
 
-            _ => string.Empty
+            _ => EarlyLeaveNote(user, record)
         };
 
         return new
@@ -851,6 +865,30 @@ public class AdminReportController : ControllerBase
         var minutes = (int)(checkInVn.TimeOfDay - shiftStart).TotalMinutes;
 
         return minutes > 0 ? $"Trễ {minutes} phút" : string.Empty;
+    }
+
+    // Về sớm: check-out sớm hơn giờ tan ca từ 15 phút trở lên.
+    private static string EarlyLeaveNote(User user, AttendanceRecord? record)
+    {
+        if (record?.CheckOutTime is null ||
+            user.CurrentShiftType == "Flexible" ||
+            !TimeSpan.TryParse(user.CurrentShiftEnd, out var shiftEnd))
+        {
+            return string.Empty;
+        }
+
+        var checkOutVn =
+            DateTime.SpecifyKind(record.CheckOutTime.Value, DateTimeKind.Utc)
+                .Add(VnOffset);
+
+        var minutes = (int)(shiftEnd - checkOutVn.TimeOfDay).TotalMinutes;
+
+        return minutes >= 15 ? $"Ra sớm {minutes} phút" : string.Empty;
+    }
+
+    private static string JoinNotes(params string[] notes)
+    {
+        return string.Join("; ", notes.Where(n => !string.IsNullOrEmpty(n)));
     }
 
     private static string? ToUtcIso(DateTime? value)
