@@ -274,17 +274,13 @@ class _BusinessTripApprovalScreenState
     );
 
     if (confirmed != true || !mounted) return;
-    if (!mounted) return;
 
     _logout();
   }
 
   void _logout() {
-    // Xóa token và thông tin đăng nhập.
     AuthState.instance.clear();
 
-    // Quay về màn hình đăng nhập và xóa toàn bộ lịch sử màn hình cũ,
-    // để bấm Back không quay lại trang admin được.
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
@@ -303,7 +299,6 @@ class _BusinessTripApprovalScreenState
         child: Row(
           children: [
             if (isDesktop) SizedBox(width: 260, child: _buildSidebar()),
-
             Expanded(
               child: Column(
                 children: [
@@ -329,7 +324,6 @@ class _BusinessTripApprovalScreenState
       color: _navy,
       child: Column(
         children: [
-          // LOGO
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 24, 18, 28),
             child: Row(
@@ -347,9 +341,7 @@ class _BusinessTripApprovalScreenState
                     fit: BoxFit.contain,
                   ),
                 ),
-
                 const SizedBox(width: 11),
-
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,9 +355,7 @@ class _BusinessTripApprovalScreenState
                           letterSpacing: 0.2,
                         ),
                       ),
-
                       SizedBox(height: 2),
-
                       Text(
                         'Smart Attendance System',
                         maxLines: 1,
@@ -381,8 +371,6 @@ class _BusinessTripApprovalScreenState
               ],
             ),
           ),
-
-          // NAVIGATION
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -392,10 +380,7 @@ class _BusinessTripApprovalScreenState
                   title: 'Trang chủ',
                   onTap: () => _push(const AdminHomeScreen()),
                 ),
-
                 const SizedBox(height: 8),
-
-                // NHÂN VIÊN
                 _navSection(
                   icon: Icons.groups_rounded,
                   title: 'Nhân viên',
@@ -404,15 +389,12 @@ class _BusinessTripApprovalScreenState
                       title: 'Danh sách nhân viên',
                       onTap: () => _push(const EmployeeListScreen()),
                     ),
-
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
                       onTap: () => _push(const FaceManagementScreen()),
                     ),
                   ],
                 ),
-
-                // CHẤM CÔNG
                 _navSection(
                   icon: Icons.access_time_rounded,
                   title: 'Chấm công',
@@ -423,37 +405,29 @@ class _BusinessTripApprovalScreenState
                     ),
                   ],
                 ),
-
-                // BÁO CÁO
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
                   onTap: () => _push(const AttendanceReportScreen()),
                 ),
-
                 const SizedBox(height: 8),
-
-                // YÊU CẦU
                 _navSection(
                   icon: Icons.assignment_rounded,
                   title: 'Yêu cầu',
                   initiallyExpanded: true,
                   children: [
                     _navSubItem(
-                      title: 'Đổi ca', 
+                      title: 'Đổi ca',
                       onTap: () => _push(const ShiftChangeApprovalScreen()),
                     ),
-
                     _navSubItem(
                       title: 'Nghỉ phép',
                       onTap: () => _push(const LeaveApprovalScreen()),
                     ),
-
                     _navSubItem(
                       title: 'Công tác',
                       selected: true,
                       onTap: () {
-                        // Đang ở màn này.
                         if (MediaQuery.sizeOf(context).width < 1000) {
                           Navigator.pop(context);
                         }
@@ -464,20 +438,16 @@ class _BusinessTripApprovalScreenState
               ],
             ),
           ),
-
-          // ACCOUNT
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
             child: Column(
               children: [
                 const Divider(color: Color(0xFF29436D)),
-
                 _navItem(
                   icon: Icons.lock_outline_rounded,
                   title: 'Đổi mật khẩu',
                   onTap: () => _push(const ChangePasswordScreen()),
                 ),
-
                 _navItem(
                   icon: Icons.logout_rounded,
                   title: 'Đăng xuất',
@@ -491,8 +461,6 @@ class _BusinessTripApprovalScreenState
       ),
     );
   }
-
-  // SIDEBAR NAV ITEM
 
   Widget _navItem({
     required IconData icon,
@@ -511,14 +479,12 @@ class _BusinessTripApprovalScreenState
           child: Row(
             children: [
               Icon(icon, size: 19, color: iconColor ?? const Color(0xFFBFD5F5)),
-
               const SizedBox(width: 11),
-
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    color: const Color(0xFFD0DDF1),
+                  style: const TextStyle(
+                    color: Color(0xFFD0DDF1),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
@@ -530,8 +496,6 @@ class _BusinessTripApprovalScreenState
       ),
     );
   }
-
-  // SIDEBAR SECTION
 
   Widget _navSection({
     required IconData icon,
@@ -565,8 +529,6 @@ class _BusinessTripApprovalScreenState
     );
   }
 
-  // SIDEBAR SUB ITEM
-
   Widget _navSubItem({
     required String title,
     required VoidCallback onTap,
@@ -597,9 +559,7 @@ class _BusinessTripApprovalScreenState
                     color: selected ? Colors.white : const Color(0xFF7894BD),
                   ),
                 ),
-
                 const SizedBox(width: 9),
-
                 Expanded(
                   child: Text(
                     title,
@@ -622,10 +582,8 @@ class _BusinessTripApprovalScreenState
 
   Widget _buildUserMenu(bool showName) {
     final name = (AuthState.instance.fullName ?? '').trim();
-
     final avatarUrl = (AuthState.instance.avatarUrl ?? '').trim();
 
-    // Chữ cái đầu của tên đầu và tên cuối. Ví dụ "Nguyễn Văn A" -> "NA".
     String initials() {
       final parts = name
           .split(RegExp(r'\s+'))
@@ -634,7 +592,9 @@ class _BusinessTripApprovalScreenState
 
       if (parts.isEmpty) return 'AD';
 
-      if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+      if (parts.length == 1) {
+        return parts.first.substring(0, 1).toUpperCase();
+      }
 
       return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
           .toUpperCase();
@@ -656,12 +616,10 @@ class _BusinessTripApprovalScreenState
     final avatar = Container(
       width: 42,
       height: 42,
-
       decoration: const BoxDecoration(
         color: _brightBlue,
         shape: BoxShape.circle,
       ),
-
       child: avatarUrl.isNotEmpty
           ? ClipOval(
               child: Image.network(
@@ -677,11 +635,8 @@ class _BusinessTripApprovalScreenState
 
     return PopupMenuButton<String>(
       tooltip: '',
-
       offset: const Offset(0, 50),
-
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-
       onSelected: (value) {
         if (value == 'password') {
           _push(const ChangePasswordScreen());
@@ -689,56 +644,40 @@ class _BusinessTripApprovalScreenState
           _confirmLogout();
         }
       },
-
       itemBuilder: (context) => const [
         PopupMenuItem<String>(
           value: 'password',
-
           child: Row(
             children: [
               Icon(Icons.lock_rounded, size: 20, color: _textBlue),
-
               SizedBox(width: 10),
-
               Text('Đổi mật khẩu'),
             ],
           ),
         ),
-
         PopupMenuItem<String>(
           value: 'logout',
-
           child: Row(
             children: [
               Icon(Icons.logout_rounded, size: 20, color: Color(0xFFE03131)),
-
               SizedBox(width: 10),
-
               Text('Đăng xuất', style: TextStyle(color: Color(0xFFE03131))),
             ],
           ),
         ),
       ],
-
       child: Row(
         mainAxisSize: MainAxisSize.min,
-
         children: [
           avatar,
-
           if (showName) ...[
             const SizedBox(width: 10),
-
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
-
               child: Text(
                 name.isEmpty ? 'Admin' : name,
-
                 maxLines: 1,
-
                 overflow: TextOverflow.ellipsis,
-
                 style: const TextStyle(
                   color: _navy,
                   fontSize: 14.5,
@@ -747,27 +686,21 @@ class _BusinessTripApprovalScreenState
               ),
             ),
           ],
-
           const Icon(Icons.keyboard_arrow_down, color: _navy),
         ],
       ),
     );
   }
 
-  //Main content
   Widget _buildMainContent(bool isDesktop) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(isDesktop ? 28 : 16),
       children: [
         _buildPageIntro(isDesktop),
-
         const SizedBox(height: 22),
-
         _buildSummaryCard(),
-
         const SizedBox(height: 18),
-
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.only(top: 70),
@@ -780,8 +713,8 @@ class _BusinessTripApprovalScreenState
         else if (isDesktop)
           _buildDesktopTable()
         else
-          ..._requests.map((item) {
-            final request = Map<String, dynamic>.from(item as Map);
+          ..._requests.asMap().entries.map((entry) {
+            final request = Map<String, dynamic>.from(entry.value as Map);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -809,9 +742,7 @@ class _BusinessTripApprovalScreenState
             size: 27,
           ),
         ),
-
         const SizedBox(width: 15),
-
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,9 +755,7 @@ class _BusinessTripApprovalScreenState
                   fontWeight: FontWeight.w800,
                 ),
               ),
-
               SizedBox(height: 5),
-
               Text(
                 'Xem thông tin và duyệt hoặc từ chối yêu cầu của nhân viên.',
                 style: TextStyle(color: _muted, fontSize: 12.5, height: 1.4),
@@ -863,9 +792,7 @@ class _BusinessTripApprovalScreenState
             ),
             child: const Icon(Icons.pending_actions_rounded, color: _blue),
           ),
-
           const SizedBox(width: 14),
-
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,9 +805,7 @@ class _BusinessTripApprovalScreenState
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-
                 SizedBox(height: 3),
-
                 Text(
                   'Các yêu cầu công tác chưa được xử lý',
                   style: TextStyle(color: _muted, fontSize: 11.5),
@@ -888,7 +813,6 @@ class _BusinessTripApprovalScreenState
               ],
             ),
           ),
-
           Text(
             '${_requests.length}',
             style: const TextStyle(
@@ -924,7 +848,7 @@ class _BusinessTripApprovalScreenState
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF3F7FD)),
             dataRowMinHeight: 76,
-            dataRowMaxHeight: 90,
+            dataRowMaxHeight: 100,
             headingTextStyle: const TextStyle(
               color: _muted,
               fontSize: 12,
@@ -934,70 +858,81 @@ class _BusinessTripApprovalScreenState
             columnSpacing: 26,
             horizontalMargin: 22,
             columns: const [
-              DataColumn(label: Text('NHÂN VIÊN')),
-              DataColumn(label: Text('THỜI GIAN ĐI')),
-              DataColumn(label: Text('THỜI GIAN VỀ')),
-              DataColumn(label: Text('ĐỊA ĐIỂM')),
-              DataColumn(label: Text('LÝ DO')),
-              DataColumn(label: Text('TRẠNG THÁI')),
-              DataColumn(label: Text('THAO TÁC')),
+              DataColumn(label: SizedBox(width: 45, child: Text('STT'))),
+              DataColumn(label: SizedBox(width: 170, child: Text('NHÂN VIÊN'))),
+              DataColumn(
+                label: SizedBox(width: 100, child: Text('THỜI GIAN ĐI')),
+              ),
+              DataColumn(
+                label: SizedBox(width: 100, child: Text('THỜI GIAN VỀ')),
+              ),
+              DataColumn(label: SizedBox(width: 140, child: Text('ĐỊA ĐIỂM'))),
+              DataColumn(label: SizedBox(width: 260, child: Text('LÝ DO'))),
+              DataColumn(label: SizedBox(width: 190, child: Text('THAO TÁC'))),
             ],
-            rows: _requests.map((item) {
-              final request = Map<String, dynamic>.from(item as Map);
+            rows: _requests.asMap().entries.map((entry) {
+              final index = entry.key;
+              final request = Map<String, dynamic>.from(entry.value as Map);
 
               return DataRow(
                 cells: [
-                  DataCell(_employeeCell(request)),
-
-                  DataCell(_dateCell(request['startDate'])),
-
-                  DataCell(_dateCell(request['endDate'])),
-
                   DataCell(
                     SizedBox(
-                      width: 130,
+                      width: 45,
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataCell(_employeeCell(request)),
+                  DataCell(_dateCell(request['startDate'])),
+                  DataCell(_dateCell(request['endDate'])),
+                  DataCell(
+                    SizedBox(
+                      width: 140,
                       child: Text(
                         _stringValue(request['destination'], 'Chưa cập nhật'),
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-
                   DataCell(
                     SizedBox(
-                      width: 170,
+                      width: 260,
                       child: Text(
                         _stringValue(request['reason'], 'Không có lý do'),
-                        maxLines: 2,
+                        maxLines: 4,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-
-                  const DataCell(_PendingBadge()),
-
                   DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ActionButton(
-                          label: 'Duyệt',
-                          icon: Icons.check_rounded,
-                          color: const Color(0xFF15966A),
-                          onPressed: () => _approveRequest(request),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        _ActionButton(
-                          label: 'Từ chối',
-                          icon: Icons.close_rounded,
-                          color: const Color(0xFFD94343),
-                          outlined: true,
-                          onPressed: () => _rejectRequest(request),
-                        ),
-                      ],
+                    SizedBox(
+                      width: 190,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ActionButton(
+                            label: 'Duyệt',
+                            icon: Icons.check_rounded,
+                            color: const Color(0xFF15966A),
+                            onPressed: () => _approveRequest(request),
+                          ),
+                          const SizedBox(width: 8),
+                          _ActionButton(
+                            label: 'Từ chối',
+                            icon: Icons.close_rounded,
+                            color: const Color(0xFFD94343),
+                            outlined: true,
+                            onPressed: () => _rejectRequest(request),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1011,53 +946,33 @@ class _BusinessTripApprovalScreenState
 
   Widget _employeeCell(Map<String, dynamic> request) {
     final name = _employeeName(request);
-
     final username = request['employeeUsername']?.toString().trim() ?? '';
 
     return SizedBox(
-      width: 175,
-      child: Row(
+      width: 170,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFFE7EFFF),
-            child: Text(
-              name.isNotEmpty ? name.characters.first.toUpperCase() : 'N',
-              style: const TextStyle(color: _blue, fontWeight: FontWeight.w800),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _text,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
             ),
           ),
-
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _text,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-
-                if (username.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-
-                  Text(
-                    '@$username',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _muted, fontSize: 11),
-                  ),
-                ],
-              ],
+          if (username.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '@$username',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _muted, fontSize: 11),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1077,9 +992,7 @@ class _BusinessTripApprovalScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(_formatDate(date)),
-
           const SizedBox(height: 4),
-
           Text(
             '${date.hour.toString().padLeft(2, '0')}:'
             '${date.minute.toString().padLeft(2, '0')}',
@@ -1092,7 +1005,6 @@ class _BusinessTripApprovalScreenState
 
   Widget _buildRequestCard(Map<String, dynamic> request) {
     final startDate = _parseDate(request['startDate']);
-
     final endDate = _parseDate(request['endDate']);
 
     final destination = _stringValue(request['destination'], 'Chưa cập nhật');
@@ -1111,14 +1023,21 @@ class _BusinessTripApprovalScreenState
         children: [
           Row(
             children: [
-              Expanded(child: _employeeCell(request)),
-
-              const _PendingBadge(),
+              Expanded(
+                child: Text(
+                  _employeeName(request),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ],
           ),
-
           const SizedBox(height: 17),
-
           _infoRow(
             Icons.calendar_month_outlined,
             'Thời gian',
@@ -1126,21 +1045,13 @@ class _BusinessTripApprovalScreenState
                 ' – '
                 '${endDate == null ? 'Không xác định' : _formatDate(endDate)}',
           ),
-
           const SizedBox(height: 10),
-
           _infoRow(Icons.location_on_outlined, 'Địa điểm', destination),
-
           const SizedBox(height: 10),
-
           _infoRow(Icons.notes_rounded, 'Lý do', reason),
-
           const SizedBox(height: 16),
-
           const Divider(color: _border, height: 1),
-
           const SizedBox(height: 14),
-
           Row(
             children: [
               Expanded(
@@ -1153,9 +1064,7 @@ class _BusinessTripApprovalScreenState
                   onPressed: () => _rejectRequest(request),
                 ),
               ),
-
               const SizedBox(width: 10),
-
               Expanded(
                 child: _ActionButton(
                   label: 'Duyệt',
@@ -1177,9 +1086,7 @@ class _BusinessTripApprovalScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, color: _muted, size: 17),
-
         const SizedBox(width: 9),
-
         SizedBox(
           width: 82,
           child: Text(
@@ -1191,7 +1098,6 @@ class _BusinessTripApprovalScreenState
             ),
           ),
         ),
-
         Expanded(
           child: Text(
             value,
@@ -1219,9 +1125,7 @@ class _BusinessTripApprovalScreenState
       child: const Column(
         children: [
           Icon(Icons.task_alt_rounded, size: 52, color: Color(0xFF91A4C0)),
-
           SizedBox(height: 14),
-
           Text(
             'Không có yêu cầu công tác đang chờ duyệt',
             textAlign: TextAlign.center,
@@ -1231,9 +1135,7 @@ class _BusinessTripApprovalScreenState
               fontWeight: FontWeight.w700,
             ),
           ),
-
           SizedBox(height: 6),
-
           Text(
             'Các yêu cầu mới sẽ xuất hiện tại đây.',
             textAlign: TextAlign.center,
@@ -1259,17 +1161,13 @@ class _BusinessTripApprovalScreenState
             size: 42,
             color: Color(0xFFD94343),
           ),
-
           const SizedBox(height: 12),
-
           Text(
             _errorMessage ?? 'Đã xảy ra lỗi.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: _text, fontSize: 13),
           ),
-
           const SizedBox(height: 16),
-
           FilledButton.icon(
             onPressed: _loadRequests,
             icon: const Icon(Icons.refresh_rounded),
@@ -1280,29 +1178,6 @@ class _BusinessTripApprovalScreenState
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PendingBadge extends StatelessWidget {
-  const _PendingBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF3D9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Text(
-        'Chờ duyệt',
-        style: TextStyle(
-          color: Color(0xFFB87508),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }
