@@ -267,7 +267,6 @@ class _LeaveApprovalScreenState extends State<LeaveApprovalScreen> {
                 _navItem(
                   icon: Icons.home_rounded,
                   title: 'Trang chủ',
-                  selected: true,
                   onTap: () => _push(const AdminHomeScreen()),
                 ),
 

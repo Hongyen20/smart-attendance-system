@@ -35,6 +35,8 @@ class _BusinessTripApprovalScreenState
     extends State<BusinessTripApprovalScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  final ScrollController _tableHorizontalController = ScrollController();
+
   bool _isLoading = true;
   String? _errorMessage;
   List<dynamic> _requests = [];
@@ -43,6 +45,12 @@ class _BusinessTripApprovalScreenState
   void initState() {
     super.initState();
     _loadRequests();
+  }
+
+  @override
+  void dispose() {
+    _tableHorizontalController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRequests() async {
@@ -155,7 +163,9 @@ class _BusinessTripApprovalScreenState
       _showMessage(successMessage);
       await _loadRequests();
     } else {
-      _showMessage(result.errorMessage ?? 'Không thể cập nhật yêu cầu.');
+      _showMessage(
+        result.errorMessage ?? 'Không thể cập nhật yêu cầu.',
+      );
     }
   }
 
@@ -183,7 +193,11 @@ class _BusinessTripApprovalScreenState
           ),
           content: Text(
             message,
-            style: const TextStyle(color: _muted, height: 1.5, fontSize: 14),
+            style: const TextStyle(
+              color: _muted,
+              height: 1.5,
+              fontSize: 14,
+            ),
           ),
           actions: [
             TextButton(
@@ -211,7 +225,10 @@ class _BusinessTripApprovalScreenState
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -232,7 +249,10 @@ class _BusinessTripApprovalScreenState
   }
 
   void _push(Widget screen) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   Future<void> _confirmLogout() async {
@@ -246,7 +266,10 @@ class _BusinessTripApprovalScreenState
           ),
           title: const Text(
             'Đăng xuất',
-            style: TextStyle(color: _text, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              color: _text,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           content: const Text(
             'Bạn có chắc chắn muốn đăng xuất không?',
@@ -265,7 +288,10 @@ class _BusinessTripApprovalScreenState
               },
               child: const Text(
                 'Đăng xuất',
-                style: TextStyle(color: _red, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: _red,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -282,7 +308,9 @@ class _BusinessTripApprovalScreenState
     AuthState.instance.clear();
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
       (route) => false,
     );
   }
@@ -294,11 +322,20 @@ class _BusinessTripApprovalScreenState
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _bg,
-      drawer: isDesktop ? null : Drawer(width: 270, child: _buildSidebar()),
+      drawer: isDesktop
+          ? null
+          : Drawer(
+              width: 270,
+              child: _buildSidebar(),
+            ),
       body: SafeArea(
         child: Row(
           children: [
-            if (isDesktop) SizedBox(width: 260, child: _buildSidebar()),
+            if (isDesktop)
+              SizedBox(
+                width: 260,
+                child: _buildSidebar(),
+              ),
             Expanded(
               child: Column(
                 children: [
@@ -391,7 +428,9 @@ class _BusinessTripApprovalScreenState
                     ),
                     _navSubItem(
                       title: 'Thêm khuôn mặt chấm công',
-                      onTap: () => _push(const FaceManagementScreen()),
+                      onTap: () => _push(
+                        const FaceManagementScreen(),
+                      ),
                     ),
                   ],
                 ),
@@ -408,7 +447,9 @@ class _BusinessTripApprovalScreenState
                 _navItem(
                   icon: Icons.bar_chart_rounded,
                   title: 'Báo cáo',
-                  onTap: () => _push(const AttendanceReportScreen()),
+                  onTap: () => _push(
+                    const AttendanceReportScreen(),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _navSection(
@@ -418,11 +459,15 @@ class _BusinessTripApprovalScreenState
                   children: [
                     _navSubItem(
                       title: 'Đổi ca',
-                      onTap: () => _push(const ShiftChangeApprovalScreen()),
+                      onTap: () => _push(
+                        const ShiftChangeApprovalScreen(),
+                      ),
                     ),
                     _navSubItem(
                       title: 'Nghỉ phép',
-                      onTap: () => _push(const LeaveApprovalScreen()),
+                      onTap: () => _push(
+                        const LeaveApprovalScreen(),
+                      ),
                     ),
                     _navSubItem(
                       title: 'Công tác',
@@ -442,11 +487,15 @@ class _BusinessTripApprovalScreenState
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
             child: Column(
               children: [
-                const Divider(color: Color(0xFF29436D)),
+                const Divider(
+                  color: Color(0xFF29436D),
+                ),
                 _navItem(
                   icon: Icons.lock_outline_rounded,
                   title: 'Đổi mật khẩu',
-                  onTap: () => _push(const ChangePasswordScreen()),
+                  onTap: () => _push(
+                    const ChangePasswordScreen(),
+                  ),
                 ),
                 _navItem(
                   icon: Icons.logout_rounded,
@@ -478,7 +527,11 @@ class _BusinessTripApprovalScreenState
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(icon, size: 19, color: iconColor ?? const Color(0xFFBFD5F5)),
+              Icon(
+                icon,
+                size: 19,
+                color: iconColor ?? const Color(0xFFBFD5F5),
+              ),
               const SizedBox(width: 11),
               Expanded(
                 child: Text(
@@ -512,10 +565,17 @@ class _BusinessTripApprovalScreenState
       child: ExpansionTile(
         initiallyExpanded: initiallyExpanded,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.only(left: 12, bottom: 6),
+        childrenPadding: const EdgeInsets.only(
+          left: 12,
+          bottom: 6,
+        ),
         iconColor: const Color(0xFFBFD5F5),
         collapsedIconColor: const Color(0xFF7894BD),
-        leading: Icon(icon, size: 19, color: const Color(0xFFBFD5F5)),
+        leading: Icon(
+          icon,
+          size: 19,
+          color: const Color(0xFFBFD5F5),
+        ),
         title: Text(
           title,
           style: const TextStyle(
@@ -535,7 +595,10 @@ class _BusinessTripApprovalScreenState
     bool selected = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(right: 4, bottom: 3),
+      padding: const EdgeInsets.only(
+        right: 4,
+        bottom: 3,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -543,9 +606,14 @@ class _BusinessTripApprovalScreenState
           onTap: onTap,
           child: Container(
             height: 38,
-            padding: const EdgeInsets.only(left: 34, right: 10),
+            padding: const EdgeInsets.only(
+              left: 34,
+              right: 10,
+            ),
             decoration: BoxDecoration(
-              color: selected ? const Color(0xFF246BDE) : Colors.transparent,
+              color: selected
+                  ? const Color(0xFF246BDE)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(9),
             ),
             alignment: Alignment.centerLeft,
@@ -556,7 +624,9 @@ class _BusinessTripApprovalScreenState
                   height: 4,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: selected ? Colors.white : const Color(0xFF7894BD),
+                    color: selected
+                        ? Colors.white
+                        : const Color(0xFF7894BD),
                   ),
                 ),
                 const SizedBox(width: 9),
@@ -566,9 +636,13 @@ class _BusinessTripApprovalScreenState
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFBFD0E8),
+                      color: selected
+                          ? Colors.white
+                          : const Color(0xFFBFD0E8),
                       fontSize: 11.5,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                      fontWeight: selected
+                          ? FontWeight.w700
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -593,11 +667,15 @@ class _BusinessTripApprovalScreenState
       if (parts.isEmpty) return 'AD';
 
       if (parts.length == 1) {
-        return parts.first.substring(0, 1).toUpperCase();
+        return parts.first
+            .substring(0, 1)
+            .toUpperCase();
       }
 
-      return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-          .toUpperCase();
+      return (
+        parts.first.substring(0, 1) +
+        parts.last.substring(0, 1)
+      ).toUpperCase();
     }
 
     Widget initialAvatar() {
@@ -627,7 +705,12 @@ class _BusinessTripApprovalScreenState
                 width: 42,
                 height: 42,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => initialAvatar(),
+                errorBuilder: (
+                  context,
+                  error,
+                  stackTrace,
+                ) =>
+                    initialAvatar(),
               ),
             )
           : initialAvatar(),
@@ -636,7 +719,9 @@ class _BusinessTripApprovalScreenState
     return PopupMenuButton<String>(
       tooltip: '',
       offset: const Offset(0, 50),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
       onSelected: (value) {
         if (value == 'password') {
           _push(const ChangePasswordScreen());
@@ -649,7 +734,11 @@ class _BusinessTripApprovalScreenState
           value: 'password',
           child: Row(
             children: [
-              Icon(Icons.lock_rounded, size: 20, color: _textBlue),
+              Icon(
+                Icons.lock_rounded,
+                size: 20,
+                color: _textBlue,
+              ),
               SizedBox(width: 10),
               Text('Đổi mật khẩu'),
             ],
@@ -659,9 +748,18 @@ class _BusinessTripApprovalScreenState
           value: 'logout',
           child: Row(
             children: [
-              Icon(Icons.logout_rounded, size: 20, color: Color(0xFFE03131)),
+              Icon(
+                Icons.logout_rounded,
+                size: 20,
+                color: Color(0xFFE03131),
+              ),
               SizedBox(width: 10),
-              Text('Đăng xuất', style: TextStyle(color: Color(0xFFE03131))),
+              Text(
+                'Đăng xuất',
+                style: TextStyle(
+                  color: Color(0xFFE03131),
+                ),
+              ),
             ],
           ),
         ),
@@ -673,7 +771,9 @@ class _BusinessTripApprovalScreenState
           if (showName) ...[
             const SizedBox(width: 10),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 140),
+              constraints: const BoxConstraints(
+                maxWidth: 140,
+              ),
               child: Text(
                 name.isEmpty ? 'Admin' : name,
                 maxLines: 1,
@@ -686,7 +786,10 @@ class _BusinessTripApprovalScreenState
               ),
             ),
           ],
-          const Icon(Icons.keyboard_arrow_down, color: _navy),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            color: _navy,
+          ),
         ],
       ),
     );
@@ -695,7 +798,9 @@ class _BusinessTripApprovalScreenState
   Widget _buildMainContent(bool isDesktop) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.all(isDesktop ? 28 : 16),
+      padding: EdgeInsets.all(
+        isDesktop ? 28 : 16,
+      ),
       children: [
         _buildPageIntro(isDesktop),
         const SizedBox(height: 22),
@@ -704,7 +809,9 @@ class _BusinessTripApprovalScreenState
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.only(top: 70),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
           )
         else if (_errorMessage != null)
           _buildErrorState()
@@ -714,7 +821,10 @@ class _BusinessTripApprovalScreenState
           _buildDesktopTable()
         else
           ..._requests.asMap().entries.map((entry) {
-            final request = Map<String, dynamic>.from(entry.value as Map);
+            final request =
+                Map<String, dynamic>.from(
+              entry.value as Map,
+            );
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -758,7 +868,11 @@ class _BusinessTripApprovalScreenState
               SizedBox(height: 5),
               Text(
                 'Xem thông tin và duyệt hoặc từ chối yêu cầu của nhân viên.',
-                style: TextStyle(color: _muted, fontSize: 12.5, height: 1.4),
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -771,14 +885,22 @@ class _BusinessTripApprovalScreenState
 
   Widget _buildSummaryCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 17,
+      ),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEAF3FF), Color(0xFFF7FAFF)],
+          colors: [
+            Color(0xFFEAF3FF),
+            Color(0xFFF7FAFF),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: const Color(0xFFDCE8FB)),
+        border: Border.all(
+          color: const Color(0xFFDCE8FB),
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -790,7 +912,10 @@ class _BusinessTripApprovalScreenState
               color: const Color(0xFFD7E7FF),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.pending_actions_rounded, color: _blue),
+            child: const Icon(
+              Icons.pending_actions_rounded,
+              color: _blue,
+            ),
           ),
           const SizedBox(width: 14),
           const Expanded(
@@ -808,7 +933,10 @@ class _BusinessTripApprovalScreenState
                 SizedBox(height: 3),
                 Text(
                   'Các yêu cầu công tác chưa được xử lý',
-                  style: TextStyle(color: _muted, fontSize: 11.5),
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ),
@@ -843,110 +971,176 @@ class _BusinessTripApprovalScreenState
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF3F7FD)),
-            dataRowMinHeight: 76,
-            dataRowMaxHeight: 100,
-            headingTextStyle: const TextStyle(
-              color: _muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-            dataTextStyle: const TextStyle(color: _text, fontSize: 12),
-            columnSpacing: 26,
-            horizontalMargin: 22,
-            columns: const [
-              DataColumn(label: SizedBox(width: 45, child: Text('STT'))),
-              DataColumn(label: SizedBox(width: 170, child: Text('NHÂN VIÊN'))),
-              DataColumn(
-                label: SizedBox(width: 100, child: Text('THỜI GIAN ĐI')),
+        child: Scrollbar(
+          controller: _tableHorizontalController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          thickness: 8,
+          radius: const Radius.circular(10),
+          child: SingleChildScrollView(
+            controller: _tableHorizontalController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(bottom: 10),
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(
+                const Color(0xFFF3F7FD),
               ),
-              DataColumn(
-                label: SizedBox(width: 100, child: Text('THỜI GIAN VỀ')),
+              dataRowMinHeight: 76,
+              dataRowMaxHeight: 100,
+              headingTextStyle: const TextStyle(
+                color: _muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
-              DataColumn(label: SizedBox(width: 140, child: Text('ĐỊA ĐIỂM'))),
-              DataColumn(label: SizedBox(width: 260, child: Text('LÝ DO'))),
-              DataColumn(label: SizedBox(width: 190, child: Text('THAO TÁC'))),
-            ],
-            rows: _requests.asMap().entries.map((entry) {
-              final index = entry.key;
-              final request = Map<String, dynamic>.from(entry.value as Map);
+              dataTextStyle: const TextStyle(
+                color: _text,
+                fontSize: 12,
+              ),
+              columnSpacing: 26,
+              horizontalMargin: 22,
+              columns: const [
+                DataColumn(
+                  label: SizedBox(
+                    width: 28,
+                    child: Text('STT'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 170,
+                    child: Text('NHÂN VIÊN'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 100,
+                    child: Text('THỜI GIAN ĐI'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 100,
+                    child: Text('THỜI GIAN VỀ'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 140,
+                    child: Text('ĐỊA ĐIỂM'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 175,
+                    child: Text('LÝ DO'),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: 190,
+                    child: Text('THAO TÁC'),
+                  ),
+                ),
+              ],
+              rows: _requests.asMap().entries.map((entry) {
+                final index = entry.key;
 
-              return DataRow(
-                cells: [
-                  DataCell(
-                    SizedBox(
-                      width: 45,
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          color: _muted,
-                          fontWeight: FontWeight.w700,
+                final request =
+                    Map<String, dynamic>.from(
+                  entry.value as Map,
+                );
+
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: _muted,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  DataCell(_employeeCell(request)),
-                  DataCell(_dateCell(request['startDate'])),
-                  DataCell(_dateCell(request['endDate'])),
-                  DataCell(
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        _stringValue(request['destination'], 'Chưa cập nhật'),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    DataCell(
+                      _employeeCell(request),
                     ),
-                  ),
-                  DataCell(
-                    SizedBox(
-                      width: 260,
-                      child: Text(
-                        _stringValue(request['reason'], 'Không có lý do'),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    DataCell(
+                      _dateCell(request['startDate']),
                     ),
-                  ),
-                  DataCell(
-                    SizedBox(
-                      width: 190,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _ActionButton(
-                            label: 'Duyệt',
-                            icon: Icons.check_rounded,
-                            color: const Color(0xFF15966A),
-                            onPressed: () => _approveRequest(request),
+                    DataCell(
+                      _dateCell(request['endDate']),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 140,
+                        child: Text(
+                          _stringValue(
+                            request['destination'],
+                            'Chưa cập nhật',
                           ),
-                          const SizedBox(width: 8),
-                          _ActionButton(
-                            label: 'Từ chối',
-                            icon: Icons.close_rounded,
-                            color: const Color(0xFFD94343),
-                            outlined: true,
-                            onPressed: () => _rejectRequest(request),
-                          ),
-                        ],
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            }).toList(),
+                    DataCell(
+                      SizedBox(
+                        width: 175,
+                        child: Text(
+                          _stringValue(
+                            request['reason'],
+                            'Không có lý do',
+                          ),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 190,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ActionButton(
+                              label: 'Duyệt',
+                              icon: Icons.check_rounded,
+                              color: const Color(0xFF15966A),
+                              onPressed: () =>
+                                  _approveRequest(request),
+                            ),
+                            const SizedBox(width: 8),
+                            _ActionButton(
+                              label: 'Từ chối',
+                              icon: Icons.close_rounded,
+                              color: const Color(0xFFD94343),
+                              outlined: true,
+                              onPressed: () =>
+                                  _rejectRequest(request),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _employeeCell(Map<String, dynamic> request) {
+  Widget _employeeCell(
+    Map<String, dynamic> request,
+  ) {
     final name = _employeeName(request);
-    final username = request['employeeUsername']?.toString().trim() ?? '';
+    final username =
+        request['employeeUsername']?.toString().trim() ?? '';
 
     return SizedBox(
       width: 170,
@@ -970,7 +1164,10 @@ class _BusinessTripApprovalScreenState
               '@$username',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _muted, fontSize: 11),
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 11,
+              ),
             ),
           ],
         ],
@@ -996,20 +1193,33 @@ class _BusinessTripApprovalScreenState
           Text(
             '${date.hour.toString().padLeft(2, '0')}:'
             '${date.minute.toString().padLeft(2, '0')}',
-            style: const TextStyle(color: _muted, fontSize: 11),
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRequestCard(Map<String, dynamic> request) {
-    final startDate = _parseDate(request['startDate']);
-    final endDate = _parseDate(request['endDate']);
+  Widget _buildRequestCard(
+    Map<String, dynamic> request,
+  ) {
+    final startDate =
+        _parseDate(request['startDate']);
+    final endDate =
+        _parseDate(request['endDate']);
 
-    final destination = _stringValue(request['destination'], 'Chưa cập nhật');
+    final destination = _stringValue(
+      request['destination'],
+      'Chưa cập nhật',
+    );
 
-    final reason = _stringValue(request['reason'], 'Không có lý do');
+    final reason = _stringValue(
+      request['reason'],
+      'Không có lý do',
+    );
 
     return Container(
       padding: const EdgeInsets.all(17),
@@ -1046,11 +1256,22 @@ class _BusinessTripApprovalScreenState
                 '${endDate == null ? 'Không xác định' : _formatDate(endDate)}',
           ),
           const SizedBox(height: 10),
-          _infoRow(Icons.location_on_outlined, 'Địa điểm', destination),
+          _infoRow(
+            Icons.location_on_outlined,
+            'Địa điểm',
+            destination,
+          ),
           const SizedBox(height: 10),
-          _infoRow(Icons.notes_rounded, 'Lý do', reason),
+          _infoRow(
+            Icons.notes_rounded,
+            'Lý do',
+            reason,
+          ),
           const SizedBox(height: 16),
-          const Divider(color: _border, height: 1),
+          const Divider(
+            color: _border,
+            height: 1,
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -1061,7 +1282,8 @@ class _BusinessTripApprovalScreenState
                   color: const Color(0xFFD94343),
                   outlined: true,
                   expand: true,
-                  onPressed: () => _rejectRequest(request),
+                  onPressed: () =>
+                      _rejectRequest(request),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1071,7 +1293,8 @@ class _BusinessTripApprovalScreenState
                   icon: Icons.check_rounded,
                   color: const Color(0xFF15966A),
                   expand: true,
-                  onPressed: () => _approveRequest(request),
+                  onPressed: () =>
+                      _approveRequest(request),
                 ),
               ),
             ],
@@ -1081,11 +1304,19 @@ class _BusinessTripApprovalScreenState
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: _muted, size: 17),
+        Icon(
+          icon,
+          color: _muted,
+          size: 17,
+        ),
         const SizedBox(width: 9),
         SizedBox(
           width: 82,
@@ -1101,22 +1332,34 @@ class _BusinessTripApprovalScreenState
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(color: _text, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: _text,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
         ),
       ],
     );
   }
 
-  String _stringValue(dynamic value, String fallback) {
+  String _stringValue(
+    dynamic value,
+    String fallback,
+  ) {
     final text = value?.toString().trim();
 
-    return text == null || text.isEmpty ? fallback : text;
+    return text == null || text.isEmpty
+        ? fallback
+        : text;
   }
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 58),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 58,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _border),
@@ -1124,7 +1367,11 @@ class _BusinessTripApprovalScreenState
       ),
       child: const Column(
         children: [
-          Icon(Icons.task_alt_rounded, size: 52, color: Color(0xFF91A4C0)),
+          Icon(
+            Icons.task_alt_rounded,
+            size: 52,
+            color: Color(0xFF91A4C0),
+          ),
           SizedBox(height: 14),
           Text(
             'Không có yêu cầu công tác đang chờ duyệt',
@@ -1139,7 +1386,10 @@ class _BusinessTripApprovalScreenState
           Text(
             'Các yêu cầu mới sẽ xuất hiện tại đây.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: _muted, fontSize: 12),
+            style: TextStyle(
+              color: _muted,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -1151,7 +1401,9 @@ class _BusinessTripApprovalScreenState
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFF4CACA)),
+        border: Border.all(
+          color: const Color(0xFFF4CACA),
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1165,12 +1417,17 @@ class _BusinessTripApprovalScreenState
           Text(
             _errorMessage ?? 'Đã xảy ra lỗi.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: _text, fontSize: 13),
+            style: const TextStyle(
+              color: _text,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _loadRequests,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(
+              Icons.refresh_rounded,
+            ),
             label: const Text('Thử lại'),
             style: FilledButton.styleFrom(
               backgroundColor: _blue,
@@ -1205,12 +1462,20 @@ class _ActionButton extends StatelessWidget {
     final button = outlined
         ? OutlinedButton.icon(
             onPressed: onPressed,
-            icon: Icon(icon, size: 16),
+            icon: Icon(
+              icon,
+              size: 16,
+            ),
             label: Text(label),
             style: OutlinedButton.styleFrom(
               foregroundColor: color,
-              side: BorderSide(color: color.withOpacity(0.55)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              side: BorderSide(
+                color: color.withOpacity(0.55),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 13,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(9),
               ),
@@ -1222,12 +1487,18 @@ class _ActionButton extends StatelessWidget {
           )
         : FilledButton.icon(
             onPressed: onPressed,
-            icon: Icon(icon, size: 16),
+            icon: Icon(
+              icon,
+              size: 16,
+            ),
             label: Text(label),
             style: FilledButton.styleFrom(
               backgroundColor: color,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 13,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(9),
               ),
@@ -1238,6 +1509,11 @@ class _ActionButton extends StatelessWidget {
             ),
           );
 
-    return expand ? SizedBox(width: double.infinity, child: button) : button;
+    return expand
+        ? SizedBox(
+            width: double.infinity,
+            child: button,
+          )
+        : button;
   }
 }
